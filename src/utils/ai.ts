@@ -1,0 +1,28 @@
+import type { UIMessage } from 'ai'
+import { isTextUIPart, isReasoningUIPart } from 'ai'
+import { sourceToInlineMdc } from './tool'
+
+export function getMergedParts(parts: UIMessage['parts']): UIMessage['parts'] {
+  const result: UIMessage['parts'] = []
+  for (const part of parts) {
+    const prev = result[result.length - 1]
+    if (part.type === 'source-url') {
+      if (prev && isTextUIPart(prev)) {
+        result[result.length - 1] = { type: 'text', text: prev.text + sourceToInlineMdc(part.url) }
+      }
+      continue
+    }
+    if (isReasoningUIPart(part) && prev && isReasoningUIPart(prev)) {
+      result[result.length - 1] = {
+        ...prev,
+        text: prev.text + part.text,
+        state: part.state ?? prev.state
+      }
+    } else if (isTextUIPart(part) && prev && isTextUIPart(prev)) {
+      result[result.length - 1] = { type: 'text', text: prev.text + part.text }
+    } else {
+      result.push(part)
+    }
+  }
+  return result
+}

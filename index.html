@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#fafafa" />
+  <link rel="preconnect" href="https://fonts.bunny.net">
+  <link href="https://fonts.bunny.net/css?family=public-sans:400,500,600,700" rel="stylesheet" />
+  <title>Vue AI Chatbot</title>
+  <meta name="description" content="An AI chatbot and workflow automation system powered by Google Gemini, Groq, Claude, and OpenAI with native Google workspace integrations, third-party service connections, visual Workflow Studio, and Firebase persistence.">
+  <meta property="og:title" content="Vue AI Chatbot">
+  <meta property="og:description" content="An AI chatbot and workflow automation system powered by Google Gemini, Groq, Claude, and OpenAI with native Google workspace integrations, third-party service connections, visual Workflow Studio, and Firebase persistence.">
+  <meta property="og:image" content="https://ui.nuxt.com/assets/templates/vue/chat-light.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    html, body, #app {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+    html { background-color: #fafafa }
+    html.dark { background-color: #09090b }
+  </style>
+  <script>
+    (function () {
+      var mode = localStorage.getItem('vueuse-color-scheme') || 'auto'
+      var dark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      if (dark) {
+        document.documentElement.classList.add('dark')
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#09090b')
+      }
+    })()
+  </script>
+</head>
+
+<body>
+  <div id="app" class="w-screen h-screen min-h-[100dvh] overflow-hidden isolate"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

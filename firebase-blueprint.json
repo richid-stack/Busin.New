@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "User": {
+      "collection": "users",
+      "fields": {
+        "id": { "type": "string", "description": "Unique user identifier matching Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "photoURL": { "type": "string", "description": "User avatar URL" },
+        "createdAt": { "type": "timestamp", "description": "Account creation timestamp" }
+      }
+    },
+    "Chat": {
+      "collection": "chats",
+      "fields": {
+        "id": { "type": "string", "description": "Unique chat identifier" },
+        "title": { "type": "string", "description": "Title of the chat session" },
+        "userId": { "type": "string", "description": "ID of the user who owns this chat" },
+        "visibility": { "type": "string", "description": "Chat visibility: private or public" },
+        "createdAt": { "type": "timestamp", "description": "Chat creation timestamp" },
+        "updatedAt": { "type": "timestamp", "description": "Last updated timestamp" }
+      }
+    },
+    "Message": {
+      "collection": "chats/{chatId}/messages",
+      "fields": {
+        "id": { "type": "string", "description": "Unique message identifier" },
+        "chatId": { "type": "string", "description": "Associated chat ID" },
+        "role": { "type": "string", "description": "Role of the sender (user or assistant)" },
+        "parts": { "type": "array", "description": "Message parts array including text, reasoning, and tools" },
+        "createdAt": { "type": "timestamp", "description": "Message creation timestamp" }
+      }
+    },
+    "Vote": {
+      "collection": "chats/{chatId}/votes",
+      "fields": {
+        "id": { "type": "string", "description": "Unique vote identifier" },
+        "chatId": { "type": "string", "description": "Associated chat ID" },
+        "messageId": { "type": "string", "description": "Associated message ID" },
+        "userId": { "type": "string", "description": "User ID who voted" },
+        "isUpvoted": { "type": "boolean", "description": "True for upvote, false for downvote" },
+        "createdAt": { "type": "timestamp", "description": "Vote timestamp" }
+      }
+    },
+    "Workflow": {
+      "collection": "workflows",
+      "fields": {
+        "id": { "type": "string", "description": "Unique workflow identifier" },
+        "title": { "type": "string", "description": "Workflow title" },
+        "description": { "type": "string", "description": "Workflow description" },
+        "userId": { "type": "string", "description": "Owner user ID" },
+        "status": { "type": "string", "description": "Workflow status (active, draft, paused)" },
+        "nodes": { "type": "array", "description": "VueFlow nodes array" },
+        "edges": { "type": "array", "description": "VueFlow edges array" },
+        "createdAt": { "type": "timestamp", "description": "Creation timestamp" },
+        "updatedAt": { "type": "timestamp", "description": "Last updated timestamp" }
+      }
+    },
+    "WorkflowRun": {
+      "collection": "workflows/{workflowId}/runs",
+      "fields": {
+        "id": { "type": "string", "description": "Unique run execution identifier" },
+        "workflowId": { "type": "string", "description": "Associated workflow ID" },
+        "userId": { "type": "string", "description": "User who ran the workflow" },
+        "status": { "type": "string", "description": "Status (completed, failed, running)" },
+        "input": { "type": "map", "description": "Input payload for trigger" },
+        "output": { "type": "map", "description": "Outputs produced by each node" },
+        "logs": { "type": "array", "description": "Node execution step logs" },
+        "durationMs": { "type": "number", "description": "Execution duration in milliseconds" },
+        "createdAt": { "type": "timestamp", "description": "Execution timestamp" }
+      }
+    },
+    "Integration": {
+      "collection": "integrations",
+      "fields": {
+        "id": { "type": "string", "description": "Unique integration identifier" },
+        "userId": { "type": "string", "description": "User owner ID" },
+        "provider": { "type": "string", "description": "Provider name (gmail, slack, google_drive, etc)" },
+        "name": { "type": "string", "description": "Display name of integration" },
+        "status": { "type": "string", "description": "Status (connected, disconnected)" },
+        "account": { "type": "string", "description": "Connected account email or workspace" },
+        "config": { "type": "map", "description": "Provider-specific configuration" },
+        "updatedAt": { "type": "timestamp", "description": "Last updated timestamp" }
+      }
+    }
+  },
+  "securityRules": {
+    "intent": "Allow authenticated and anonymous users to manage their own chats, messages, votes, workflows, runs, and integrations while allowing public read for shared chats."
+  }
+}
