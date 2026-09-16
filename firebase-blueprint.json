@@ -52,6 +52,7 @@
         "status": { "type": "string", "description": "Workflow status (active, draft, paused)" },
         "nodes": { "type": "array", "description": "VueFlow nodes array" },
         "edges": { "type": "array", "description": "VueFlow edges array" },
+        "nodeSchemas": { "type": "map", "description": "Dynamic JSON schema dictionary indexed by nodeId" },
         "createdAt": { "type": "timestamp", "description": "Creation timestamp" },
         "updatedAt": { "type": "timestamp", "description": "Last updated timestamp" }
       }
@@ -62,7 +63,10 @@
         "id": { "type": "string", "description": "Unique run execution identifier" },
         "workflowId": { "type": "string", "description": "Associated workflow ID" },
         "userId": { "type": "string", "description": "User who ran the workflow" },
-        "status": { "type": "string", "description": "Status (completed, failed, running)" },
+        "status": { "type": "string", "description": "Status (completed, failed, running, waiting_approval)" },
+        "approvalNodeId": { "type": "string", "description": "Node ID awaiting human approval" },
+        "approvalPrompt": { "type": "string", "description": "Summary prompt or description for the approval" },
+        "approvalData": { "type": "map", "description": "Contextual payload to review before approval" },
         "input": { "type": "map", "description": "Input payload for trigger" },
         "output": { "type": "map", "description": "Outputs produced by each node" },
         "logs": { "type": "array", "description": "Node execution step logs" },

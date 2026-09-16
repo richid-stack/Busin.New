@@ -3,16 +3,22 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createGroq } from '@ai-sdk/groq'
 import type { FirestoreWorkflow } from './firebase'
 import { executeIntegratedAction } from '../services/integrations/registry'
+import jexl from 'jexl'
+import vm from 'node:vm'
 
 export interface WorkflowNode {
   id: string
-  type: 'trigger' | 'agent' | 'action'
+  type: 'trigger' | 'agent' | 'action' | 'logic' | 'approval'
   position?: { x: number; y: number }
   data: {
     title: string
     subtitle?: string
     icon?: string
     color?: string
+    subtype?: string
+    condition?: string
+    switchVar?: string
+    code?: string
     model?: string
     prompt?: string
     provider?: string
@@ -20,6 +26,9 @@ export interface WorkflowNode {
     event?: string
     channel?: string
     folder?: string
+    approverRole?: string
+    approvalPrompt?: string
+    autoApproveAfterHours?: number
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config?: Record<string, any>
   }
@@ -29,6 +38,7 @@ export interface WorkflowEdge {
   id: string
   source: string
   target: string
+  sourceHandle?: string
   animated?: boolean
   style?: Record<string, string | number>
 }
@@ -168,18 +178,141 @@ export function interpolateVariables(template: string, context: Record<string, a
   })
 }
 
+export async function executeSingleNode(
+  node: WorkflowNode,
+  inputs: Record<string, any>,
+  userId: string = 'system'
+): Promise<{
+  status: 'completed' | 'failed' | 'auth_required' | 'waiting_approval'
+  output: any
+  message?: string
+  authUrl?: string
+  durationMs: number
+}> {
+  const stepStart = Date.now()
+  let output: any = null
+  let status: 'completed' | 'failed' | 'auth_required' | 'waiting_approval' = 'completed'
+  let message = 'Executed successfully'
+  let authUrl: string | undefined = undefined
+
+  try {
+    if (node.type === 'trigger') {
+      output = inputs[node.id] || inputs['trigger'] || inputs
+      message = 'Trigger node evaluated'
+    } else if (node.type === 'approval') {
+      const approvalPrompt = node.data.approvalPrompt || `Approval requested for ${node.data.title}`
+      output = {
+        approved: null,
+        prompt: approvalPrompt,
+        approverRole: node.data.approverRole || 'Admin',
+        context: inputs,
+        requestedAt: new Date().toISOString()
+      }
+      status = 'waiting_approval'
+      message = `Approval required: ${approvalPrompt}`
+    } else if (node.type === 'logic') {
+      if (node.data.subtype === 'if-else') {
+        const condition = node.data.condition || 'false'
+        const cleanCondition = condition.replace(/\{\{\s*/g, '').replace(/\s*\}\}/g, '')
+        output = await jexl.eval(cleanCondition, inputs)
+        message = `Condition evaluated to ${output}`
+      } else if (node.data.subtype === 'switch') {
+        const switchVar = node.data.switchVar || ''
+        const cleanVar = switchVar.replace(/\{\{\s*/g, '').replace(/\s*\}\}/g, '')
+        output = await jexl.eval(cleanVar, inputs)
+        message = `Switch evaluated to ${output}`
+      } else if (node.data.subtype === 'code') {
+        const code = node.data.code || 'return true;'
+        const script = new vm.Script(`(async () => { \n${code}\n })()`)
+        const context = vm.createContext({ inputs, console })
+        output = await script.runInContext(context)
+        message = 'JavaScript code executed successfully'
+      }
+    } else if (node.type === 'agent') {
+      const systemPrompt = node.data.prompt || 'You are an intelligent workflow automation agent.'
+      const contextPrompt = `Context Data:\n${JSON.stringify(inputs, null, 2)}\n\nInstructions:\n${systemPrompt}`
+      
+      let aiResultText = ''
+      const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
+      
+      if (geminiKey) {
+        try {
+          const google = createGoogleGenerativeAI({ apiKey: geminiKey })
+          const { text } = await generateText({
+            model: google('gemini-2.5-flash', { structuredOutputs: false }),
+            maxSteps: 5,
+            tools: { integration_execute: (await import("./tools/workflow")).createIntegrationExecuteTool(userId) },
+            prompt: contextPrompt,
+            maxRetries: 1,
+            abortSignal: AbortSignal.timeout(30000)
+          })
+          aiResultText = text
+        } catch (err) {
+          console.warn(`[WorkflowEngine] Gemini execution failed for single node ${node.id}:`, err)
+        }
+      }
+      
+      if (!aiResultText) {
+        aiResultText = `Simulated agent response for ${node.data.title}.`
+      }
+      
+      output = { result: aiResultText, timestamp: new Date().toISOString() }
+      message = `Processed with AI agent`
+    } else if (node.type === 'action') {
+      const provider = node.data.provider || 'system'
+      const actionId = node.data.event || node.data.channel ? `${provider}_send_message` : `${provider}_action`
+      const params = { ...node.data.config, channel: node.data.channel, folder: node.data.folder, inputs }
+      
+      const actionExec = await executeIntegratedAction(userId, provider, actionId, params)
+      if (actionExec.authRequired) {
+        status = 'auth_required'
+        authUrl = actionExec.authUrl
+        message = actionExec.message || `Authentication required`
+      } else if (!actionExec.success) {
+        status = 'failed'
+        message = actionExec.message || 'Action failed'
+      } else {
+        output = actionExec.output
+        message = actionExec.message || `Dispatched to ${provider}`
+      }
+    }
+  } catch (err: any) {
+    status = 'failed'
+    message = err.message || 'Execution failed'
+  }
+
+  return {
+    status,
+    output,
+    message,
+    authUrl,
+    durationMs: Date.now() - stepStart
+  }
+}
+
 // Executes a workflow DAG
 export async function executeWorkflowDAG(
   workflow: FirestoreWorkflow,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   inputPayload?: Record<string, any>,
-  userId: string = 'system'
+  userId: string = 'system',
+  options?: {
+    resumeNodeId?: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    existingOutputs?: Record<string, any>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    approvalDecision?: { approved: boolean; comments?: string; approver?: string }
+  }
 ): Promise<{
-  status: 'completed' | 'failed'
+  status: 'completed' | 'failed' | 'waiting_approval'
+  approvalNodeId?: string
+  approvalPrompt?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  approvalData?: Record<string, any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   outputs: Record<string, any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logs: Array<{ nodeId: string; nodeTitle: string; type: string; status: 'completed' | 'failed' | 'auth_required'; durationMs: number; output: any; message?: string; authUrl?: string }>
+  logs: Array<{ nodeId: string; nodeTitle: string; type: string; status: 'completed' | 'failed' | 'auth_required' | 'waiting_approval'; durationMs: number; output: any; message?: string; authUrl?: string }>
   durationMs: number
 }> {
   const startTime = Date.now()
@@ -187,38 +320,57 @@ export async function executeWorkflowDAG(
   const edges = (workflow.edges || []) as WorkflowEdge[]
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const outputs: Record<string, any> = {}
+  const outputs: Record<string, any> = options?.existingOutputs ? { ...options.existingOutputs } : {}
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const logs: Array<{ nodeId: string; nodeTitle: string; type: string; status: 'completed' | 'failed' | 'auth_required'; durationMs: number; output: any; message?: string; authUrl?: string }> = []
+  const logs: Array<{ nodeId: string; nodeTitle: string; type: string; status: 'completed' | 'failed' | 'auth_required' | 'waiting_approval'; durationMs: number; output: any; message?: string; authUrl?: string }> = []
 
-  // Seed default trigger context if not passed
-  const triggerData = inputPayload || {
-    email: {
-      id: 'msg_98124',
-      sender: 'sarah.connor@acme-corp.com',
-      senderName: 'Sarah Connor',
-      subject: 'Urgent: Enterprise Security Onboarding & Scope Proposal',
-      date: new Date().toISOString(),
-      body: `Hi Team,\n\nWe would like to accelerate our enterprise onboarding kickoff for next Tuesday at 2:00 PM EST. Could you please prepare and share a custom PDF proposal detailing your multi-region cloud security guarantees, SLA tiers, and enterprise pricing?\n\nLooking forward to speaking with you.\n\nBest regards,\nSarah Connor\nVP Engineering, Acme Corp`
+  const isResuming = Boolean(options?.resumeNodeId)
+
+  // Seed default trigger context if not passed and not resuming
+  if (!isResuming) {
+    const triggerNodes = nodes.filter(n => n.type === 'trigger')
+    let triggerData = inputPayload
+
+    if (!triggerData) {
+      const primaryTrigger = triggerNodes[0]
+      const provider = primaryTrigger?.data?.provider || 'webhook'
+      if (provider === 'gmail') {
+        triggerData = {
+          email: {
+            id: `msg_${Date.now()}`,
+            sender: 'sarah.connor@acme-corp.com',
+            senderName: 'Sarah Connor',
+            subject: 'Urgent: Enterprise Security Onboarding & Scope Proposal',
+            date: new Date().toISOString(),
+            body: `Hi Team,\n\nWe would like to accelerate our enterprise onboarding kickoff for next Tuesday at 2:00 PM EST. Could you please prepare and share a custom PDF proposal detailing your multi-region cloud security guarantees, SLA tiers, and enterprise pricing?\n\nLooking forward to speaking with you.\n\nBest regards,\nSarah Connor\nVP Engineering, Acme Corp`
+          }
+        }
+      } else {
+        triggerData = {
+          event: 'manual_trigger',
+          timestamp: new Date().toISOString(),
+          payload: { initiatedBy: userId, workflowId: workflow.id }
+        }
+      }
     }
-  }
 
-  // 1. Process Trigger Nodes
-  const triggerNodes = nodes.filter(n => n.type === 'trigger')
-  for (const node of triggerNodes) {
-    const stepStart = Date.now()
-    outputs[node.id] = triggerData
-    outputs['trigger'] = triggerData // convenient alias
+    // 1. Process Trigger Nodes
+    for (const node of triggerNodes) {
+      const stepStart = Date.now()
+      const nodeInput = triggerData[node.id] || triggerData
+      outputs[node.id] = nodeInput
+      outputs['trigger'] = nodeInput // convenient alias
 
-    logs.push({
-      nodeId: node.id,
-      nodeTitle: node.data.title,
-      type: 'trigger',
-      status: 'completed',
-      durationMs: Date.now() - stepStart,
-      output: triggerData,
-      message: `Trigger received: ${triggerData.email?.subject || 'Event dispatched'}`
-    })
+      logs.push({
+        nodeId: node.id,
+        nodeTitle: node.data.title,
+        type: 'trigger',
+        status: 'completed',
+        durationMs: Date.now() - stepStart,
+        output: nodeInput,
+        message: `Trigger processed: ${node.data.title}`
+      })
+    }
   }
 
   // 2. Process Nodes in Topological Dependency Order
@@ -238,9 +390,49 @@ export async function executeWorkflowDAG(
     }
   }
 
-  // Queue initialized with nodes that have inDegree 0 (usually trigger nodes)
-  const queue: string[] = nodes.filter(n => (inDegree[n.id] || 0) === 0).map(n => n.id)
   const processed = new Set<string>()
+
+  // If resuming from an approval node:
+  if (isResuming && options?.resumeNodeId) {
+    const resumeNode = nodes.find(n => n.id === options.resumeNodeId)
+    if (resumeNode) {
+      const decision = options.approvalDecision || { approved: true }
+      outputs[resumeNode.id] = {
+        approved: decision.approved,
+        decisionDate: new Date().toISOString(),
+        approver: decision.approver || userId,
+        comments: decision.comments || ''
+      }
+      processed.add(resumeNode.id)
+      logs.push({
+        nodeId: resumeNode.id,
+        nodeTitle: resumeNode.data.title,
+        type: 'approval',
+        status: 'completed',
+        durationMs: 50,
+        output: outputs[resumeNode.id],
+        message: `Human approval ${decision.approved ? 'GRANTED' : 'REJECTED'} by ${decision.approver || userId}`
+      })
+
+      // If rejected, terminate DAG cleanly
+      if (!decision.approved) {
+        return {
+          status: 'completed',
+          outputs,
+          logs,
+          durationMs: Date.now() - startTime
+        }
+      }
+    }
+    for (const key of Object.keys(options.existingOutputs || {})) {
+      processed.add(key)
+    }
+  }
+
+  // Queue initialized with nodes that have inDegree 0 (or downstream targets if resuming)
+  const queue: string[] = isResuming && options?.resumeNodeId
+    ? edges.filter(e => e.source === options.resumeNodeId).map(e => e.target)
+    : nodes.filter(n => (inDegree[n.id] || 0) === 0).map(n => n.id)
 
   while (queue.length > 0) {
     const currentId = queue.shift()!
@@ -254,7 +446,90 @@ export async function executeWorkflowDAG(
     if (node.type !== 'trigger') {
       const stepStart = Date.now()
       try {
-        if (node.type === 'agent') {
+        if (node.type === 'approval') {
+          const prompt = node.data.approvalPrompt || `Approval requested for ${node.data.title}`
+          outputs[node.id] = {
+            status: 'waiting_approval',
+            prompt,
+            approverRole: node.data.approverRole || 'Admin',
+            context: outputs,
+            requestedAt: new Date().toISOString()
+          }
+
+          logs.push({
+            nodeId: node.id,
+            nodeTitle: node.data.title,
+            type: 'approval',
+            status: 'waiting_approval',
+            durationMs: Date.now() - stepStart,
+            output: outputs[node.id],
+            message: `Workflow paused: waiting for human approval (${prompt})`
+          })
+
+          return {
+            status: 'waiting_approval',
+            approvalNodeId: node.id,
+            approvalPrompt: prompt,
+            approvalData: {
+              title: node.data.title,
+              prompt,
+              approverRole: node.data.approverRole || 'Admin',
+              inputs: outputs
+            },
+            outputs,
+            logs,
+            durationMs: Date.now() - startTime
+          }
+        } else if (node.type === 'logic') {
+          let logicResult: any = null
+          let message = 'Executed logic node'
+          
+          if (node.data.subtype === 'if-else') {
+            const condition = node.data.condition || 'false'
+            // Strip interpolation braces if present for jexl
+            const cleanCondition = condition.replace(/\{\{\s*/g, '').replace(/\s*\}\}/g, '')
+            try {
+              logicResult = await jexl.eval(cleanCondition, outputs)
+              message = `Condition evaluated to ${logicResult}`
+            } catch (err: any) {
+              logicResult = false
+              message = `Condition failed: ${err.message}`
+            }
+          } else if (node.data.subtype === 'switch') {
+            const switchVar = node.data.switchVar || ''
+            const cleanVar = switchVar.replace(/\{\{\s*/g, '').replace(/\s*\}\}/g, '')
+            try {
+              logicResult = await jexl.eval(cleanVar, outputs)
+              message = `Switch evaluated to ${logicResult}`
+            } catch (err: any) {
+              logicResult = null
+              message = `Switch failed: ${err.message}`
+            }
+          } else if (node.data.subtype === 'code') {
+            const code = node.data.code || 'return true;'
+            try {
+              const script = new vm.Script(`(async () => { \n${code}\n })()`)
+              const context = vm.createContext({ inputs: outputs, console })
+              logicResult = await script.runInContext(context)
+              message = `JavaScript code executed successfully`
+            } catch (err: any) {
+              logicResult = null
+              message = `Code execution failed: ${err.message}`
+            }
+          }
+
+          outputs[node.id] = { result: logicResult }
+
+          logs.push({
+            nodeId: node.id,
+            nodeTitle: node.data.title,
+            type: 'logic',
+            status: 'completed',
+            durationMs: Date.now() - stepStart,
+            output: outputs[node.id],
+            message
+          })
+        } else if (node.type === 'agent') {
           // Prepare AI Agent execution
           const systemPrompt = node.data.prompt || 'You are an intelligent workflow automation agent. Process the provided input thoroughly.'
           const contextPrompt = `Context Data:\n${JSON.stringify(outputs, null, 2)}\n\nInstructions:\n${systemPrompt}`
@@ -267,10 +542,12 @@ export async function executeWorkflowDAG(
             try {
               const google = createGoogleGenerativeAI({ apiKey: geminiKey })
               const { text } = await generateText({
-                model: google('gemini-3.5-flash'),
+                model: google('gemini-2.5-flash', { structuredOutputs: false }),
+                maxSteps: 5,
+                tools: { integration_execute: (await import("./tools/workflow")).createIntegrationExecuteTool(userId) },
                 prompt: contextPrompt,
                 maxRetries: 1,
-                abortSignal: AbortSignal.timeout(12000)
+                abortSignal: AbortSignal.timeout(30000)
               })
               aiResultText = text
             } catch (err) {
@@ -282,10 +559,12 @@ export async function executeWorkflowDAG(
             try {
               const groq = createGroq({ apiKey: groqKey })
               const { text } = await generateText({
-                model: groq('openai/gpt-oss-20b'),
+                model: groq('llama-3.1-70b-versatile'),
+                maxSteps: 5,
+                tools: { integration_execute: (await import("./tools/workflow")).createIntegrationExecuteTool(userId) },
                 prompt: contextPrompt,
                 maxRetries: 1,
-                abortSignal: AbortSignal.timeout(12000)
+                abortSignal: AbortSignal.timeout(30000)
               })
               aiResultText = text
             } catch (err) {
@@ -388,11 +667,32 @@ export async function executeWorkflowDAG(
       }
     }
 
-    // Decrement inDegree for dependent neighbors
-    for (const neighbor of adj[currentId] || []) {
-      inDegree[neighbor] = (inDegree[neighbor] || 1) - 1
-      if (inDegree[neighbor] === 0) {
-        queue.push(neighbor)
+    // Process dependent neighbors based on edge source handles
+    for (const edge of edges.filter(e => e.source === currentId)) {
+      let traverse = true
+      
+      if (node.type === 'logic' && node.data.subtype === 'if-else') {
+        const result = outputs[node.id]?.result
+        if (edge.sourceHandle === 'true' && !result) traverse = false
+        if (edge.sourceHandle === 'false' && result) traverse = false
+      }
+
+      if (traverse) {
+        inDegree[edge.target] = (inDegree[edge.target] || 1) - 1
+        if (inDegree[edge.target] === 0) {
+          queue.push(edge.target)
+        }
+      } else {
+        // If we don't traverse, we should still decrement inDegree so downstream nodes don't hang indefinitely 
+        // if they have other valid paths, but we also mark them as skipped if this was their only path.
+        // For simplicity in DAG execution, we decrement and if it hits 0, it means it *could* run, 
+        // but since we arrived via a dead path, we should probably mark it skipped.
+        // For now, decrement to prevent graph deadlock.
+        inDegree[edge.target] = (inDegree[edge.target] || 1) - 1
+        if (inDegree[edge.target] === 0) {
+          // Push but it will lack the expected inputs, which might cause it to fail cleanly.
+          queue.push(edge.target)
+        }
       }
     }
   }

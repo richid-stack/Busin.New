@@ -90,8 +90,10 @@ async function createChat(prompt: string) {
       }
     })
 
-    await fetchChats()
-    router.push(`/chat/${chat?.id}`)
+    fetchChats()
+    if (chat?.id) {
+      router.push(`/chat/${chat.id}`)
+    }
   } finally {
     loading.value = false
   }
@@ -220,19 +222,16 @@ const proactiveAutomations = [
 
           <UChatPrompt
             v-model="input"
-            :status="loading ? 'streaming' : 'ready'"
+            :loading="loading"
             class="[view-transition-name:chat-prompt] shadow-sm border border-default rounded-2xl bg-elevated/50 backdrop-blur-md focus-within:ring-2 focus-within:ring-primary/20 transition-all"
             color="neutral"
-            variant="ghost"
-            :ui="{ base: 'px-3 py-2', input: 'text-base placeholder:text-muted' }"
+            variant="subtle"
+            :ui="{ base: 'px-3 py-2' }"
             placeholder="e.g. Build a workflow to read my emails and draft a summary..."
             @submit="onSubmit"
           >
-          <template
-            v-if="attachments.length > 0"
-            #header
-          >
-            <div class="flex flex-wrap gap-2 px-3 pt-3">
+          <template #header>
+            <div v-if="attachments.length > 0" class="flex flex-wrap gap-2 px-3 pt-3">
               <template
                 v-for="(attachment, index) in attachments"
                 :key="index"

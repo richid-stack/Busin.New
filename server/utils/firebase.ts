@@ -14,9 +14,26 @@ import {
   Timestamp,
   writeBatch
 } from 'firebase/firestore'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
-const config = JSON.parse(readFileSync(new URL('../../firebase-applet-config.json', import.meta.url), 'utf-8'))
+function loadFirebaseConfig() {
+  try {
+    const cwdPath = resolve(process.cwd(), 'firebase-applet-config.json')
+    if (existsSync(cwdPath)) {
+      return JSON.parse(readFileSync(cwdPath, 'utf-8'))
+    }
+  } catch {}
+  try {
+    const relPath = new URL('../../firebase-applet-config.json', import.meta.url)
+    if (existsSync(relPath)) {
+      return JSON.parse(readFileSync(relPath, 'utf-8'))
+    }
+  } catch {}
+  return {}
+}
+
+const config = loadFirebaseConfig()
 
 function getApp() {
   const apps = getApps()
@@ -68,6 +85,8 @@ export interface FirestoreWorkflow {
   nodes: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   edges: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  nodeSchemas?: Record<string, any>
   createdAt: Date
   updatedAt?: Date
 }
@@ -76,7 +95,11 @@ export interface FirestoreWorkflowRun {
   id: string
   workflowId: string
   userId: string
-  status: 'completed' | 'failed' | 'running'
+  status: 'completed' | 'failed' | 'running' | 'waiting_approval'
+  approvalNodeId?: string
+  approvalPrompt?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  approvalData?: Record<string, any>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   input: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -413,6 +436,7 @@ export async function getUserWorkflows(userId: string): Promise<FirestoreWorkflo
       status: data.status || 'draft',
       nodes: data.nodes || [],
       edges: data.edges || [],
+      nodeSchemas: data.nodeSchemas || {},
       createdAt,
       updatedAt
     })
@@ -444,6 +468,7 @@ export async function getWorkflow(workflowId: string): Promise<FirestoreWorkflow
     status: data.status || 'draft',
     nodes: data.nodes || [],
     edges: data.edges || [],
+    nodeSchemas: data.nodeSchemas || {},
     createdAt,
     updatedAt
   }
@@ -458,6 +483,8 @@ export async function createWorkflow(data: {
   nodes: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   edges: any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  nodeSchemas?: Record<string, any>
   status?: 'active' | 'draft' | 'paused'
 }): Promise<FirestoreWorkflow> {
   const db = getFirebaseDb()
@@ -472,6 +499,7 @@ export async function createWorkflow(data: {
     status: data.status || 'active',
     nodes: data.nodes || [],
     edges: data.edges || [],
+    nodeSchemas: data.nodeSchemas || {},
     createdAt: now,
     updatedAt: now
   }
@@ -484,6 +512,7 @@ export async function createWorkflow(data: {
     status: workflow.status,
     nodes: workflow.nodes,
     edges: workflow.edges,
+    nodeSchemas: workflow.nodeSchemas,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   }))
@@ -521,6 +550,9 @@ export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWor
     workflowId,
     userId: runDoc.userId,
     status: runDoc.status,
+    approvalNodeId: runDoc.approvalNodeId || null,
+    approvalPrompt: runDoc.approvalPrompt || null,
+    approvalData: runDoc.approvalData || null,
     input: runDoc.input,
     output: runDoc.output,
     logs: runDoc.logs,
@@ -529,6 +561,42 @@ export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWor
   }))
 
   return runDoc
+}
+
+export async function getWorkflowRun(workflowId: string, runId: string): Promise<FirestoreWorkflowRun | null> {
+  const db = getFirebaseDb()
+  const runDoc = await getDoc(doc(db, 'workflows', workflowId, 'runs', runId))
+  if (!runDoc.exists()) {
+    return null
+  }
+
+  const data = runDoc.data()
+  const createdAt = data.createdAt instanceof Timestamp
+    ? data.createdAt.toDate()
+    : (data.createdAt ? new Date(data.createdAt) : new Date())
+
+  return {
+    id: runDoc.id,
+    workflowId,
+    userId: data.userId || '',
+    status: data.status || 'completed',
+    approvalNodeId: data.approvalNodeId,
+    approvalPrompt: data.approvalPrompt,
+    approvalData: data.approvalData,
+    input: data.input || {},
+    output: data.output || {},
+    logs: data.logs || [],
+    durationMs: data.durationMs || 0,
+    createdAt
+  }
+}
+
+export async function updateWorkflowRun(workflowId: string, runId: string, data: Partial<FirestoreWorkflowRun>): Promise<void> {
+  const db = getFirebaseDb()
+  const ref = doc(db, 'workflows', workflowId, 'runs', runId)
+  await updateDoc(ref, sanitizeForFirestore({
+    ...data
+  }))
 }
 
 export async function getWorkflowRuns(workflowId: string): Promise<FirestoreWorkflowRun[]> {
@@ -548,6 +616,9 @@ export async function getWorkflowRuns(workflowId: string): Promise<FirestoreWork
       workflowId,
       userId: data.userId || '',
       status: data.status || 'completed',
+      approvalNodeId: data.approvalNodeId,
+      approvalPrompt: data.approvalPrompt,
+      approvalData: data.approvalData,
       input: data.input || {},
       output: data.output || {},
       logs: data.logs || [],

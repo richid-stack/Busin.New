@@ -21,14 +21,23 @@ export const useFirebaseAuth = createSharedComposable(() => {
   const authReady = ref<boolean>(false)
   const error = ref<string | null>(null)
   const isAuthModalOpen = ref<boolean>(false)
-  const { csrf, headerName } = useCsrf()
+  const { csrf, setCsrf, headerName } = useCsrf()
 
-  const syncServerSession = async (user: User | null) => {
+  const syncServerSession = async (user: User | null, retries = 2) => {
     try {
+      const token = csrf()
+      const headers: Record<string, string> = {}
+      if (token) {
+        headers[headerName] = token
+      }
+      if (user?.uid) {
+        headers['x-user-id'] = user.uid
+      }
+
       if (user) {
-        await $fetch('/api/session', {
+        const res = await $fetch.raw('/api/session', {
           method: 'POST',
-          headers: { [headerName]: csrf() },
+          headers,
           body: {
             user: {
               id: user.uid,
@@ -39,14 +48,22 @@ export const useFirebaseAuth = createSharedComposable(() => {
             }
           }
         })
+        const respCsrf = res.headers.get(headerName)
+        if (respCsrf) {
+          setCsrf(respCsrf)
+        }
       } else {
         await $fetch('/api/session', {
           method: 'DELETE',
-          headers: { [headerName]: csrf() }
+          headers
         }).catch(() => {})
       }
     } catch (e) {
-      console.error('Failed to sync session with server:', e)
+      if (retries > 0) {
+        setTimeout(() => syncServerSession(user, retries - 1), 800)
+      } else {
+        console.warn('Session sync note:', e)
+      }
     }
   }
 
@@ -179,6 +196,7 @@ export const useFirebaseAuth = createSharedComposable(() => {
 
   return {
     firebaseUser,
+    user: firebaseUser,
     loading,
     authReady,
     error,

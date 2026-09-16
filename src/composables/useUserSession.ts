@@ -6,18 +6,32 @@ import { useCsrf } from './useCsrf'
 
 export const useUserSession = createSharedComposable(() => {
   const session = ref<UserSession | null>(null)
-  const { csrf, headerName } = useCsrf()
+  const { csrf, setCsrf, headerName } = useCsrf()
 
   const clearSession = async () => {
+    const token = csrf()
+    const headers: Record<string, string> = {}
+    if (token) {
+      headers[headerName] = token
+    }
     await $fetch('/api/session', {
       method: 'DELETE',
-      headers: { [headerName]: csrf() }
-    })
+      headers
+    }).catch(() => {})
     session.value = null
   }
 
   const fetchSession = async () => {
-    session.value = await $fetch<UserSession>('/api/session').catch(() => null)
+    try {
+      const res = await $fetch.raw<UserSession>('/api/session')
+      session.value = res._data || null
+      const respCsrf = res.headers.get(headerName)
+      if (respCsrf) {
+        setCsrf(respCsrf)
+      }
+    } catch {
+      session.value = null
+    }
   }
 
   const popupListener = (e: StorageEvent) => {

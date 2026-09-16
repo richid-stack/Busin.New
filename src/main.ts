@@ -18,6 +18,33 @@ const router = createRouter({
   history: createWebHistory()
 })
 
+router.onError((error, to) => {
+  console.error('Router navigation error:', error)
+  const errMsg = error?.message || ''
+  if (
+    errMsg.includes('Failed to fetch dynamically imported module') ||
+    errMsg.includes('Importing a module script failed') ||
+    errMsg.includes('error loading dynamically imported module')
+  ) {
+    const key = `reload_chunk_${to?.path || 'app'}`
+    if (typeof window !== 'undefined' && !sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1')
+      window.location.assign(to?.fullPath || window.location.href)
+    }
+  }
+})
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', (event) => {
+    const key = 'vite_preload_reload'
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1')
+      event.preventDefault()
+      window.location.reload()
+    }
+  })
+}
+
 app.use(head)
 app.use(router)
 app.use(ui)

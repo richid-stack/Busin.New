@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useUserSession } from '../composables/useUserSession'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
-import { useIntegrationsModal } from '../composables/useIntegrationsModal'
 
 defineProps<{
   collapsed?: boolean
@@ -16,7 +15,6 @@ const colorMode = useColorMode()
 const appConfig = useAppConfig()
 const { user, clearSession } = useUserSession()
 const { signOutUser } = useFirebaseAuth()
-const { openIntegrationsModal } = useIntegrationsModal()
 
 const colors = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose']
 const neutrals = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
@@ -134,7 +132,7 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
   label: 'Connected Services & Integrations',
   icon: 'i-lucide-blocks',
   onSelect() {
-    openIntegrationsModal()
+    router.push('/integrations')
   }
 }], [{
   label: 'Log out',

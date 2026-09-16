@@ -11,6 +11,7 @@ import ChatToolCalculator from '../tool/Calculator.vue'
 import ChatToolGeneric from '../tool/Generic.vue'
 import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
+import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { getSearchQuery, getSources } from '../../../utils/tool'
@@ -134,8 +135,16 @@ const emit = defineEmits<{
         v-else-if="getToolName(part) === 'workflow_create'"
         :invocation="{ ...(part as unknown as ToolInvocation) }"
       />
+      <ChatToolWorkflowApproval
+        v-else-if="getToolName(part) === 'workflow_approval'"
+        :invocation="{ ...(part as unknown as ToolInvocation) }"
+      />
       <ChatToolWorkflowRun
         v-else-if="getToolName(part) === 'workflow_run'"
+        :invocation="{ ...(part as unknown as ToolInvocation) }"
+      />
+      <ChatToolIntegrationExecute
+        v-else-if="getToolName(part) === 'integration_execute'"
         :invocation="{ ...(part as unknown as ToolInvocation) }"
       />
       <ChatToolGeneric

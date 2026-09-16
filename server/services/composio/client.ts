@@ -170,7 +170,7 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
     slug: 'salesforce',
     name: 'Salesforce',
     icon: 'i-logos-salesforce',
-    description: 'Manage accounts, leads, opportunities, and enterprise enterprise records.',
+    description: 'Manage accounts, leads, opportunities, and enterprise CRM records.',
     category: 'crm',
     popularActions: [
       { slug: 'salesforce_create_lead', name: 'Create Lead', description: 'Record client inquiries into Salesforce Leads' }
@@ -185,6 +185,113 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
     popularActions: [
       { slug: 'airtable_create_record', name: 'Create Record', description: 'Append rows to custom relational Airtable bases' },
       { slug: 'airtable_list_records', name: 'List Records', description: 'Fetch and filter rows from tables' }
+    ]
+  },
+  // --- Microsoft 365 & Enterprise Productivity Tools (Supported by Composio Managed Auth) ---
+  {
+    slug: 'microsoft_teams',
+    name: 'Microsoft Teams',
+    icon: 'i-logos-microsoft-teams',
+    description: 'Send channel alerts, direct messages, meeting notifications, and adaptive cards.',
+    category: 'communication',
+    popularActions: [
+      { slug: 'MICROSOFT_TEAMS_SEND_MESSAGE', name: 'Send Channel Alert', description: 'Send automated alerts and updates to team channels' },
+      { slug: 'MICROSOFT_TEAMS_SEND_ADAPTIVE_CARD', name: 'Post Adaptive Card', description: 'Post interactive adaptive cards to chats and channels' },
+      { slug: 'MICROSOFT_TEAMS_CREATE_MEETING', name: 'Create Meeting', description: 'Schedule online Teams video conferences and sync invites' }
+    ]
+  },
+  {
+    slug: 'outlook',
+    name: 'Microsoft Outlook & Calendar',
+    icon: 'i-logos-microsoft-icon',
+    description: 'Manage enterprise emails, calendar meetings, contacts, rules, and inbox notifications.',
+    category: 'communication',
+    popularActions: [
+      { slug: 'OUTLOOK_SEND_EMAIL', name: 'Send Enterprise Email', description: 'Draft and send enterprise emails to clients and team members' },
+      { slug: 'OUTLOOK_CREATE_EVENT', name: 'Schedule Calendar Invite', description: 'Schedule meetings and send Outlook calendar invites' },
+      { slug: 'OUTLOOK_ADD_MAIL_ATTACHMENT', name: 'Add Attachment', description: 'Attach reports and generated assets to emails' }
+    ]
+  },
+  {
+    slug: 'one_drive',
+    name: 'Microsoft OneDrive',
+    icon: 'i-logos-microsoft-onedrive',
+    description: 'Upload files, manage cloud folders, generate shareable links, and sync documents.',
+    category: 'productivity',
+    popularActions: [
+      { slug: 'ONE_DRIVE_UPLOAD_FILE', name: 'Upload Document', description: 'Upload generated reports and documents to OneDrive' },
+      { slug: 'ONE_DRIVE_CREATE_LINK', name: 'Generate Share Link', description: 'Generate view or edit links for uploaded files' },
+      { slug: 'ONE_DRIVE_DOWNLOAD_FILE', name: 'Fetch File', description: 'Fetch documents and files from enterprise cloud storage' }
+    ]
+  },
+
+  {
+    slug: 'excel',
+    name: 'Microsoft Excel',
+    icon: 'i-logos-microsoft-excel',
+    description: 'Create spreadsheets, update workbook rows, and analyze financial models.',
+    category: 'productivity',
+    popularActions: [
+      { slug: 'EXCEL_ADD_ROW', name: 'Append Row', description: 'Insert structured row into enterprise spreadsheet' },
+      { slug: 'EXCEL_GET_WORKSHEET', name: 'Read Worksheet', description: 'Fetch records from specified range' },
+      { slug: 'EXCEL_CREATE_WORKBOOK', name: 'Create Workbook', description: 'Create a new Excel workbook' }
+    ]
+  },
+  {
+    slug: 'word',
+    name: 'Microsoft Word',
+    icon: 'i-logos-microsoft-word',
+    description: 'Generate enterprise proposals, technical requirements, and legal documents.',
+    category: 'productivity',
+    popularActions: [
+      { slug: 'WORD_CREATE_DOCUMENT', name: 'Create Document', description: 'Create a new enterprise Word document' },
+      { slug: 'WORD_APPEND_TEXT', name: 'Append Content', description: 'Insert text into a Word document' }
+    ]
+  },
+  {
+    slug: 'powerpoint',
+    name: 'Microsoft PowerPoint',
+    icon: 'i-logos-microsoft-powerpoint',
+    description: 'Generate presentation slides, executive briefings, and deck templates.',
+    category: 'productivity',
+    popularActions: [
+      { slug: 'POWERPOINT_CREATE_PRESENTATION', name: 'Create Presentation', description: 'Create a new presentation deck' },
+      { slug: 'POWERPOINT_ADD_SLIDE', name: 'Add Slide', description: 'Append a slide to a presentation' }
+    ]
+  },
+  {
+    slug: 'powerbi',
+    name: 'Microsoft PowerBI',
+    icon: 'i-logos-microsoft-power-bi',
+    description: 'Trigger dataset refreshes, export visual reports, and manage BI dashboards.',
+    category: 'productivity',
+    popularActions: [
+      { slug: 'POWERBI_REFRESH_DATASET', name: 'Refresh Dataset', description: 'Trigger a data refresh on a PowerBI dataset' },
+      { slug: 'POWERBI_EXPORT_REPORT', name: 'Export Report', description: 'Export a PowerBI report to PDF or Image' }
+    ]
+  },
+
+  // --- Popular Productivity & Marketing Tools ---
+  {
+    slug: 'zendesk',
+    name: 'Zendesk',
+    icon: 'i-logos-zendesk-icon',
+    description: 'Create customer support tickets, append internal notes, and monitor escalations.',
+    category: 'crm',
+    popularActions: [
+      { slug: 'zendesk_create_ticket', name: 'Create Support Ticket', description: 'Open prioritized customer inquiries' },
+      { slug: 'zendesk_add_comment', name: 'Add Ticket Comment', description: 'Append resolution notes to tickets' }
+    ]
+  },
+  {
+    slug: 'stripe',
+    name: 'Stripe',
+    icon: 'i-logos-stripe',
+    description: 'Query customer payments, invoices, subscriptions, and charge records.',
+    category: 'crm',
+    popularActions: [
+      { slug: 'stripe_list_charges', name: 'List Charges', description: 'Inspect recent client payment transactions' },
+      { slug: 'stripe_create_customer', name: 'Create Customer', description: 'Register new billing profiles' }
     ]
   }
 ]
@@ -237,7 +344,7 @@ export async function createComposioConnectionLink(
 
   const normalizedSlug = toolkitSlug.toLowerCase().trim()
 
-  // 1. Discover the appropriate auth config ID for this toolkit
+  // 1. Discover or automatically create the appropriate auth config ID for this toolkit
   let authConfigId: string | null = null
   try {
     const authConfigs = await client.authConfigs.list({
@@ -270,12 +377,39 @@ export async function createComposioConnectionLink(
         }
       }
     } catch (e) {
-      console.warn(`[ComposioService] REST fallback for authConfig failed:`, e)
+      console.warn(`[ComposioService] REST fallback for authConfig query failed:`, e)
+    }
+  }
+
+  // If no auth config exists yet in user project, dynamically auto-provision standard Composio managed auth
+  if (!authConfigId) {
+    try {
+      const createRes = await fetch('https://backend.composio.dev/api/v3/auth_configs', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          toolkit: {
+            slug: normalizedSlug
+          }
+        })
+      })
+      if (createRes.ok) {
+        const createdJson = await createRes.json()
+        if (createdJson?.auth_config?.id) {
+          authConfigId = createdJson.auth_config.id
+          console.info(`[ComposioService] Auto-provisioned managed auth config for ${normalizedSlug}: ${authConfigId}`)
+        }
+      }
+    } catch (e) {
+      console.warn(`[ComposioService] Dynamic auth config provisioning failed for ${normalizedSlug}:`, e)
     }
   }
 
   if (!authConfigId) {
-    throw new Error(`No authentication configuration found for "${toolkitSlug}". Ensure this integration is enabled in your dashboard.`)
+    throw new Error(`No authentication configuration found for "${toolkitSlug}". Ensure this integration is enabled in your Composio dashboard.`)
   }
 
   // 2. Generate connection link using composio.connectedAccounts.link
@@ -482,6 +616,28 @@ export function getSafeTestToolForToolkit(toolkitSlug: string): {
         description: 'Performs a read-only search across accessible Notion workspace pages.',
         args: { query: '' }
       }
+    case 'microsoft_teams':
+      return {
+        toolSlug: 'MICROSOFT_TEAMS_CHATS_GET_ALL_CHATS',
+        name: 'Get Microsoft Teams Chats',
+        description: 'Verifies connection with Microsoft Teams and queries accessible chats.',
+        args: {}
+      }
+    case 'outlook':
+      return {
+        toolSlug: 'OUTLOOK_GET_ME',
+        name: 'Get Outlook Profile',
+        description: 'Verifies connection to Microsoft Exchange / Outlook mailbox.',
+        args: {}
+      }
+    case 'one_drive':
+    case 'onedrive':
+      return {
+        toolSlug: 'ONE_DRIVE_GET_DRIVE',
+        name: 'Inspect OneDrive Drive',
+        description: 'Checks read permissions for OneDrive enterprise storage.',
+        args: {}
+      }
     default:
       return {
         toolSlug: `${normalized.toUpperCase()}_TEST_AUTH`,
@@ -581,59 +737,4 @@ export async function executeSafeVerificationTool(
 }
 
 
-export const POPULAR_COMPOSIO_TOOLKITS: SupportedThirdPartyToolkit[] = [
-  {
-    slug: 'slack',
-    name: 'Slack',
-    icon: 'i-logos-slack-icon',
-    description: 'Post channel notifications, send direct messages, and listen for incoming mentions.',
-    category: 'communication',
-    popularActions: [
-      { slug: 'slack_send_message', name: 'Post Message', description: 'Send a message to a channel' },
-      { slug: 'slack_send_dm', name: 'Send Direct Message', description: 'Send a DM to a colleague' }
-    ]
-  },
-  {
-    slug: 'github',
-    name: 'GitHub',
-    icon: 'i-logos-github-icon',
-    description: 'Create issues, review pull requests, create comments, and watch repository events.',
-    category: 'developer',
-    popularActions: [
-      { slug: 'github_create_issue', name: 'Create Issue', description: 'File a new issue on a repo' },
-      { slug: 'github_create_comment', name: 'Add Issue Comment', description: 'Comment on an issue or PR' }
-    ]
-  },
-  {
-    slug: 'notion',
-    name: 'Notion',
-    icon: 'i-logos-notion-icon',
-    description: 'Create database entries, update wiki documentation, and sync onboarding cards.',
-    category: 'productivity',
-    popularActions: [
-      { slug: 'notion_create_page', name: 'Create Page', description: 'Create a new Notion doc/page' },
-      { slug: 'notion_update_database', name: 'Update Database', description: 'Add row to Notion database' }
-    ]
-  },
-  {
-    slug: 'linear',
-    name: 'Linear',
-    icon: 'i-logos-linear-icon',
-    description: 'Create tracking tickets, manage cycles, and update issue progress.',
-    category: 'project_management',
-    popularActions: [
-      { slug: 'linear_create_issue', name: 'Create Issue', description: 'File engineering ticket' },
-      { slug: 'linear_update_issue', name: 'Update Issue', description: 'Change status or priority' }
-    ]
-  },
-  {
-    slug: 'discord',
-    name: 'Discord',
-    icon: 'i-logos-discord-icon',
-    description: 'Broadcast community messages, send embed alerts, and manage server announcements.',
-    category: 'communication',
-    popularActions: [
-      { slug: 'discord_send_message', name: 'Send Message', description: 'Post alert to Discord channel' }
-    ]
-  }
-]
+export const POPULAR_COMPOSIO_TOOLKITS: SupportedThirdPartyToolkit[] = SUPPORTED_THIRD_PARTY_TOOLKITS

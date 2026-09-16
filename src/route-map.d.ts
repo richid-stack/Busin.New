@@ -45,6 +45,20 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/integrations/': RouteRecordInfo<
+      '/integrations/',
+      '/integrations',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/integrations/[provider]': RouteRecordInfo<
+      '/integrations/[provider]',
+      '/integrations/:provider',
+      { provider: ParamValue<true> },
+      { provider: ParamValue<false> },
+      | never
+    >,
     '/workflows/': RouteRecordInfo<
       '/workflows/',
       '/workflows',
@@ -80,6 +94,22 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'id'
+    }
+    'src/pages/integrations/index.vue': {
+      routes:
+        | '/integrations/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/integrations/[provider].vue': {
+      routes:
+        | '/integrations/[provider]'
+      views:
+        | never
+      pathParamNames:
+        | 'provider'
     }
     'src/pages/workflows/index.vue': {
       routes:

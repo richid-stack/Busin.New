@@ -16,7 +16,8 @@ import { weatherTool } from '../../../utils/tools/weather'
 import { chartTool } from '../../../utils/tools/chart'
 import { planTool } from '../../../utils/tools/plan'
 import { calculatorTool } from '../../../utils/tools/calculator'
-import { workflowCreateTool, workflowRunTool, integrationStatusTool, integrationTestTool } from '../../../utils/tools/workflow'
+import { webSearchTool } from '../../../utils/tools/webSearch'
+import { workflowCreateTool, workflowRunTool, integrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
 
 function getGoogleModel(modelId: string) {
@@ -100,16 +101,39 @@ export default defineHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Chat not found' })
   }
 
-  if (!chat.title) {
-    const firstMsgText = typeof messages[0]?.parts?.[0] === 'object' && messages[0].parts[0] !== null && 'text' in messages[0].parts[0]
-      ? (messages[0].parts[0] as { text: string }).text
-      : (typeof messages[0]?.content === 'string' ? messages[0].content : 'New Chat')
+  // Extract user text for title derivation and background tasks
+  const extractUserText = (msgs: UIMessage[]): string => {
+    for (const msg of msgs) {
+      if (msg.role === 'user') {
+        if (Array.isArray(msg.parts)) {
+          for (const part of msg.parts) {
+            if (part && typeof part === 'object' && 'type' in part && part.type === 'text' && typeof part.text === 'string' && part.text.trim()) {
+              return part.text.trim()
+            }
+            if (part && typeof part === 'object' && 'text' in part && typeof (part as any).text === 'string' && (part as any).text.trim()) {
+              return (part as any).text.trim()
+            }
+          }
+        }
+        if (typeof msg.content === 'string' && msg.content.trim()) {
+          return msg.content.trim()
+        }
+      }
+    }
+    return ''
+  }
 
-    const initialTitle = firstMsgText.trim().slice(0, 30) || 'New Chat'
+  const userPromptText = extractUserText(messages)
+  const isGenericTitle = !chat.title || chat.title.trim() === '' || chat.title === 'Untitled' || chat.title === 'New Chat'
+
+  if (isGenericTitle && userPromptText) {
+    const initialTitle = userPromptText.replace(/^["'`]|["'`]$/g, '').replace(/\s+/g, ' ').slice(0, 36) || 'New Chat'
     chat.title = initialTitle
-    await updateChatTitle(id, initialTitle)
+    updateChatTitle(id, initialTitle).catch(err => console.warn('Failed to update chat title in background:', err))
+  }
 
-    // Generate a more refined title asynchronously in the background so stream begins instantly
+  // Generate a more refined title asynchronously in the background
+  if (userPromptText) {
     ;(async () => {
       try {
         let refinedTitle = ''
@@ -118,14 +142,14 @@ export default defineHandler(async (event) => {
           try {
             const google = createGoogleGenerativeAI({ apiKey: geminiKey })
             const { text } = await generateText({
-              abortSignal: AbortSignal.timeout(4000),
+              abortSignal: AbortSignal.timeout(5000),
               model: google('gemini-3.5-flash'),
               maxRetries: 0,
-              instructions: 'Generate a short 3-5 word title for this prompt, plain text only, no quotes, no punctuation',
-              prompt: firstMsgText.slice(0, 100)
+              instructions: 'Generate a short 2-4 word concise title for this prompt. Return ONLY plain text with NO quotes, NO punctuation, NO markdown.',
+              prompt: userPromptText.slice(0, 150)
             })
             if (text && text.trim()) {
-              refinedTitle = text
+              refinedTitle = text.trim()
             }
           } catch {
             // ignore
@@ -136,14 +160,14 @@ export default defineHandler(async (event) => {
           try {
             const groq = createGroq({ apiKey: process.env.GROQ_API_KEY })
             const { text } = await generateText({
-              abortSignal: AbortSignal.timeout(4000),
+              abortSignal: AbortSignal.timeout(5000),
               model: groq('groq/compound-mini'),
               maxRetries: 0,
-              instructions: 'Generate a short 3-5 word title for this message, no punctuation, plain text only',
-              prompt: firstMsgText.slice(0, 100)
+              instructions: 'Generate a short 2-4 word concise title for this prompt. Return ONLY plain text with NO quotes, NO punctuation, NO markdown.',
+              prompt: userPromptText.slice(0, 150)
             })
             if (text && text.trim()) {
-              refinedTitle = text
+              refinedTitle = text.trim()
             }
           } catch {
             // ignore
@@ -151,8 +175,9 @@ export default defineHandler(async (event) => {
         }
 
         if (refinedTitle) {
-          const cleanTitle = refinedTitle.trim().replace(/^["']|["']$/g, '').slice(0, 30)
-          if (cleanTitle) {
+          const cleanTitle = refinedTitle.replace(/^["']|["']$/g, '').slice(0, 36).trim()
+          if (cleanTitle && cleanTitle !== chat.title) {
+            chat.title = cleanTitle
             await updateChatTitle(id, cleanTitle)
           }
         }
@@ -164,11 +189,12 @@ export default defineHandler(async (event) => {
 
   const lastMessage = messages[messages.length - 1]
   if (lastMessage?.role === 'user' && messages.length > 1) {
-    await saveChatMessage(id as string, {
+    // Save non-blocking so the stream begins immediately without delay
+    saveChatMessage(id as string, {
       id: lastMessage.id,
       role: 'user',
       parts: lastMessage.parts
-    })
+    }).catch(err => console.warn('Non-blocking user message save error:', err))
   }
 
   const abortController = new AbortController()
@@ -213,6 +239,7 @@ export default defineHandler(async (event) => {
         const result = streamText({
           abortSignal: abortController.signal,
           model: languageModel,
+          maxSteps: 10,
           maxRetries: 0,
           instructions: `You are a knowledgeable and helpful AI assistant. ${session.data.user?.username ? `The user's name is ${session.data.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
 
@@ -243,8 +270,9 @@ export default defineHandler(async (event) => {
   * Call the 'workflow_create' tool to construct the pipeline, generate nodes, and register it in the visual Workflow Studio!
   * Outline the steps created (Trigger -> AI Agents -> Actions) and provide a link to the Workflow Studio at /workflows.
 - When the user asks to test or run an automation, call 'workflow_run'.
+- When the user asks to perform tasks using multiple tools (e.g., "Read my emails and save to Drive"), ALWAYS call 'integration_status' FIRST to verify if the tools are connected. If any required tool is not connected, provide the connection links (authUrl) returned by the tool so the user can connect them before proceeding.
 - When the user asks about connected accounts or service status, call 'integration_status'.
-- When the user asks to connect, verify, or test a real tool call for an integration (e.g., GitHub, Slack, Gmail, Notion, Discord via Composio), call 'integration_test' with the provider. If unauthenticated, present the returned Connect Link as a clickable Markdown link.`,
+- When the user asks to connect, verify, or execute an action on an integration (e.g., GitHub, Slack, Gmail, Notion, Discord via Composio), call 'integration_execute' with the provider and instruction. If unauthenticated, the tool will return a Connect Link. You must then output this tool call so the UI renders the connection card. Do not output raw markdown links for authentication.`,
           messages: await convertToModelMessages(messages),
           tools: {
             chart: chartTool,
@@ -254,28 +282,21 @@ export default defineHandler(async (event) => {
             workflow_create: workflowCreateTool,
             workflow_run: workflowRunTool,
             integration_status: integrationStatusTool,
-            integration_test: integrationTestTool,
-            ...(activeModel.startsWith('google/') && { web_search: google.tools.googleSearch({}) }),
-            ...(activeModel.startsWith('anthropic/') && { web_search: anthropic.tools.webSearch_20250305() }),
-            ...(activeModel.startsWith('openai/') && { web_search: openai.tools.webSearch() })
+            integration_execute: createIntegrationExecuteTool(session.data.user?.email || (session.data.user as any)?.username || userId || 'hansonmens784@gmail.com'),
+            web_search: webSearchTool
           },
           providerOptions: {
             anthropic: {
               thinking: {
                 type: 'enabled',
-                budgetTokens: 2048
+                budgetTokens: 1024
               }
             } satisfies AnthropicLanguageModelOptions,
             google: {
-              thinkingConfig: activeModel.includes('2.5')
-                ? {
-                    thinkingBudget: 2048,
-                    includeThoughts: true
-                  }
-                : {
-                    thinkingLevel: 'medium',
-                    includeThoughts: true
-                  }
+              thinkingConfig: {
+                thinkingBudget: 2048,
+                includeThoughts: true
+              }
             } satisfies GoogleLanguageModelOptions,
             groq: {
               reasoningFormat: 'parsed'
@@ -292,11 +313,10 @@ export default defineHandler(async (event) => {
           }
         })
 
-        if (!chat.title) {
+        if (chat.title && chat.title !== 'Untitled') {
           writer.write({
             type: 'data-chat-title',
-            data: { message: 'Generating title...' },
-            transient: true
+            data: { id: chat.id, title: chat.title }
           })
         }
 

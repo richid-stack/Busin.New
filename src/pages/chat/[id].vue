@@ -18,12 +18,16 @@ import ChatTitle from '../../components/chat/ChatTitle.vue'
 import ChatIndicator from '../../components/chat/Indicator.vue'
 import TextSelectionToolbar from '../../components/chat/TextSelectionToolbar.vue'
 import Navbar from '../../components/Navbar.vue'
-import type { Vote } from '../../../server/utils/drizzle'
+export interface Vote {
+  chatId: string
+  messageId: string
+  isUpvoted: boolean
+}
 
 const route = useRoute<'/chat/[id]'>()
 const toast = useToast()
 const { model } = useModels()
-const { fetchChats, chats } = useChats()
+const { fetchChats, chats, updateChat } = useChats()
 const { csrf, headerName } = useCsrf()
 
 const data = await $fetch(`/api/chats/${route.params.id}`).catch(() => null)
@@ -39,8 +43,8 @@ watch(() => chats.value.find(c => c.id === data?.id)?.label, (label) => {
 })
 
 const votes = ref<Vote[]>([])
-if (isOwner.value) {
-  $fetch(`/api/chats/votes/${route.params.id}`).then((v) => {
+if (isOwner.value && data?.id) {
+  $fetch(`/api/chats/votes/${data.id}`).then((v) => {
     votes.value = v
   }).catch(() => {})
 }
@@ -134,6 +138,13 @@ const { messages, status, error, sendMessage, regenerate, stop } = useChat({
   }),
   onData: (dataPart) => {
     if (dataPart.type === 'data-chat-title') {
+      const newTitle = (dataPart.data as any)?.title
+      if (newTitle && newTitle !== 'Untitled') {
+        title.value = newTitle
+        if (data?.id) {
+          updateChat(data.id, { label: newTitle })
+        }
+      }
       fetchChats()
     }
   },
@@ -261,6 +272,11 @@ async function handleSubmit() {
 
 const editingMessageId = ref<string | null>(null)
 
+
+function convertToWorkflow() {
+  sendMessage({ text: "Please convert the automated tasks we just discussed into an automated workflow pipeline." })
+}
+
 function startEdit(message: UIMessage) {
   if (editingMessageId.value) return
 
@@ -359,7 +375,7 @@ function handleTextAction(action: string, selectedText: string) {
   }
   input.value = prompt
   if (action !== 'Quote:') {
-    onSubmit()
+    handleSubmit()
   }
 }
 </script>
@@ -398,7 +414,7 @@ function handleTextAction(action: string, selectedText: string) {
         <UChatMessages
           should-auto-scroll
           :messages="messages"
-          :status="status"
+          :status="(status === 'streaming' && messages[messages.length - 1]?.role === 'user') ? 'submitted' : status"
           :spacing-offset="isOwner ? 200 : 0"
           class="pt-(--ui-header-height) pb-4 sm:pb-6"
         >
@@ -432,6 +448,7 @@ function handleTextAction(action: string, selectedText: string) {
               :editing="editingMessageId === message.id"
               :vote="getVote(message.id)"
               @edit="startEdit"
+              @convertToWorkflow="convertToWorkflow"
               @regenerate="regenerateMessage"
               @vote="vote"
             />
@@ -455,18 +472,15 @@ function handleTextAction(action: string, selectedText: string) {
           v-if="isOwner"
           v-model="input"
           :error="error"
-          :status="status === 'streaming' || status === 'submitted' ? 'streaming' : 'ready'"
+          :loading="status === 'streaming' || status === 'submitted'"
           color="neutral"
           variant="subtle"
           class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10 border-t border-default bg-background shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]"
-          :ui="{ base: 'px-3 py-2', input: 'text-base' }"
+          :ui="{ base: 'px-3 py-2' }"
           @submit="handleSubmit"
         >
-          <template
-            v-if="attachments.length > 0"
-            #header
-          >
-            <div class="flex flex-wrap gap-2 px-4 pt-4 border-b border-default pb-2">
+          <template #header>
+            <div v-if="attachments.length > 0" class="flex flex-wrap gap-2 px-4 pt-4 border-b border-default pb-2">
               <template
                 v-for="(attachment, index) in attachments"
                 :key="index"

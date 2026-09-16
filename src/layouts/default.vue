@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useChats } from '../composables/useChats'
 import { useUserSession } from '../composables/useUserSession'
 import { useChatActions } from '../composables/useChatActions'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
-import { useIntegrationsModal } from '../composables/useIntegrationsModal'
 import ModalAuth from '../components/ModalAuth.vue'
-import ModalIntegrations from '../components/ModalIntegrations.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -16,10 +14,11 @@ const { loggedIn, fetchSession } = useUserSession()
 const { groups, fetchChats } = useChats()
 const { renameChat, deleteChat } = useChatActions()
 const { openAuthModal } = useFirebaseAuth()
-const { isIntegrationsModalOpen, openIntegrationsModal } = useIntegrationsModal()
 
-await fetchSession()
-await fetchChats()
+onMounted(() => {
+  fetchSession()
+  fetchChats()
+})
 
 const sidebarOpen = ref(false)
 const searchOpen = ref(false)
@@ -115,10 +114,8 @@ defineShortcuts({
             icon: 'i-lucide-workflow'
           }, {
             label: 'Integrations',
-            icon: 'i-lucide-blocks',
-            onSelect: () => {
-              openIntegrationsModal()
-            }
+            to: '/integrations',
+            icon: 'i-lucide-blocks'
           }]"
           :collapsed="collapsed"
           orientation="vertical"
@@ -202,10 +199,20 @@ defineShortcuts({
     />
 
     <div class="flex-1 flex min-w-0 h-full overflow-hidden">
-      <RouterView :key="route.path" />
+      <RouterView :key="route.path" v-slot="{ Component }">
+        <template v-if="Component">
+          <Suspense>
+            <component :is="Component" />
+            <template #fallback>
+              <div class="flex items-center justify-center w-full h-full bg-background">
+                <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+              </div>
+            </template>
+          </Suspense>
+        </template>
+      </RouterView>
     </div>
 
     <ModalAuth />
-    <ModalIntegrations v-model:open="isIntegrationsModalOpen" />
   </UDashboardGroup>
 </template>

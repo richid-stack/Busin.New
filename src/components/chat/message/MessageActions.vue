@@ -30,6 +30,7 @@ const emit = defineEmits<{
   edit: [message: UIMessage]
   regenerate: [message: UIMessage]
   vote: [message: UIMessage, isUpvoted: boolean]
+  convertToWorkflow: [message: UIMessage]
 }>()
 
 const hasFiles = computed(() => props.message.parts.some(isFileUIPart))
@@ -94,6 +95,16 @@ function copy() {
       />
     </UTooltip>
 
+        <UTooltip text="Convert to Automated Workflow">
+      <UButton
+        size="sm"
+        color="primary"
+        variant="ghost"
+        icon="i-lucide-workflow"
+        aria-label="Convert to Automated Workflow"
+        @click="emit('convertToWorkflow', message)"
+      />
+    </UTooltip>
     <UTooltip text="Regenerate response">
       <UButton
         size="sm"

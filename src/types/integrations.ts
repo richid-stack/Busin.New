@@ -10,4 +10,7 @@ export interface IntegrationItem {
   capabilities: string[]
   description: string
   canConnect: boolean
+  supportedEventsCount?: number
+  supportedActionsCount?: number
+  externalLinks?: { website?: string; privacy?: string; terms?: string }
 }

@@ -62,7 +62,7 @@ export default defineHandler(async (event) => {
     }
   }
 
-  const composioUserId = session.data.user?.email || session.data.user?.id || session.id || 'hansonmens784@gmail.com'
+  const composioUserId = session.data.user?.id || session.id!
   const result = await executeSafeVerificationTool(composioUserId, body.provider)
   return result
 })

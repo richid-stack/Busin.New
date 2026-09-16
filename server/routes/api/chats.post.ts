@@ -17,9 +17,13 @@ export default defineHandler(async (event) => {
   }).parse)
 
   const userId = session.data.user?.id || session.id!
+  const initialTitle = input && input.trim()
+    ? input.trim().replace(/^["'`]|["'`]$/g, '').replace(/\s+/g, ' ').slice(0, 36)
+    : 'New Chat'
+
   const chat = await createChat({
     userId,
-    title: '',
+    title: initialTitle,
     initialMessage: input,
     attachments
   })
