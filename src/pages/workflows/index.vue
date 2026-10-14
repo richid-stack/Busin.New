@@ -835,6 +835,7 @@ onPaneReady(() => {
                   <p class="text-[10px] text-muted truncate">{{ data.subtitle }}</p>
                 </div>
               </div>
+              <Handle type="source" :position="Position.Right" class="!bg-primary !w-2.5 !h-2.5" />
             </div>
           </template>
         </VueFlow>
