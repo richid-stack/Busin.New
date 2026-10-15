@@ -1,12 +1,12 @@
 import { defineHandler, HTTPError } from 'nitro'
 import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
-import { useUserSession } from '../../utils/session'
+import { requireUser } from '../../utils/session'
 import { createWorkflow } from '../../utils/firebase'
 
 export default defineHandler(async (event) => {
-  const session = await useUserSession(event)
-  const userId = session.data.user?.id || session.id!
+  const user = await requireUser(event)
+  const userId = user.id
 
   const body = await readValidatedBody(event, z.object({
     id: z.string().optional(),

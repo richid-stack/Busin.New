@@ -1,13 +1,13 @@
 import { defineHandler } from 'nitro'
 import { getValidatedRouterParams } from 'nitro/h3'
 import { z } from 'zod'
-import { useUserSession } from '../../../utils/session'
+import { requireUser } from '../../../utils/session'
 import { deleteIntegration } from '../../../utils/firebase'
 import { getComposioUserConnections, deleteComposioConnection } from '../../../services/composio/client'
 
 export default defineHandler(async (event) => {
-  const session = await useUserSession(event)
-  const userId = session.data.user?.id || session.id!
+  const user = await requireUser(event)
+  const userId = user.id
 
   const { provider } = await getValidatedRouterParams(event, z.object({
     provider: z.string()

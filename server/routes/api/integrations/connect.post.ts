@@ -1,14 +1,14 @@
 import { defineHandler } from 'nitro'
 import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
-import { useUserSession } from '../../../utils/session'
+import { requireUser } from '../../../utils/session'
 import { upsertIntegration } from '../../../utils/firebase'
 import { createComposioConnectionLink, isComposioConfigured } from '../../../services/composio/client'
 import { ALL_INTEGRATIONS_CATALOG } from '../../../services/integrations/registry'
 
 export default defineHandler(async (event) => {
-  const session = await useUserSession(event)
-  const userId = session.data.user?.id || session.id!
+  const user = await requireUser(event)
+  const userId = user.id
   const body = await readValidatedBody(event, z.object({
     provider: z.string(),
     account: z.string().optional(),
@@ -23,7 +23,7 @@ export default defineHandler(async (event) => {
 
   // 1. Google Native Integrations
   if (definition.type === 'native') {
-    const accountEmail = body.account || (session.data.user as any)?.email || 'Google Account'
+    const accountEmail = body.account || user.email || 'Google Account'
     const integration = await upsertIntegration(userId, {
       provider: body.provider as any,
       name: definition.name,

@@ -1,51 +1,12 @@
-import { initializeApp, getApps } from 'firebase/app'
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  Timestamp,
-  writeBatch
-} from 'firebase/firestore'
-import { readFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { Timestamp } from 'firebase-admin/firestore'
+import { getFirebaseDb } from './firebaseAdmin'
 
-function loadFirebaseConfig() {
-  try {
-    const cwdPath = resolve(process.cwd(), 'firebase-applet-config.json')
-    if (existsSync(cwdPath)) {
-      return JSON.parse(readFileSync(cwdPath, 'utf-8'))
-    }
-  } catch {}
-  try {
-    const relPath = new URL('../../firebase-applet-config.json', import.meta.url)
-    if (existsSync(relPath)) {
-      return JSON.parse(readFileSync(relPath, 'utf-8'))
-    }
-  } catch {}
-  return {}
-}
+export { getFirebaseDb }
 
-const config = loadFirebaseConfig()
-
-function getApp() {
-  const apps = getApps()
-  if (apps.length > 0 && apps[0]) {
-    return apps[0]
-  }
-  return initializeApp(config, 'ai-studio-server')
-}
-
-export function getFirebaseDb() {
-  const app = getApp()
-  return getFirestore(app, config.firestoreDatabaseId || '(default)')
+function toDate(value: unknown, fallback?: Date): Date | undefined {
+  if (value instanceof Timestamp) return value.toDate()
+  if (value) return new Date(value as string | number)
+  return fallback
 }
 
 export interface FirestoreChat {
@@ -124,23 +85,17 @@ export interface FirestoreIntegration {
 
 export async function getUserChats(userId: string): Promise<FirestoreChat[]> {
   const db = getFirebaseDb()
-  const chatsRef = collection(db, 'chats')
-  const q = query(chatsRef, where('userId', '==', userId))
-  const snapshot = await getDocs(q)
+  const snapshot = await db.collection('chats').where('userId', '==', userId).get()
 
   const chats: FirestoreChat[] = []
   snapshot.forEach((d) => {
     const data = d.data()
-    const createdAt = data.createdAt instanceof Timestamp
-      ? data.createdAt.toDate()
-      : (data.createdAt ? new Date(data.createdAt) : new Date())
-
     chats.push({
       id: d.id,
       title: data.title || '',
       userId: data.userId || userId,
       visibility: data.visibility || 'private',
-      createdAt
+      createdAt: toDate(data.createdAt, new Date())!
     })
   })
 
@@ -149,37 +104,30 @@ export async function getUserChats(userId: string): Promise<FirestoreChat[]> {
 
 export async function getChat(chatId: string): Promise<(FirestoreChat & { messages: FirestoreMessage[] }) | null> {
   const db = getFirebaseDb()
-  const chatDoc = await getDoc(doc(db, 'chats', chatId))
-  if (!chatDoc.exists()) {
+  const chatRef = db.collection('chats').doc(chatId)
+  const chatDoc = await chatRef.get()
+  if (!chatDoc.exists) {
     return null
   }
 
-  const data = chatDoc.data()
-  const createdAt = data.createdAt instanceof Timestamp
-    ? data.createdAt.toDate()
-    : (data.createdAt ? new Date(data.createdAt) : new Date())
+  const data = chatDoc.data()!
 
   // Fetch subcollection messages
-  const messagesRef = collection(db, 'chats', chatId, 'messages')
-  const msgQuery = query(messagesRef, orderBy('createdAt', 'asc'))
-  const msgSnapshot = await getDocs(msgQuery).catch(async () => {
+  const messagesRef = chatRef.collection('messages')
+  const msgSnapshot = await messagesRef.orderBy('createdAt', 'asc').get().catch(async () => {
     // Fallback without ordering if index not yet established
-    return await getDocs(messagesRef)
+    return await messagesRef.get()
   })
 
   const messages: FirestoreMessage[] = []
   msgSnapshot.forEach((m) => {
     const mData = m.data()
-    const mCreatedAt = mData.createdAt instanceof Timestamp
-      ? mData.createdAt.toDate()
-      : (mData.createdAt ? new Date(mData.createdAt) : new Date())
-
     messages.push({
       id: m.id,
       chatId,
       role: mData.role || 'user',
       parts: mData.parts || [],
-      createdAt: mCreatedAt
+      createdAt: toDate(mData.createdAt, new Date())!
     })
   })
 
@@ -190,7 +138,7 @@ export async function getChat(chatId: string): Promise<(FirestoreChat & { messag
     title: data.title || '',
     userId: data.userId || '',
     visibility: data.visibility || 'private',
-    createdAt,
+    createdAt: toDate(data.createdAt, new Date())!,
     messages
   }
 }
@@ -199,6 +147,7 @@ export async function createChat(data: {
   id?: string
   title?: string
   userId: string
+  visibility?: 'public' | 'private'
   initialMessage?: string
   attachments?: Array<{ name?: string; contentType?: string; url: string }>
 }): Promise<FirestoreChat> {
@@ -206,8 +155,8 @@ export async function createChat(data: {
   const chatId = data.id || crypto.randomUUID()
   const now = new Date()
 
-  const chatDocRef = doc(db, 'chats', chatId)
-  await setDoc(chatDocRef, {
+  const chatDocRef = db.collection('chats').doc(chatId)
+  await chatDocRef.set({
     id: chatId,
     title: data.title || '',
     userId: data.userId,
@@ -218,7 +167,6 @@ export async function createChat(data: {
 
   if (data.initialMessage || data.attachments?.length) {
     const msgId = crypto.randomUUID()
-    const msgRef = doc(db, 'chats', chatId, 'messages', msgId)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parts: any[] = []
     if (data.attachments?.length) {
@@ -235,14 +183,14 @@ export async function createChat(data: {
       parts.push({ type: 'text', text: data.initialMessage })
     }
 
-    await setDoc(msgRef, {
+    await chatDocRef.collection('messages').doc(msgId).set(sanitizeForFirestore({
       id: msgId,
       chatId,
       role: 'user',
       parts,
       experimental_attachments: data.attachments || [],
       createdAt: now.toISOString()
-    })
+    }))
   }
 
   return {
@@ -255,9 +203,7 @@ export async function createChat(data: {
 }
 
 export async function updateChatTitle(chatId: string, title: string): Promise<boolean> {
-  const db = getFirebaseDb()
-  const chatRef = doc(db, 'chats', chatId)
-  await updateDoc(chatRef, {
+  await getFirebaseDb().collection('chats').doc(chatId).update({
     title,
     updatedAt: new Date().toISOString()
   })
@@ -265,9 +211,7 @@ export async function updateChatTitle(chatId: string, title: string): Promise<bo
 }
 
 export async function updateChatVisibility(chatId: string, visibility: 'public' | 'private'): Promise<boolean> {
-  const db = getFirebaseDb()
-  const chatRef = doc(db, 'chats', chatId)
-  await updateDoc(chatRef, {
+  await getFirebaseDb().collection('chats').doc(chatId).update({
     visibility,
     updatedAt: new Date().toISOString()
   })
@@ -276,30 +220,12 @@ export async function updateChatVisibility(chatId: string, visibility: 'public' 
 
 export async function deleteChat(chatId: string): Promise<boolean> {
   const db = getFirebaseDb()
-  // Delete subcollection messages
-  const messagesRef = collection(db, 'chats', chatId, 'messages')
-  const msgSnap = await getDocs(messagesRef)
-  const batch = writeBatch(db)
-
-  msgSnap.forEach((d) => {
-    batch.delete(d.ref)
-  })
-
-  // Delete subcollection votes
-  const votesRef = collection(db, 'chats', chatId, 'votes')
-  const voteSnap = await getDocs(votesRef)
-  voteSnap.forEach((d) => {
-    batch.delete(d.ref)
-  })
-
-  // Delete chat doc
-  batch.delete(doc(db, 'chats', chatId))
-  await batch.commit()
+  // Deletes the chat document and its messages/votes subcollections (handles >500 docs).
+  await db.recursiveDelete(db.collection('chats').doc(chatId))
   return true
 }
 
-// Recursively remove any keys with undefined values or undefined array items to prevent Firestore WriteBatch errors
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Recursively remove any keys with undefined values or undefined array items to prevent Firestore write errors
 export function sanitizeForFirestore<T>(data: T): T {
   if (data === undefined) return null as unknown as T
   if (data === null) return null as unknown as T
@@ -326,9 +252,7 @@ export async function saveChatMessage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   message: { id: string, role: string, parts: any[], createdAt?: Date }
 ) {
-  const db = getFirebaseDb()
-  const msgRef = doc(db, 'chats', chatId, 'messages', message.id)
-  await setDoc(msgRef, sanitizeForFirestore({
+  await getFirebaseDb().collection('chats').doc(chatId).collection('messages').doc(message.id).set(sanitizeForFirestore({
     id: message.id,
     chatId,
     role: message.role,
@@ -343,10 +267,10 @@ export async function saveChatMessages(
   messages: Array<{ id: string, role: string, parts: any[] }>
 ) {
   const db = getFirebaseDb()
-  const batch = writeBatch(db)
+  const batch = db.batch()
 
   for (const msg of messages) {
-    const ref = doc(db, 'chats', chatId, 'messages', msg.id)
+    const ref = db.collection('chats').doc(chatId).collection('messages').doc(msg.id)
     batch.set(ref, sanitizeForFirestore({
       id: msg.id,
       chatId,
@@ -361,20 +285,17 @@ export async function saveChatMessages(
 
 export async function deleteChatMessages(chatId: string, messageIds: string[]) {
   const db = getFirebaseDb()
-  const batch = writeBatch(db)
+  const batch = db.batch()
 
   for (const id of messageIds) {
-    const ref = doc(db, 'chats', chatId, 'messages', id)
-    batch.delete(ref)
+    batch.delete(db.collection('chats').doc(chatId).collection('messages').doc(id))
   }
 
   await batch.commit()
 }
 
 export async function getChatVotes(chatId: string): Promise<FirestoreVote[]> {
-  const db = getFirebaseDb()
-  const votesRef = collection(db, 'chats', chatId, 'votes')
-  const snapshot = await getDocs(votesRef)
+  const snapshot = await getFirebaseDb().collection('chats').doc(chatId).collection('votes').get()
 
   const votes: FirestoreVote[] = []
   snapshot.forEach((d) => {
@@ -385,7 +306,7 @@ export async function getChatVotes(chatId: string): Promise<FirestoreVote[]> {
       messageId: data.messageId || d.id,
       userId: data.userId || '',
       isUpvoted: Boolean(data.isUpvoted),
-      createdAt: data.createdAt ? new Date(data.createdAt) : new Date()
+      createdAt: toDate(data.createdAt, new Date())!
     })
   })
 
@@ -393,13 +314,12 @@ export async function getChatVotes(chatId: string): Promise<FirestoreVote[]> {
 }
 
 export async function setChatVote(chatId: string, messageId: string, userId: string, isUpvoted?: boolean) {
-  const db = getFirebaseDb()
-  const voteRef = doc(db, 'chats', chatId, 'votes', messageId)
+  const voteRef = getFirebaseDb().collection('chats').doc(chatId).collection('votes').doc(messageId)
 
   if (isUpvoted === undefined) {
-    await deleteDoc(voteRef)
+    await voteRef.delete()
   } else {
-    await setDoc(voteRef, {
+    await voteRef.set({
       id: messageId,
       chatId,
       messageId,
@@ -412,66 +332,39 @@ export async function setChatVote(chatId: string, messageId: string, userId: str
 
 // ==================== WORKFLOWS ====================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toWorkflow(id: string, data: Record<string, any>, userIdFallback = ''): FirestoreWorkflow {
+  return {
+    id,
+    title: data.title || 'Untitled Workflow',
+    description: data.description || '',
+    userId: data.userId || userIdFallback,
+    status: data.status || 'draft',
+    nodes: data.nodes || [],
+    edges: data.edges || [],
+    nodeSchemas: data.nodeSchemas || {},
+    createdAt: toDate(data.createdAt, new Date())!,
+    updatedAt: toDate(data.updatedAt)
+  }
+}
+
 export async function getUserWorkflows(userId: string): Promise<FirestoreWorkflow[]> {
-  const db = getFirebaseDb()
-  const workflowsRef = collection(db, 'workflows')
-  const q = query(workflowsRef, where('userId', '==', userId))
-  const snapshot = await getDocs(q)
+  const snapshot = await getFirebaseDb().collection('workflows').where('userId', '==', userId).get()
 
   const list: FirestoreWorkflow[] = []
   snapshot.forEach((d) => {
-    const data = d.data()
-    const createdAt = data.createdAt instanceof Timestamp
-      ? data.createdAt.toDate()
-      : (data.createdAt ? new Date(data.createdAt) : new Date())
-    const updatedAt = data.updatedAt instanceof Timestamp
-      ? data.updatedAt.toDate()
-      : (data.updatedAt ? new Date(data.updatedAt) : undefined)
-
-    list.push({
-      id: d.id,
-      title: data.title || 'Untitled Workflow',
-      description: data.description || '',
-      userId: data.userId || userId,
-      status: data.status || 'draft',
-      nodes: data.nodes || [],
-      edges: data.edges || [],
-      nodeSchemas: data.nodeSchemas || {},
-      createdAt,
-      updatedAt
-    })
+    list.push(toWorkflow(d.id, d.data(), userId))
   })
 
   return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 }
 
 export async function getWorkflow(workflowId: string): Promise<FirestoreWorkflow | null> {
-  const db = getFirebaseDb()
-  const workflowDoc = await getDoc(doc(db, 'workflows', workflowId))
-  if (!workflowDoc.exists()) {
+  const workflowDoc = await getFirebaseDb().collection('workflows').doc(workflowId).get()
+  if (!workflowDoc.exists) {
     return null
   }
-
-  const data = workflowDoc.data()
-  const createdAt = data.createdAt instanceof Timestamp
-    ? data.createdAt.toDate()
-    : (data.createdAt ? new Date(data.createdAt) : new Date())
-  const updatedAt = data.updatedAt instanceof Timestamp
-    ? data.updatedAt.toDate()
-    : (data.updatedAt ? new Date(data.updatedAt) : undefined)
-
-  return {
-    id: workflowDoc.id,
-    title: data.title || 'Untitled Workflow',
-    description: data.description || '',
-    userId: data.userId || '',
-    status: data.status || 'draft',
-    nodes: data.nodes || [],
-    edges: data.edges || [],
-    nodeSchemas: data.nodeSchemas || {},
-    createdAt,
-    updatedAt
-  }
+  return toWorkflow(workflowDoc.id, workflowDoc.data()!)
 }
 
 export async function createWorkflow(data: {
@@ -487,7 +380,6 @@ export async function createWorkflow(data: {
   nodeSchemas?: Record<string, any>
   status?: 'active' | 'draft' | 'paused'
 }): Promise<FirestoreWorkflow> {
-  const db = getFirebaseDb()
   const workflowId = data.id || crypto.randomUUID()
   const now = new Date()
 
@@ -504,7 +396,7 @@ export async function createWorkflow(data: {
     updatedAt: now
   }
 
-  await setDoc(doc(db, 'workflows', workflowId), sanitizeForFirestore({
+  await getFirebaseDb().collection('workflows').doc(workflowId).set(sanitizeForFirestore({
     id: workflow.id,
     title: workflow.title,
     description: workflow.description,
@@ -521,9 +413,7 @@ export async function createWorkflow(data: {
 }
 
 export async function updateWorkflow(workflowId: string, data: Partial<FirestoreWorkflow>): Promise<void> {
-  const db = getFirebaseDb()
-  const ref = doc(db, 'workflows', workflowId)
-  await updateDoc(ref, sanitizeForFirestore({
+  await getFirebaseDb().collection('workflows').doc(workflowId).update(sanitizeForFirestore({
     ...data,
     updatedAt: new Date().toISOString()
   }))
@@ -531,11 +421,29 @@ export async function updateWorkflow(workflowId: string, data: Partial<Firestore
 
 export async function deleteWorkflow(workflowId: string): Promise<void> {
   const db = getFirebaseDb()
-  await deleteDoc(doc(db, 'workflows', workflowId))
+  // Also removes the runs subcollection.
+  await db.recursiveDelete(db.collection('workflows').doc(workflowId))
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toWorkflowRun(id: string, workflowId: string, data: Record<string, any>): FirestoreWorkflowRun {
+  return {
+    id,
+    workflowId,
+    userId: data.userId || '',
+    status: data.status || 'completed',
+    approvalNodeId: data.approvalNodeId,
+    approvalPrompt: data.approvalPrompt,
+    approvalData: data.approvalData,
+    input: data.input || {},
+    output: data.output || {},
+    logs: data.logs || [],
+    durationMs: data.durationMs || 0,
+    createdAt: toDate(data.createdAt, new Date())!
+  }
 }
 
 export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWorkflowRun, 'createdAt'> & { createdAt?: Date }): Promise<FirestoreWorkflowRun> {
-  const db = getFirebaseDb()
   const runId = run.id || crypto.randomUUID()
   const now = run.createdAt || new Date()
 
@@ -545,7 +453,7 @@ export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWor
     createdAt: now
   }
 
-  await setDoc(doc(db, 'workflows', workflowId, 'runs', runId), sanitizeForFirestore({
+  await getFirebaseDb().collection('workflows').doc(workflowId).collection('runs').doc(runId).set(sanitizeForFirestore({
     id: runDoc.id,
     workflowId,
     userId: runDoc.userId,
@@ -564,67 +472,25 @@ export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWor
 }
 
 export async function getWorkflowRun(workflowId: string, runId: string): Promise<FirestoreWorkflowRun | null> {
-  const db = getFirebaseDb()
-  const runDoc = await getDoc(doc(db, 'workflows', workflowId, 'runs', runId))
-  if (!runDoc.exists()) {
+  const runDoc = await getFirebaseDb().collection('workflows').doc(workflowId).collection('runs').doc(runId).get()
+  if (!runDoc.exists) {
     return null
   }
-
-  const data = runDoc.data()
-  const createdAt = data.createdAt instanceof Timestamp
-    ? data.createdAt.toDate()
-    : (data.createdAt ? new Date(data.createdAt) : new Date())
-
-  return {
-    id: runDoc.id,
-    workflowId,
-    userId: data.userId || '',
-    status: data.status || 'completed',
-    approvalNodeId: data.approvalNodeId,
-    approvalPrompt: data.approvalPrompt,
-    approvalData: data.approvalData,
-    input: data.input || {},
-    output: data.output || {},
-    logs: data.logs || [],
-    durationMs: data.durationMs || 0,
-    createdAt
-  }
+  return toWorkflowRun(runDoc.id, workflowId, runDoc.data()!)
 }
 
 export async function updateWorkflowRun(workflowId: string, runId: string, data: Partial<FirestoreWorkflowRun>): Promise<void> {
-  const db = getFirebaseDb()
-  const ref = doc(db, 'workflows', workflowId, 'runs', runId)
-  await updateDoc(ref, sanitizeForFirestore({
+  await getFirebaseDb().collection('workflows').doc(workflowId).collection('runs').doc(runId).update(sanitizeForFirestore({
     ...data
   }))
 }
 
 export async function getWorkflowRuns(workflowId: string): Promise<FirestoreWorkflowRun[]> {
-  const db = getFirebaseDb()
-  const runsRef = collection(db, 'workflows', workflowId, 'runs')
-  const snapshot = await getDocs(runsRef)
+  const snapshot = await getFirebaseDb().collection('workflows').doc(workflowId).collection('runs').get()
 
   const list: FirestoreWorkflowRun[] = []
   snapshot.forEach((d) => {
-    const data = d.data()
-    const createdAt = data.createdAt instanceof Timestamp
-      ? data.createdAt.toDate()
-      : (data.createdAt ? new Date(data.createdAt) : new Date())
-
-    list.push({
-      id: d.id,
-      workflowId,
-      userId: data.userId || '',
-      status: data.status || 'completed',
-      approvalNodeId: data.approvalNodeId,
-      approvalPrompt: data.approvalPrompt,
-      approvalData: data.approvalData,
-      input: data.input || {},
-      output: data.output || {},
-      logs: data.logs || [],
-      durationMs: data.durationMs || 0,
-      createdAt
-    })
+    list.push(toWorkflowRun(d.id, workflowId, d.data()))
   })
 
   return list.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -633,10 +499,7 @@ export async function getWorkflowRuns(workflowId: string): Promise<FirestoreWork
 // ==================== INTEGRATIONS ====================
 
 export async function getUserIntegrations(userId: string): Promise<FirestoreIntegration[]> {
-  const db = getFirebaseDb()
-  const ref = collection(db, 'integrations')
-  const q = query(ref, where('userId', '==', userId))
-  const snapshot = await getDocs(q)
+  const snapshot = await getFirebaseDb().collection('integrations').where('userId', '==', userId).get()
 
   const list: FirestoreIntegration[] = []
   snapshot.forEach((d) => {
@@ -649,7 +512,7 @@ export async function getUserIntegrations(userId: string): Promise<FirestoreInte
       status: data.status || 'connected',
       account: data.account || '',
       config: data.config || {},
-      updatedAt: data.updatedAt ? new Date(data.updatedAt) : new Date()
+      updatedAt: toDate(data.updatedAt, new Date())!
     })
   })
 
@@ -660,7 +523,6 @@ export async function upsertIntegration(
   userId: string,
   integration: Omit<FirestoreIntegration, 'id' | 'updatedAt' | 'userId'> & { id?: string }
 ): Promise<FirestoreIntegration> {
-  const db = getFirebaseDb()
   const docId = `${userId}_${integration.provider}`
   const now = new Date()
 
@@ -675,7 +537,7 @@ export async function upsertIntegration(
     updatedAt: now
   }
 
-  await setDoc(doc(db, 'integrations', docId), sanitizeForFirestore({
+  await getFirebaseDb().collection('integrations').doc(docId).set(sanitizeForFirestore({
     id: docData.id,
     userId: docData.userId,
     provider: docData.provider,
@@ -690,8 +552,5 @@ export async function upsertIntegration(
 }
 
 export async function deleteIntegration(userId: string, provider: string): Promise<void> {
-  const db = getFirebaseDb()
-  const docId = `${userId}_${provider}`
-  await deleteDoc(doc(db, 'integrations', docId))
+  await getFirebaseDb().collection('integrations').doc(`${userId}_${provider}`).delete()
 }
-

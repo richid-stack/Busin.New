@@ -5,7 +5,7 @@ import { executeWorkflowDAG, DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } fr
 import { getResolvedUserIntegrations, ALL_INTEGRATIONS_CATALOG, executeIntegratedAction } from '../../services/integrations/registry'
 import { createComposioConnectionLink } from '../../services/composio/client'
 
-export const workflowCreateTool = tool({
+export const createWorkflowCreateTool = (userId: string) => tool({
   description: `Automatically create and provision a complete visual workflow in Workflow Studio.
 Use this whenever the user asks to create an automation, pipeline, or connect Google Workspace (Gmail, Drive, Calendar, Docs, Sheets) or third-party apps (Slack, Discord, Notion, Linear, Jira, GitHub, Trello, Asana, etc.) to perform multi-step AI tasks.
 This builds the topology, saves it to the database, and provides direct access to Workflow Studio.`,
@@ -54,7 +54,7 @@ This builds the topology, saves it to the database, and provides direct access t
             icon: triggerDef?.icon || 'i-lucide-zap',
             provider: triggerProvider,
             event: triggerEvent,
-            connection: triggerProvider === 'gmail' ? 'hansonmens784@gmail.com' : 'Default Account'
+            connection: 'Default Account'
           }
         }
       ]
@@ -90,7 +90,7 @@ This builds the topology, saves it to the database, and provides direct access t
             color,
             prompt: step.prompt,
             provider: step.provider,
-            connection: step.connection || (step.provider && step.provider === 'slack' ? 'Workspace: My Team' : 'hansonmens784@gmail.com')
+            connection: step.connection || 'Default Account'
           }
         })
 
@@ -111,7 +111,7 @@ This builds the topology, saves it to the database, and provides direct access t
       const workflow = await createWorkflow({
         title,
         description,
-        userId: 'system',
+        userId,
         nodes,
         edges,
         status: 'active'
@@ -135,7 +135,7 @@ This builds the topology, saves it to the database, and provides direct access t
   }
 })
 
-export const workflowRunTool = tool({
+export const createWorkflowRunTool = (userId: string) => tool({
   description: `Trigger a test run or active execution of an existing workflow. Executes all nodes using the AI engine and provides real-time outputs and logs.`,
   inputSchema: z.object({
     workflowId: z.string().default('client-onboarding-pipeline').describe('ID of the workflow to run'),
@@ -148,12 +148,15 @@ export const workflowRunTool = tool({
   execute: async ({ workflowId, inputSummary }) => {
     try {
       let workflow = await getWorkflow(workflowId)
+      if (workflow && workflow.userId !== userId) {
+        return { success: false, error: 'Workflow not found' }
+      }
       if (!workflow) {
         workflow = {
           id: workflowId,
           title: 'Client Onboarding Pipeline',
           description: 'Client Onboarding Pipeline',
-          userId: 'system',
+          userId,
           status: 'active',
           nodes: DEFAULT_WORKFLOW_NODES,
           edges: DEFAULT_WORKFLOW_EDGES,
@@ -169,14 +172,14 @@ export const workflowRunTool = tool({
         }
       } : undefined
 
-      const result = await executeWorkflowDAG(workflow, inputPayload, 'system')
+      const result = await executeWorkflowDAG(workflow, inputPayload, userId)
 
       const runRecord = await saveWorkflowRun(workflow.id, {
         workflowId: workflow.id,
         approvalNodeId: result.approvalNodeId,
         approvalPrompt: result.approvalPrompt,
         approvalData: result.approvalData,
-        userId: 'system',
+        userId,
         status: result.status,
         input: inputPayload || {},
         output: result.outputs,
@@ -206,19 +209,19 @@ export const workflowRunTool = tool({
   }
 })
 
-export const integrationStatusTool = tool({
+export const createIntegrationStatusTool = (userId: string) => tool({
   description: `Check the connection status and capabilities of integrated external services (Native Google: Gmail, Drive, Calendar, Docs, Sheets; and third-party services: Slack, Discord, Notion, Linear, Jira, GitHub).`,
   inputSchema: z.object({}),
   parameters: z.object({}),
 execute: async () => {
     try {
-      const integrations = await getResolvedUserIntegrations('hansonmens784@gmail.com')
+      const integrations = await getResolvedUserIntegrations(userId)
       
       const enriched = await Promise.all(integrations.map(async i => {
         let authUrl = `/integrations/${i.provider}`
         if (i.type === 'composio' && i.status !== 'connected') {
           try {
-            const link = await createComposioConnectionLink('hansonmens784@gmail.com', i.provider)
+            const link = await createComposioConnectionLink(userId, i.provider)
             if (link.redirectUrl) {
               authUrl = link.redirectUrl
             }
@@ -240,18 +243,13 @@ execute: async () => {
 
       return {
         connectedServices: enriched,
-        defaultEmail: 'hansonmens784@gmail.com',
-        readyForAutomation: true
+        readyForAutomation: enriched.some(i => i.status === 'connected')
       }
-    } catch {
+    } catch (err: any) {
       return {
-        connectedServices: [
-          { provider: 'gmail', name: 'Gmail', type: 'native', status: 'connected', account: 'hansonmens784@gmail.com' },
-          { provider: 'google_drive', name: 'Google Drive', type: 'native', status: 'connected', account: 'hansonmens784@gmail.com' },
-          { provider: 'slack', name: 'Slack', type: 'composio', status: 'connected', account: 'Workspace: Acme Engineering' }
-        ],
-        defaultEmail: 'hansonmens784@gmail.com',
-        readyForAutomation: true
+        connectedServices: [],
+        readyForAutomation: false,
+        error: err?.message || 'Failed to load integrations'
       }
     }
   }
@@ -289,7 +287,7 @@ export function resolveIntegrationDefinition(providerSlug: string) {
   return null
 }
 
-export function createIntegrationExecuteTool(userId: string = 'hansonmens784@gmail.com') {
+export function createIntegrationExecuteTool(userId: string) {
   return tool({
     description: `Execute any action or operation on an integrated external service (e.g., GitHub, Slack, Gmail, Notion, Discord, Linear, Salesforce, Google Drive, Jira). 
 Use this when the user asks you to interact with, create items in, read from, or automate any third-party app.
@@ -444,4 +442,3 @@ Execute the necessary tool calls. If you need more information or specific ident
   })
 }
 
-export const integrationExecuteTool = createIntegrationExecuteTool('hansonmens784@gmail.com')

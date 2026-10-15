@@ -17,7 +17,7 @@ import { chartTool } from '../../../utils/tools/chart'
 import { planTool } from '../../../utils/tools/plan'
 import { calculatorTool } from '../../../utils/tools/calculator'
 import { webSearchTool } from '../../../utils/tools/webSearch'
-import { workflowCreateTool, workflowRunTool, integrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
+import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
 
 function getGoogleModel(modelId: string) {
@@ -279,10 +279,10 @@ export default defineHandler(async (event) => {
             weather: weatherTool,
             plan: planTool,
             calculator: calculatorTool,
-            workflow_create: workflowCreateTool,
-            workflow_run: workflowRunTool,
-            integration_status: integrationStatusTool,
-            integration_execute: createIntegrationExecuteTool(session.data.user?.email || (session.data.user as any)?.username || userId || 'hansonmens784@gmail.com'),
+            workflow_create: createWorkflowCreateTool(userId),
+            workflow_run: createWorkflowRunTool(userId),
+            integration_status: createIntegrationStatusTool(userId),
+            integration_execute: createIntegrationExecuteTool(userId),
             web_search: webSearchTool
           },
           providerOptions: {

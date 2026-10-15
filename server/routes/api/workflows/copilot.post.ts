@@ -1,12 +1,12 @@
 import { defineHandler, HTTPError } from 'nitro'
 import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
-import { useUserSession } from '../../../utils/session'
+import { requireUser } from '../../../utils/session'
 import { generateObject } from 'ai'
 import { google } from '@ai-sdk/google'
 
 export default defineHandler(async (event) => {
-  const session = await useUserSession(event)
+  await requireUser(event)
   
   const body = await readValidatedBody(event, z.object({
     prompt: z.string(),

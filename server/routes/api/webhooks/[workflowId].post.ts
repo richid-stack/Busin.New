@@ -3,7 +3,7 @@ import { getValidatedRouterParams, readBody, getQuery } from 'nitro/h3'
 import { z } from 'zod'
 import { getWorkflow, saveWorkflowRun, getUserChats, createChat, saveChatMessage } from '../../../utils/firebase'
 import crypto from 'node:crypto'
-import { executeWorkflowDAG, DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../../../utils/workflowEngine'
+import { executeWorkflowDAG } from '../../../utils/workflowEngine'
 
 export default defineHandler(async (event) => {
   const { workflowId } = await getValidatedRouterParams(event, z.object({
@@ -19,24 +19,10 @@ export default defineHandler(async (event) => {
 
   const query = getQuery(event)
 
-  let workflow = await getWorkflow(workflowId)
+  const workflow = await getWorkflow(workflowId)
 
   if (!workflow) {
-    if (workflowId === 'client-onboarding-pipeline' || workflowId === 'default') {
-      workflow = {
-        id: workflowId,
-        title: 'Client Onboarding Pipeline',
-        description: 'Default onboarding pipeline',
-        userId: 'system',
-        status: 'active',
-        nodes: DEFAULT_WORKFLOW_NODES,
-        edges: DEFAULT_WORKFLOW_EDGES,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    } else {
-      throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
-    }
+    throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
   }
 
   const payload = {
