@@ -188,12 +188,17 @@ export default defineHandler(async (event) => {
   }
 
   const lastMessage = messages[messages.length - 1]
+  // Existing messages keep their original timestamps when the conversation is saved again.
+  const existingCreatedAt = new Map(chat.messages.map(m => [m.id, m.createdAt]))
   if (lastMessage?.role === 'user' && messages.length > 1) {
+    const userCreatedAt = new Date()
+    existingCreatedAt.set(lastMessage.id, userCreatedAt)
     // Save non-blocking so the stream begins immediately without delay
     saveChatMessage(id as string, {
       id: lastMessage.id,
       role: 'user',
-      parts: lastMessage.parts
+      parts: lastMessage.parts,
+      createdAt: userCreatedAt
     }).catch(err => console.warn('Non-blocking user message save error:', err))
   }
 
@@ -384,7 +389,7 @@ export default defineHandler(async (event) => {
             parts
           }
         })
-        await saveChatMessages(chat.id, formattedMessages)
+        await saveChatMessages(chat.id, formattedMessages, existingCreatedAt)
       } catch (err) {
         console.error('Error in onEnd saveChatMessages:', err)
       }
