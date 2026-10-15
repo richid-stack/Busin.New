@@ -14,7 +14,7 @@ export default defineHandler((event) => {
     setResponseHeader(event, 'Access-Control-Allow-Origin', origin)
     setResponseHeader(event, 'Access-Control-Allow-Credentials', 'true')
     setResponseHeader(event, 'Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS')
-    setResponseHeader(event, 'Access-Control-Allow-Headers', 'Content-Type, Authorization, x-csrf-token, x-user-id, Accept')
+    setResponseHeader(event, 'Access-Control-Allow-Headers', 'Content-Type, Authorization, x-csrf-token, Accept')
     setResponseHeader(event, 'Access-Control-Expose-Headers', 'x-csrf-token')
   }
 
@@ -23,7 +23,7 @@ export default defineHandler((event) => {
     if (!origin || origin === 'null') {
       setResponseHeader(event, 'Access-Control-Allow-Origin', '*')
       setResponseHeader(event, 'Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, DELETE, PATCH, OPTIONS')
-      setResponseHeader(event, 'Access-Control-Allow-Headers', 'Content-Type, Authorization, x-csrf-token, x-user-id, Accept')
+      setResponseHeader(event, 'Access-Control-Allow-Headers', 'Content-Type, Authorization, x-csrf-token, Accept')
     }
     return ''
   }

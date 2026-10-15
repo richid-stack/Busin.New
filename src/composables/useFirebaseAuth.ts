@@ -30,23 +30,10 @@ export const useFirebaseAuth = createSharedComposable(() => {
       if (token) {
         headers[headerName] = token
       }
-      if (user?.uid) {
-        headers['x-user-id'] = user.uid
-      }
-
       if (user) {
         const res = await $fetch.raw('/api/session', {
           method: 'POST',
           headers,
-          body: {
-            user: {
-              id: user.uid,
-              name: user.displayName || user.email?.split('@')[0] || 'User',
-              avatar: user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.uid}`,
-              username: user.displayName || user.email?.split('@')[0] || 'user',
-              email: user.email || ''
-            }
-          }
         })
         const respCsrf = res.headers.get(headerName)
         if (respCsrf) {

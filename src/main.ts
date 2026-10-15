@@ -9,6 +9,9 @@ import { createHead } from '@unhead/vue/client'
 import ui from '@nuxt/ui/vue-plugin'
 
 import App from './App.vue'
+import { installAuthFetch } from './lib/authFetch'
+
+installAuthFetch()
 
 const app = createApp(App)
 

@@ -1,12 +1,12 @@
 import { defineHandler, HTTPError } from 'nitro'
 import { getValidatedRouterParams, readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
-import { useUserSession } from '../../../../utils/session'
+import { requireUser } from '../../../../utils/session'
 import { executeSingleNode } from '../../../../utils/workflowEngine'
 
 export default defineHandler(async (event) => {
-  const session = await useUserSession(event)
-  const userId = session.data.user?.id || session.id!
+  const user = await requireUser(event)
+  const userId = user.id
 
   const { id } = await getValidatedRouterParams(event, z.object({
     id: z.string()

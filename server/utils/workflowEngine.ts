@@ -53,7 +53,7 @@ export const DEFAULT_WORKFLOW_NODES: WorkflowNode[] = [
       subtitle: 'Trigger • Gmail',
       icon: 'i-logos-google-gmail',
       provider: 'gmail',
-      connection: 'hansonmens784@gmail.com',
+      connection: 'Google Account',
       event: 'New Email Received'
     }
   },
@@ -181,7 +181,7 @@ export function interpolateVariables(template: string, context: Record<string, a
 export async function executeSingleNode(
   node: WorkflowNode,
   inputs: Record<string, any>,
-  userId: string = 'system'
+  userId: string
 ): Promise<{
   status: 'completed' | 'failed' | 'auth_required' | 'waiting_approval'
   output: any
@@ -294,8 +294,8 @@ export async function executeSingleNode(
 export async function executeWorkflowDAG(
   workflow: FirestoreWorkflow,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  inputPayload?: Record<string, any>,
-  userId: string = 'system',
+  inputPayload: Record<string, any> | undefined,
+  userId: string,
   options?: {
     resumeNodeId?: string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
