@@ -4,7 +4,6 @@ import { createWorkflow, getWorkflow, resolveWorkflowId } from '../firebase'
 import { DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../workflowEngine'
 import { executeAndRecordRun } from '../workflowRuns'
 import { getResolvedUserIntegrations, ALL_INTEGRATIONS_CATALOG, executeIntegratedAction } from '../../services/integrations/registry'
-import { createComposioConnectionLink } from '../../services/composio/client'
 
 export const createWorkflowCreateTool = (userId: string) => tool({
   description: `Automatically create and provision a complete visual workflow in Workflow Studio.
@@ -184,39 +183,25 @@ export const createWorkflowRunTool = (userId: string) => tool({
 })
 
 export const createIntegrationStatusTool = (userId: string) => tool({
-  description: `Check the connection status and capabilities of integrated external services (Native Google: Gmail, Drive, Calendar, Docs, Sheets; and third-party services: Slack, Discord, Notion, Linear, Jira, GitHub).`,
+  description: `Check which external services (Google Workspace, Slack, Notion, GitHub, Linear, Jira and others) the user has connected, and what each can do.`,
   inputSchema: z.object({}),
-execute: async () => {
+  execute: async () => {
     try {
       const integrations = await getResolvedUserIntegrations(userId)
-      
-      const enriched = await Promise.all(integrations.map(async i => {
-        let authUrl = `/integrations/${i.provider}`
-        if (i.type === 'composio' && i.status !== 'connected') {
-          try {
-            const link = await createComposioConnectionLink(userId, i.provider)
-            if (link.redirectUrl) {
-              authUrl = link.redirectUrl
-            }
-          } catch (e) {
-            // ignore
-          }
-        }
-        return {
-          provider: i.provider,
-          name: i.name,
-          type: i.type,
-          category: i.category,
-          status: i.status,
-          account: i.account,
-          authUrl,
-          capabilities: i.capabilities
-        }
+      const services = integrations.map(i => ({
+        provider: i.provider,
+        name: i.name,
+        category: i.category,
+        status: i.status,
+        account: i.account,
+        // In-app page where the user can connect this service.
+        connectPath: `/integrations/${i.provider}`,
+        capabilities: i.capabilities
       }))
-
       return {
-        connectedServices: enriched,
-        readyForAutomation: enriched.some(i => i.status === 'connected')
+        connectedServices: services,
+        readyForAutomation: services.some(i => i.status === 'connected'),
+        integrationsAvailable: integrations.some(i => i.canConnect)
       }
     } catch (err: any) {
       return {
@@ -228,195 +213,54 @@ execute: async () => {
   }
 })
 
+const PROVIDER_ALIASES: Record<string, string> = {
+  gh: 'github',
+  mail: 'gmail',
+  email: 'gmail',
+  drive: 'google_drive',
+  sheets: 'google_sheets',
+  docs: 'google_docs',
+  calendar: 'google_calendar',
+  tasks: 'google_tasks',
+  teams: 'microsoft_teams',
+  onedrive: 'one_drive'
+}
+
 export function resolveIntegrationDefinition(providerSlug: string) {
   const norm = providerSlug.toLowerCase().trim().replace(/[- ]/g, '_')
-  const exact = ALL_INTEGRATIONS_CATALOG.find(i => i.provider === norm || i.name.toLowerCase() === norm)
-  if (exact) return exact
-
-  // Popular alias and shorthand lookups
-  if (norm === 'github' || norm === 'gh') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'github')
-  if (norm === 'slack') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'slack')
-  if (norm === 'gmail' || norm === 'mail' || norm === 'email') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'gmail')
-  if (norm === 'drive' || norm === 'google_drive') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'google_drive')
-  if (norm === 'sheets' || norm === 'google_sheets') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'google_sheets')
-  if (norm === 'docs' || norm === 'google_docs') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'google_docs')
-  if (norm === 'calendar' || norm === 'google_calendar') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'google_calendar')
-  if (norm === 'tasks' || norm === 'google_tasks') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'google_tasks')
-  if (norm === 'linear') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'linear')
-  if (norm === 'notion') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'notion')
-  if (norm === 'discord') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'discord')
-  if (norm === 'jira') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'jira')
-  if (norm === 'salesforce') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'salesforce')
-  if (norm === 'airtable') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'airtable')
-  if (norm === 'gitlab') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'gitlab')
-  if (norm === 'trello') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'trello')
-  if (norm === 'asana') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'asana')
-  if (norm === 'teams' || norm === 'microsoft_teams') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'microsoft_teams')
-  if (norm === 'outlook') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'outlook')
-  if (norm === 'onedrive' || norm === 'one_drive') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'one_drive')
-  if (norm === 'zendesk') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'zendesk')
-  if (norm === 'stripe') return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === 'stripe')
-
-  return null
+  const slug = PROVIDER_ALIASES[norm] ?? norm
+  return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === slug || i.name.toLowerCase().replace(/ /g, '_') === slug) ?? null
 }
 
 export function createIntegrationExecuteTool(userId: string) {
   return tool({
-    description: `Execute any action or operation on an integrated external service (e.g., GitHub, Slack, Gmail, Notion, Discord, Linear, Salesforce, Google Drive, Jira). 
-Use this when the user asks you to interact with, create items in, read from, or automate any third-party app.
-Provide the provider slug (e.g. 'github', 'slack', 'linear') and a natural language instruction of what you want to accomplish.`,
+    description: `Carry out a task in one of the user's connected apps (e.g. GitHub, Slack, Gmail, Notion, Linear, Google Drive, Jira).
+Use this when the user asks to create, read, send or update something in an external app.
+Provide the provider slug (e.g. 'github', 'slack', 'gmail') and a clear natural language instruction.`,
     inputSchema: z.object({
-      provider: z.string().describe('The service provider slug, e.g. "github", "slack", "gmail", "salesforce", "linear", "notion"'),
-      instruction: z.string().describe('Detailed natural language instruction of what to do (e.g. "Create a high priority issue titled User Login Bug with description...")')
+      provider: z.string().describe('The service provider slug, e.g. "github", "slack", "gmail", "linear", "notion"'),
+      instruction: z.string().describe('What to do, in detail (e.g. "Create a high priority issue titled User Login Bug with description...")')
     }),
     execute: async ({ provider, instruction }) => {
-      try {
-        const resolvedDefinition = resolveIntegrationDefinition(provider)
-        const targetSlug = resolvedDefinition?.provider || provider.toLowerCase().trim()
-        const providerDisplayName = resolvedDefinition?.name || (targetSlug.charAt(0).toUpperCase() + targetSlug.slice(1))
-        const providerIcon = resolvedDefinition?.icon || 'i-lucide-plug'
-        const providerCategory = resolvedDefinition?.category || 'productivity'
+      const definition = resolveIntegrationDefinition(provider)
+      if (!definition) {
+        return { success: false, provider, instruction, error: `Unknown integration "${provider}". Use the integration status tool to see what is available.` }
+      }
 
-        // 1. Check live connection status for this user
-        const userIntegrations = await getResolvedUserIntegrations(userId).catch(() => [])
-        const currentInteg = userIntegrations.find(i => i.provider === targetSlug)
-        const isConnected = currentInteg?.status === 'connected'
-
-        // 2. If NOT connected, trigger real authentication flow
-        if (!isConnected) {
-          let authUrl = `/integrations/${targetSlug}`
-          if (resolvedDefinition?.type === 'composio' || !resolvedDefinition) {
-            try {
-              const link = await createComposioConnectionLink(userId, targetSlug)
-              if (link.redirectUrl) {
-                authUrl = link.redirectUrl
-              }
-            } catch (linkErr: any) {
-              console.warn(`[IntegrationExecute] Could not generate direct OAuth link for ${targetSlug}:`, linkErr?.message)
-            }
-          }
-
-          return {
-            success: false,
-            authRequired: true,
-            provider: targetSlug,
-            providerName: providerDisplayName,
-            icon: providerIcon,
-            category: providerCategory,
-            authUrl,
-            instruction,
-            message: `Authentication required for ${providerDisplayName}. Please connect your account to proceed.`
-          }
-        }
-
-        // 3. Native Google Integration execution
-        if (resolvedDefinition?.type === 'native') {
-          const actionExec = await executeIntegratedAction(userId, targetSlug, `${targetSlug}_action`, { instruction })
-          return {
-            success: actionExec.success,
-            authRequired: actionExec.authRequired || false,
-            authUrl: actionExec.authUrl,
-            provider: targetSlug,
-            providerName: providerDisplayName,
-            icon: providerIcon,
-            category: providerCategory,
-            instruction,
-            output: actionExec.output,
-            message: actionExec.message || `Action executed successfully on ${providerDisplayName}`
-          }
-        }
-
-        // 4. Composio Integration dynamic execution
-        const apiKey = process.env.COMPOSIO_API_KEY
-        if (!apiKey) {
-          return {
-            success: false,
-            authRequired: false,
-            provider: targetSlug,
-            providerName: providerDisplayName,
-            icon: providerIcon,
-            instruction,
-            error: 'COMPOSIO_API_KEY not configured on server.'
-          }
-        }
-
-        const { Composio } = await import('@composio/core')
-        const { VercelProvider } = await import('@composio/vercel')
-        const client = new Composio({ apiKey, provider: new VercelProvider() })
-
-        let providerTools: Record<string, any> = {}
-        try {
-          providerTools = await client.tools.get(userId, { toolkits: [targetSlug] })
-        } catch (toolsErr: any) {
-          const errMsg = toolsErr?.message || String(toolsErr)
-          if (errMsg.includes('No active connection') || errMsg.includes('auth') || errMsg.includes('401')) {
-            const link = await createComposioConnectionLink(userId, targetSlug).catch(() => ({ redirectUrl: `/integrations/${targetSlug}` }))
-            return {
-              success: false,
-              authRequired: true,
-              provider: targetSlug,
-              providerName: providerDisplayName,
-              icon: providerIcon,
-              category: providerCategory,
-              authUrl: link.redirectUrl,
-              instruction,
-              message: `Your session for ${providerDisplayName} needs authorization. Please connect your account.`
-            }
-          }
-          throw toolsErr
-        }
-
-        // Run sub-agent with dynamically discovered tools
-        const { generateText, isStepCount } = await import('ai')
-        const { getLanguageModel, pickAvailableModel } = await import('../models')
-
-        const modelId = pickAvailableModel()
-        if (!modelId) {
-          return {
-            success: false,
-            authRequired: false,
-            provider: targetSlug,
-            providerName: providerDisplayName,
-            icon: providerIcon,
-            instruction,
-            error: 'No AI provider is configured on the server.'
-          }
-        }
-        const model = getLanguageModel(modelId)
-
-        const subAgentResult = await generateText({
-          model,
-          tools: providerTools as Record<string, any>,
-          stopWhen: isStepCount(5),
-          prompt: `You are an integration executor acting on behalf of user ${userId}. You have access to ${providerDisplayName} tools.
-Please accomplish the following task:
-${instruction}
-
-Execute the necessary tool calls. If you need more information or specific identifiers (like repos, channels, or issue types), query or list them first. Summarize the outcome clearly.`
-        })
-
-        return {
-          success: true,
-          authRequired: false,
-          provider: targetSlug,
-          providerName: providerDisplayName,
-          icon: providerIcon,
-          category: providerCategory,
-          instruction,
-          toolCallsCount: subAgentResult.steps?.flatMap(s => s.toolCalls || []).length || 1,
-          output: subAgentResult.text,
-          message: subAgentResult.text
-        }
-      } catch (err: any) {
-        return {
-          success: false,
-          authRequired: false,
-          provider,
-          instruction,
-          error: err?.message || 'Tool execution failed'
-        }
+      const result = await executeIntegratedAction(userId, definition.provider, `${definition.provider}_action`, { instruction })
+      return {
+        success: result.success,
+        authRequired: result.authRequired ?? false,
+        authUrl: result.authUrl,
+        provider: definition.provider,
+        providerName: definition.name,
+        icon: definition.icon,
+        category: definition.category,
+        instruction,
+        output: result.output,
+        message: result.message,
+        ...(result.success ? {} : { error: result.message })
       }
     }
   })
 }
-

@@ -11,7 +11,8 @@
     "typecheck": "vue-tsc -p ./tsconfig.app.json",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts"
+    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts",
+    "typecheck:server": "tsc -p tsconfig.server.json"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
