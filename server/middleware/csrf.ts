@@ -31,7 +31,7 @@ export default defineHandler((event) => {
   // Exempt webhooks and third-party callback endpoints
   const path = event.path || ''
   if (path.startsWith('/api/webhooks')) {
-    return
+    return undefined
   }
 
   let token = getCookie(event, CSRF_COOKIE)
@@ -62,5 +62,6 @@ export default defineHandler((event) => {
       }
     }
   }
-})
 
+  return undefined
+})

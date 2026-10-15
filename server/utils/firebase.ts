@@ -74,18 +74,6 @@ export interface FirestoreWorkflowRun {
   createdAt: Date
 }
 
-export interface FirestoreIntegration {
-  id: string
-  userId: string
-  provider: 'gmail' | 'slack' | 'google_drive' | 'notion' | 'github'
-  name: string
-  status: 'connected' | 'disconnected'
-  account: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  config?: Record<string, any>
-  updatedAt: Date
-}
-
 export async function getUserChats(userId: string): Promise<FirestoreChat[]> {
   const db = getFirebaseDb()
   const snapshot = await db.collection('chats').where('userId', '==', userId).get()
@@ -535,59 +523,7 @@ export async function getWorkflowRuns(workflowId: string): Promise<FirestoreWork
 }
 
 // ==================== INTEGRATIONS ====================
-
-export async function getUserIntegrations(userId: string): Promise<FirestoreIntegration[]> {
-  const snapshot = await getFirebaseDb().collection('integrations').where('userId', '==', userId).get()
-
-  const list: FirestoreIntegration[] = []
-  snapshot.forEach((d) => {
-    const data = d.data()
-    list.push({
-      id: d.id,
-      userId: data.userId || userId,
-      provider: data.provider,
-      name: data.name || data.provider,
-      status: data.status || 'connected',
-      account: data.account || '',
-      config: data.config || {},
-      updatedAt: toDate(data.updatedAt, new Date())!
-    })
-  })
-
-  return list
-}
-
-export async function upsertIntegration(
-  userId: string,
-  integration: Omit<FirestoreIntegration, 'id' | 'updatedAt' | 'userId'> & { id?: string }
-): Promise<FirestoreIntegration> {
-  const docId = `${userId}_${integration.provider}`
-  const now = new Date()
-
-  const docData: FirestoreIntegration = {
-    id: docId,
-    userId,
-    provider: integration.provider,
-    name: integration.name,
-    status: integration.status,
-    account: integration.account,
-    config: integration.config || {},
-    updatedAt: now
-  }
-
-  await getFirebaseDb().collection('integrations').doc(docId).set(sanitizeForFirestore({
-    id: docData.id,
-    userId: docData.userId,
-    provider: docData.provider,
-    name: docData.name,
-    status: docData.status,
-    account: docData.account,
-    config: docData.config,
-    updatedAt: now.toISOString()
-  }), { merge: true })
-
-  return docData
-}
+// Connections live in Composio. Only the cleanup of legacy "marked as connected" records remains here.
 
 export async function deleteIntegration(userId: string, provider: string): Promise<void> {
   await getFirebaseDb().collection('integrations').doc(`${userId}_${provider}`).delete()

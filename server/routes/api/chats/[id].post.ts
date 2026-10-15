@@ -64,8 +64,10 @@ export default defineHandler(async (event) => {
             }
           }
         }
-        if (typeof msg.content === 'string' && msg.content.trim()) {
-          return msg.content.trim()
+        // Legacy messages saved before the parts format carried plain `content`.
+        const legacy = (msg as { content?: unknown }).content
+        if (typeof legacy === 'string' && legacy.trim()) {
+          return legacy.trim()
         }
       }
     }

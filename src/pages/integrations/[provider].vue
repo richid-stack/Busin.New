@@ -82,15 +82,9 @@ const googleScopesConfig: Record<string, { scope: string; title: string; descrip
 
 function handleConnect() {
   if (!integration.value) return
-  if (integration.value.type === 'native' || integration.value.category === 'google') {
-    const config = googleScopesConfig[integration.value.provider] || []
-    selectedScopes.value = config.filter(s => s.defaultChecked).map(s => s.scope)
-    authError.value = null
-    isOAuthConnecting.value = false
-    isScopeReviewOpen.value = true
-  } else {
-    startComposioConnect()
-  }
+  // Google Workspace apps connect through the same hosted authorization flow as every other app.
+  authError.value = null
+  startComposioConnect()
 }
 
 async function startGoogleOAuthPopup() {
@@ -163,8 +157,14 @@ async function startComposioConnect() {
         'width=600,height=750,status=yes,scrollbars=yes'
       )
 
+      if (!popup) {
+        authError.value = 'The authorization window was blocked. Allow pop-ups for this site and try again.'
+        connecting.value = false
+        return
+      }
+
       const timer = setInterval(async () => {
-        if (!popup || popup.closed) {
+        if (popup.closed) {
           clearInterval(timer)
           connecting.value = false
           await fetchIntegrations()
@@ -174,8 +174,9 @@ async function startComposioConnect() {
       await fetchIntegrations()
       connecting.value = false
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Connection failed:', err)
+    authError.value = err?.data?.statusMessage || err?.statusMessage || err?.message || 'Could not start the connection.'
     connecting.value = false
   }
 }
