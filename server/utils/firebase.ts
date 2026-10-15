@@ -59,7 +59,7 @@ export interface FirestoreWorkflowRun {
   id: string
   workflowId: string
   userId: string
-  status: 'completed' | 'failed' | 'running' | 'waiting_approval'
+  status: 'completed' | 'failed' | 'running' | 'waiting_approval' | 'rejected'
   approvalNodeId?: string
   approvalPrompt?: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,37 +264,54 @@ export async function saveChatMessage(
   }), { merge: true })
 }
 
+/**
+ * Saves a conversation. Messages that already exist keep their original `createdAt`
+ * (pass them in `existingCreatedAt`); new ones get increasing timestamps in array order,
+ * so history order is stable across saves.
+ */
 export async function saveChatMessages(
   chatId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  messages: Array<{ id: string, role: string, parts: any[] }>
+  messages: Array<{ id: string, role: string, parts: any[] }>,
+  existingCreatedAt: Map<string, Date> = new Map()
 ) {
   const db = getFirebaseDb()
-  const batch = db.batch()
+  const base = Math.max(Date.now(), ...[...existingCreatedAt.values()].map(d => d.getTime() + 1))
+  let offset = 0
 
-  for (const msg of messages) {
-    const ref = db.collection('chats').doc(chatId).collection('messages').doc(msg.id)
-    batch.set(ref, sanitizeForFirestore({
-      id: msg.id,
-      chatId,
-      role: msg.role,
-      parts: msg.parts || [],
-      createdAt: new Date().toISOString()
-    }), { merge: true })
+  const writes = messages.map((msg) => {
+    const createdAt = existingCreatedAt.get(msg.id) ?? new Date(base + offset++)
+    return {
+      ref: db.collection('chats').doc(chatId).collection('messages').doc(msg.id),
+      data: sanitizeForFirestore({
+        id: msg.id,
+        chatId,
+        role: msg.role,
+        parts: msg.parts || [],
+        createdAt: createdAt.toISOString()
+      })
+    }
+  })
+
+  // Firestore batches are limited to 500 operations.
+  for (let i = 0; i < writes.length; i += 400) {
+    const batch = db.batch()
+    for (const w of writes.slice(i, i + 400)) batch.set(w.ref, w.data, { merge: true })
+    await batch.commit()
   }
-
-  await batch.commit()
 }
 
 export async function deleteChatMessages(chatId: string, messageIds: string[]) {
   const db = getFirebaseDb()
-  const batch = db.batch()
 
-  for (const id of messageIds) {
-    batch.delete(db.collection('chats').doc(chatId).collection('messages').doc(id))
+  // Firestore batches are limited to 500 operations.
+  for (let i = 0; i < messageIds.length; i += 400) {
+    const batch = db.batch()
+    for (const id of messageIds.slice(i, i + 400)) {
+      batch.delete(db.collection('chats').doc(chatId).collection('messages').doc(id))
+    }
+    await batch.commit()
   }
-
-  await batch.commit()
 }
 
 export async function getChatVotes(chatId: string): Promise<FirestoreVote[]> {
@@ -352,6 +369,16 @@ function toWorkflow(id: string, data: Record<string, any>, userIdFallback = ''):
   }
 }
 
+/**
+ * The built-in "client-onboarding-pipeline" / "default" aliases point at a per-user copy,
+ * never at a shared document.
+ */
+export function resolveWorkflowId(userId: string, id: string): string {
+  return id === 'client-onboarding-pipeline' || id === 'default'
+    ? `client-onboarding-pipeline__${userId}`
+    : id
+}
+
 export function generateWebhookSecret(): string {
   return randomBytes(24).toString('hex')
 }
@@ -405,7 +432,8 @@ export async function createWorkflow(data: {
     updatedAt: now
   }
 
-  await getFirebaseDb().collection('workflows').doc(workflowId).set(sanitizeForFirestore({
+  // create() fails if the id already exists, so one user can never overwrite another's workflow.
+  await getFirebaseDb().collection('workflows').doc(workflowId).create(sanitizeForFirestore({
     id: workflow.id,
     title: workflow.title,
     description: workflow.description,
@@ -442,9 +470,9 @@ function toWorkflowRun(id: string, workflowId: string, data: Record<string, any>
     workflowId,
     userId: data.userId || '',
     status: data.status || 'completed',
-    approvalNodeId: data.approvalNodeId,
-    approvalPrompt: data.approvalPrompt,
-    approvalData: data.approvalData,
+    approvalNodeId: data.approvalNodeId || undefined,
+    approvalPrompt: data.approvalPrompt || undefined,
+    approvalData: data.approvalData || undefined,
     input: data.input || {},
     output: data.output || {},
     logs: data.logs || [],
@@ -453,7 +481,7 @@ function toWorkflowRun(id: string, workflowId: string, data: Record<string, any>
   }
 }
 
-export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWorkflowRun, 'createdAt'> & { createdAt?: Date }): Promise<FirestoreWorkflowRun> {
+export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWorkflowRun, 'createdAt' | 'id'> & { id?: string, createdAt?: Date }): Promise<FirestoreWorkflowRun> {
   const runId = run.id || crypto.randomUUID()
   const now = run.createdAt || new Date()
 
@@ -489,7 +517,7 @@ export async function getWorkflowRun(workflowId: string, runId: string): Promise
   return toWorkflowRun(runDoc.id, workflowId, runDoc.data()!)
 }
 
-export async function updateWorkflowRun(workflowId: string, runId: string, data: Partial<FirestoreWorkflowRun>): Promise<void> {
+export async function updateWorkflowRun(workflowId: string, runId: string, data: { [K in keyof FirestoreWorkflowRun]?: FirestoreWorkflowRun[K] | null }): Promise<void> {
   await getFirebaseDb().collection('workflows').doc(workflowId).collection('runs').doc(runId).update(sanitizeForFirestore({
     ...data
   }))

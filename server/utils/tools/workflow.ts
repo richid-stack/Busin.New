@@ -1,7 +1,8 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { createWorkflow, getWorkflow, saveWorkflowRun } from '../firebase'
-import { executeWorkflowDAG, DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../workflowEngine'
+import { createWorkflow, getWorkflow, resolveWorkflowId } from '../firebase'
+import { DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../workflowEngine'
+import { executeAndRecordRun } from '../workflowRuns'
 import { getResolvedUserIntegrations, ALL_INTEGRATIONS_CATALOG, executeIntegratedAction } from '../../services/integrations/registry'
 import { createComposioConnectionLink } from '../../services/composio/client'
 
@@ -10,21 +11,6 @@ export const createWorkflowCreateTool = (userId: string) => tool({
 Use this whenever the user asks to create an automation, pipeline, or connect Google Workspace (Gmail, Drive, Calendar, Docs, Sheets) or third-party apps (Slack, Discord, Notion, Linear, Jira, GitHub, Trello, Asana, etc.) to perform multi-step AI tasks.
 This builds the topology, saves it to the database, and provides direct access to Workflow Studio.`,
   inputSchema: z.object({
-    title: z.string().describe('The name of the workflow, e.g. "Client Onboarding Pipeline"'),
-    description: z.string().describe('Short explanation of what the workflow automates'),
-    triggerProvider: z.string().default('gmail').describe('Source event service (e.g. gmail, slack, github, webhook, schedule)'),
-    triggerEvent: z.string().default('New Email Received').describe('Event name'),
-    steps: z.array(z.object({
-      id: z.string().describe('Unique slug ID, e.g. "ai-triage" or "action-slack"'),
-      type: z.enum(['agent', 'action']).describe('agent for AI reasoning, action for service dispatch'),
-      title: z.string().describe('Display title of this step'),
-      subtitle: z.string().describe('Short description or model name, e.g. "Gemini 3.5 Flash" or "Action • Slack"'),
-      prompt: z.string().optional().describe('System prompt for AI agent steps'),
-      provider: z.string().optional().describe('Service provider for action steps (e.g. "google_drive", "slack", "notion", "linear", "jira", "discord", "gmail")'),
-      connection: z.string().optional().describe('Account or workspace name')
-    })).describe('Sequential or branching steps in this workflow')
-  }),
-  parameters: z.object({
     title: z.string().describe('The name of the workflow, e.g. "Client Onboarding Pipeline"'),
     description: z.string().describe('Short explanation of what the workflow automates'),
     triggerProvider: z.string().default('gmail').describe('Source event service (e.g. gmail, slack, github, webhook, schedule)'),
@@ -136,24 +122,24 @@ This builds the topology, saves it to the database, and provides direct access t
 })
 
 export const createWorkflowRunTool = (userId: string) => tool({
-  description: `Trigger a test run or active execution of an existing workflow. Executes all nodes using the AI engine and provides real-time outputs and logs.`,
+  description: `Trigger a test run or active execution of an existing workflow. Executes all nodes using the AI engine and provides real outputs and logs.`,
   inputSchema: z.object({
     workflowId: z.string().default('client-onboarding-pipeline').describe('ID of the workflow to run'),
-    inputSummary: z.string().optional().describe('Summary or text of test trigger event')
-  }),
-  parameters: z.object({
-    workflowId: z.string().default('client-onboarding-pipeline').describe('ID of the workflow to run'),
-    inputSummary: z.string().optional().describe('Summary or text of test trigger event')
+    inputSummary: z.string().optional().describe('Text describing the test trigger event (made available to the workflow as the trigger payload)')
   }),
   execute: async ({ workflowId, inputSummary }) => {
     try {
-      let workflow = await getWorkflow(workflowId)
+      const id = resolveWorkflowId(userId, workflowId)
+      let workflow = await getWorkflow(id)
       if (workflow && workflow.userId !== userId) {
         return { success: false, error: 'Workflow not found' }
       }
       if (!workflow) {
+        if (id === workflowId) {
+          return { success: false, error: `Workflow "${workflowId}" was not found` }
+        }
         workflow = {
-          id: workflowId,
+          id,
           title: 'Client Onboarding Pipeline',
           description: 'Client Onboarding Pipeline',
           userId,
@@ -164,41 +150,29 @@ export const createWorkflowRunTool = (userId: string) => tool({
         }
       }
 
-      const inputPayload = inputSummary ? {
-        email: {
-          sender: 'client@example.com',
-          subject: 'Custom Request',
-          body: inputSummary
-        }
-      } : undefined
+      const inputPayload = inputSummary
+        ? { source: 'chat_test_run', text: inputSummary }
+        : undefined
 
-      const result = await executeWorkflowDAG(workflow, inputPayload, userId)
+      const { run, result } = await executeAndRecordRun(workflow, inputPayload, userId)
 
-      const runRecord = await saveWorkflowRun(workflow.id, {
-        workflowId: workflow.id,
-        approvalNodeId: result.approvalNodeId,
-        approvalPrompt: result.approvalPrompt,
-        approvalData: result.approvalData,
-        userId,
-        status: result.status,
-        input: inputPayload || {},
-        output: result.outputs,
-        logs: result.logs,
-        durationMs: result.durationMs
-      })
-
+      const failed = result.logs.filter(l => l.status === 'failed' || l.status === 'auth_required')
       return {
-        success: true,
-        runId: runRecord.id,
+        success: result.status === 'completed' || result.status === 'waiting_approval',
+        runId: run.id,
         workflowId: workflow.id,
         title: workflow.title,
+        status: result.status,
         approvalPrompt: result.approvalPrompt,
         approvalData: result.approvalData,
-        status: result.status,
         durationMs: result.durationMs,
-        stepsExecuted: result.logs.length,
+        steps: result.logs.map(l => ({ nodeId: l.nodeId, title: l.nodeTitle, status: l.status, message: l.message, authUrl: l.authUrl })),
         outputs: result.outputs,
-        summary: `Workflow "${workflow.title}" ran successfully in ${result.durationMs}ms across ${result.logs.length} nodes.`
+        summary: result.status === 'completed'
+          ? `Workflow "${workflow.title}" completed in ${result.durationMs}ms across ${result.logs.length} steps.`
+          : result.status === 'waiting_approval'
+            ? `Workflow "${workflow.title}" is paused and waiting for approval.`
+            : `Workflow "${workflow.title}" ${result.status}: ${failed.map(f => `${f.nodeTitle} (${f.message})`).join('; ') || 'see step logs'}.`
       }
     } catch (err: any) {
       return {
@@ -212,7 +186,6 @@ export const createWorkflowRunTool = (userId: string) => tool({
 export const createIntegrationStatusTool = (userId: string) => tool({
   description: `Check the connection status and capabilities of integrated external services (Native Google: Gmail, Drive, Calendar, Docs, Sheets; and third-party services: Slack, Discord, Notion, Linear, Jira, GitHub).`,
   inputSchema: z.object({}),
-  parameters: z.object({}),
 execute: async () => {
     try {
       const integrations = await getResolvedUserIntegrations(userId)
@@ -293,10 +266,6 @@ export function createIntegrationExecuteTool(userId: string) {
 Use this when the user asks you to interact with, create items in, read from, or automate any third-party app.
 Provide the provider slug (e.g. 'github', 'slack', 'linear') and a natural language instruction of what you want to accomplish.`,
     inputSchema: z.object({
-      provider: z.string().describe('The service provider slug, e.g. "github", "slack", "gmail", "salesforce", "linear", "notion"'),
-      instruction: z.string().describe('Detailed natural language instruction of what to do (e.g. "Create a high priority issue titled User Login Bug with description...")')
-    }),
-    parameters: z.object({
       provider: z.string().describe('The service provider slug, e.g. "github", "slack", "gmail", "salesforce", "linear", "notion"'),
       instruction: z.string().describe('Detailed natural language instruction of what to do (e.g. "Create a high priority issue titled User Login Bug with description...")')
     }),
@@ -398,18 +367,27 @@ Provide the provider slug (e.g. 'github', 'slack', 'linear') and a natural langu
         }
 
         // Run sub-agent with dynamically discovered tools
-        const { createGoogleGenerativeAI } = await import('@ai-sdk/google')
-        const { generateText } = await import('ai')
+        const { generateText, isStepCount } = await import('ai')
+        const { getLanguageModel, pickAvailableModel } = await import('../models')
 
-        const google = createGoogleGenerativeAI({
-          apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || ''
-        })
-        const model = google('gemini-2.5-flash', { structuredOutputs: false })
+        const modelId = pickAvailableModel()
+        if (!modelId) {
+          return {
+            success: false,
+            authRequired: false,
+            provider: targetSlug,
+            providerName: providerDisplayName,
+            icon: providerIcon,
+            instruction,
+            error: 'No AI provider is configured on the server.'
+          }
+        }
+        const model = getLanguageModel(modelId)
 
         const subAgentResult = await generateText({
           model,
           tools: providerTools as Record<string, any>,
-          maxSteps: 5,
+          stopWhen: isStepCount(5),
           prompt: `You are an integration executor acting on behalf of user ${userId}. You have access to ${providerDisplayName} tools.
 Please accomplish the following task:
 ${instruction}

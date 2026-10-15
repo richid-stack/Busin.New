@@ -1,10 +1,10 @@
 import { defineHandler, HTTPError } from 'nitro'
 import { getValidatedRouterParams, readBody, getQuery } from 'nitro/h3'
 import { z } from 'zod'
-import { getWorkflow, saveWorkflowRun, getUserChats, createChat, saveChatMessage } from '../../../utils/firebase'
+import { getWorkflow } from '../../../utils/firebase'
 import crypto from 'node:crypto'
 import { getHeader } from 'nitro/h3'
-import { executeWorkflowDAG } from '../../../utils/workflowEngine'
+import { executeAndRecordRun } from '../../../utils/workflowRuns'
 
 export default defineHandler(async (event) => {
   const { workflowId } = await getValidatedRouterParams(event, z.object({
@@ -36,6 +36,10 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 401, statusMessage: 'Invalid or missing webhook secret' })
   }
 
+  if (workflow.status !== 'active') {
+    throw new HTTPError({ statusCode: 409, statusMessage: `Workflow is ${workflow.status} and cannot be triggered` })
+  }
+
   // Never persist the secret into run inputs/logs
   const safeHeaders = Object.fromEntries(event.headers.entries())
   delete safeHeaders['x-webhook-secret']
@@ -52,7 +56,7 @@ export default defineHandler(async (event) => {
   const triggerNode = workflow.nodes?.find(n =>
     n.type === 'trigger' && (n.data?.provider === 'webhook' || n.data?.subtype === 'webhook')
   ) || workflow.nodes?.find(n => n.type === 'trigger')
-  
+
   const inputMap: Record<string, any> = {}
   if (triggerNode) {
     inputMap[triggerNode.id] = payload
@@ -60,60 +64,13 @@ export default defineHandler(async (event) => {
   inputMap['webhook'] = payload
   inputMap['trigger'] = payload
 
-  // Execute the workflow DAG
-  const runResult = await executeWorkflowDAG(workflow, inputMap, workflow.userId)
-
-  // Save the run log to Firestore
-  const savedRun = await saveWorkflowRun(workflow.id, {
-    workflowId: workflow.id,
-    userId: workflow.userId,
-    status: runResult.status,
-    approvalNodeId: runResult.approvalNodeId,
-    approvalPrompt: runResult.approvalPrompt,
-    approvalData: runResult.approvalData,
-    input: inputMap,
-    output: runResult.outputs,
-    logs: runResult.logs,
-    durationMs: runResult.durationMs
-  })
-
-  
-  if (runResult.status === 'waiting_approval') {
-    const chats = await getUserChats(workflow.userId)
-    let targetChat = chats[0]
-    if (!targetChat) {
-      targetChat = await createChat({ userId: workflow.userId, title: 'Workflow Approvals', visibility: 'private' })
-    }
-    
-    await saveChatMessage(targetChat.id, {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      parts: [
-        {
-          type: 'tool-invocation',
-          toolInvocation: {
-            toolCallId: `call_${crypto.randomUUID()}`,
-            toolName: 'workflow_approval',
-            args: {
-              workflowId: workflow.id,
-              runId: savedRun.id,
-              title: workflow.title,
-              prompt: runResult.approvalPrompt,
-              approvalData: runResult.approvalData
-            },
-            state: 'call'
-          }
-        }
-      ],
-      createdAt: new Date()
-    })
-  }
+  const { run, result } = await executeAndRecordRun(workflow, inputMap, workflow.userId)
 
   return {
-    success: true,
-    runId: savedRun.id,
-    status: runResult.status,
-    approvalRequired: runResult.status === 'waiting_approval',
-    durationMs: runResult.durationMs
+    success: result.status !== 'failed',
+    runId: run.id,
+    status: result.status,
+    approvalRequired: result.status === 'waiting_approval',
+    durationMs: result.durationMs
   }
 })

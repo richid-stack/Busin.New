@@ -2,21 +2,22 @@ import { defineHandler, HTTPError } from 'nitro'
 import { getValidatedRouterParams } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
-import { getWorkflow, updateWorkflow, generateWebhookSecret } from '../../../utils/firebase'
+import { getWorkflow, updateWorkflow, generateWebhookSecret, resolveWorkflowId } from '../../../utils/firebase'
 import { DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../../../utils/workflowEngine'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
 
-  const { id } = await getValidatedRouterParams(event, z.object({
+  const { id: requestedId } = await getValidatedRouterParams(event, z.object({
     id: z.string()
   }).parse)
+  const id = resolveWorkflowId(user.id, requestedId)
 
   const workflow = await getWorkflow(id)
 
   if (!workflow) {
     // Template of the default pipeline for this user (not persisted until they save it)
-    if (id === 'client-onboarding-pipeline' || id === 'default') {
+    if (id !== requestedId) {
       return {
         id,
         title: 'Client Onboarding Pipeline',

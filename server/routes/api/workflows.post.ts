@@ -2,14 +2,14 @@ import { defineHandler, HTTPError } from 'nitro'
 import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../utils/session'
-import { createWorkflow } from '../../utils/firebase'
+import { createWorkflow, resolveWorkflowId } from '../../utils/firebase'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
   const userId = user.id
 
   const body = await readValidatedBody(event, z.object({
-    id: z.string().optional(),
+    id: z.string().regex(/^[\w-]{1,128}$/).optional(),
     title: z.string().min(1),
     description: z.string().optional(),
     status: z.enum(['active', 'draft', 'paused']).optional().default('active'),
@@ -17,15 +17,24 @@ export default defineHandler(async (event) => {
     edges: z.array(z.any()).default([])
   }).parse)
 
-  const workflow = await createWorkflow({
-    id: body.id,
+  let workflow
+  try {
+    workflow = await createWorkflow({
+    id: body.id ? resolveWorkflowId(userId, body.id) : undefined,
     title: body.title,
     description: body.description,
     status: body.status,
     nodes: body.nodes,
     edges: body.edges,
     userId
-  })
+    })
+  } catch (err: any) {
+    // Firestore ALREADY_EXISTS (gRPC code 6)
+    if (err?.code === 6 || /already exists/i.test(err?.message || '')) {
+      throw new HTTPError({ statusCode: 409, statusMessage: 'A workflow with this id already exists' })
+    }
+    throw err
+  }
 
   if (!workflow) {
     throw new HTTPError({ statusCode: 500, statusMessage: 'Failed to create workflow' })
