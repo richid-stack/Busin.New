@@ -2,7 +2,7 @@ import { defineHandler, HTTPError } from 'nitro'
 import { getValidatedRouterParams } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
-import { getWorkflow } from '../../../utils/firebase'
+import { getWorkflow, updateWorkflow, generateWebhookSecret } from '../../../utils/firebase'
 import { DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../../../utils/workflowEngine'
 
 export default defineHandler(async (event) => {
@@ -34,6 +34,12 @@ export default defineHandler(async (event) => {
 
   if (workflow.userId !== user.id) {
     throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
+  }
+
+  // Workflows created before webhook secrets existed get one on first owner access.
+  if (!workflow.webhookSecret) {
+    workflow.webhookSecret = generateWebhookSecret()
+    await updateWorkflow(id, { webhookSecret: workflow.webhookSecret })
   }
 
   return workflow
