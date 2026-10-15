@@ -3,6 +3,7 @@ import { getValidatedRouterParams, readBody, getQuery } from 'nitro/h3'
 import { z } from 'zod'
 import { getWorkflow, saveWorkflowRun, getUserChats, createChat, saveChatMessage } from '../../../utils/firebase'
 import crypto from 'node:crypto'
+import { getHeader } from 'nitro/h3'
 import { executeWorkflowDAG } from '../../../utils/workflowEngine'
 
 export default defineHandler(async (event) => {
@@ -25,10 +26,25 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
   }
 
+  // The endpoint is public, so every call must present the workflow's secret
+  // (`x-webhook-secret` header or `?secret=`). Compared in constant time.
+  const provided = getHeader(event, 'x-webhook-secret') || (typeof query.secret === 'string' ? query.secret : '')
+  const expected = workflow.webhookSecret || ''
+  const a = Buffer.from(provided)
+  const b = Buffer.from(expected)
+  if (!expected || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    throw new HTTPError({ statusCode: 401, statusMessage: 'Invalid or missing webhook secret' })
+  }
+
+  // Never persist the secret into run inputs/logs
+  const safeHeaders = Object.fromEntries(event.headers.entries())
+  delete safeHeaders['x-webhook-secret']
+  const { secret: _secret, ...safeQuery } = query as Record<string, unknown>
+
   const payload = {
     method: event.method,
-    headers: Object.fromEntries(event.headers.entries()),
-    query,
+    headers: safeHeaders,
+    query: safeQuery,
     body
   }
 
