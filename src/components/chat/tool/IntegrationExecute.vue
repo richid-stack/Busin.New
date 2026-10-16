@@ -102,8 +102,11 @@ const isSuccess = computed(() => {
 })
 
 const outputText = computed(() => {
-  if (!toolResult.value) return ''
-  return toolResult.value.output || toolResult.value.message || ''
+  const result = toolResult.value
+  if (!result) return ''
+  // `output` is an object ({ summary, toolCalls }) for runner results and plain text for older messages.
+  if (typeof result.output === 'string') return result.output
+  return result.output?.summary || result.message || ''
 })
 
 const errorMessage = computed(() => {
@@ -111,7 +114,7 @@ const errorMessage = computed(() => {
 })
 
 const toolCallsCount = computed(() => {
-  return toolResult.value?.toolCallsCount || 1
+  return toolResult.value?.output?.toolCalls || toolResult.value?.toolCallsCount || 1
 })
 
 function copyOutput() {
@@ -126,34 +129,31 @@ function copyOutput() {
 </script>
 
 <template>
-  <div id="integration-card-wrapper" class="my-3 font-sans w-full max-w-2xl">
+  <div class="my-3 font-sans w-full max-w-2xl">
     <!-- STATE 1: AUTHENTICATION / CONNECTION REQUIRED -->
     <div
       v-if="requiresAuth"
-      id="integration-auth-required-card"
       class="relative overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-gradient-to-b from-neutral-50/90 to-neutral-100/50 dark:from-neutral-900/90 dark:to-neutral-950/60 p-5 shadow-xs transition-all"
     >
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-start sm:items-center gap-3.5 min-w-0">
           <!-- Authentic Brand Favicon / Logo Container -->
           <div
-            id="integration-brand-tile"
             class="size-11 sm:size-12 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/60 shadow-xs flex items-center justify-center shrink-0"
           >
-            <UIcon :name="providerIcon" class="size-6 sm:size-7 text-foreground" />
+            <UIcon :name="providerIcon" class="size-6 sm:size-7 text-default" />
           </div>
 
           <div class="min-w-0">
             <div class="flex items-center gap-2 mb-1">
               <span
-                id="integration-auth-badge"
                 class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20"
               >
                 <UIcon name="i-lucide-shield-alert" class="size-3" />
                 Connection Required
               </span>
             </div>
-            <h4 class="text-base font-semibold text-foreground tracking-tight m-0">
+            <h4 class="text-base font-semibold text-default tracking-tight m-0">
               Connect {{ providerDisplayName }}
             </h4>
             <p class="text-xs text-muted mt-0.5 m-0 leading-relaxed">
@@ -165,7 +165,6 @@ function copyOutput() {
         <!-- Connect Action Button -->
         <div class="shrink-0 flex items-center gap-2 self-start sm:self-center">
           <UButton
-            id="integration-connect-button"
             :to="authUrl"
             target="_blank"
             color="primary"
@@ -183,13 +182,12 @@ function copyOutput() {
 
       <!-- Action Context Box -->
       <div
-        id="integration-prompt-context"
         class="mt-4 p-3 rounded-xl bg-white/80 dark:bg-neutral-900/80 border border-neutral-200/70 dark:border-neutral-800/80 flex items-start gap-2.5 text-xs text-muted"
       >
         <UIcon name="i-lucide-terminal" class="size-4 shrink-0 text-muted mt-0.5" />
         <div class="min-w-0 leading-relaxed">
-          <span class="font-medium text-foreground">Requested Operation:</span>
-          <span class="ml-1 text-foreground/90">{{ instruction }}</span>
+          <span class="font-medium text-default">Requested Operation:</span>
+          <span class="ml-1 text-default">{{ instruction }}</span>
         </div>
       </div>
     </div>
@@ -197,16 +195,15 @@ function copyOutput() {
     <!-- STATE 2: ACTION EXECUTING / STREAMING -->
     <div
       v-else-if="isExecuting"
-      id="integration-executing-card"
       class="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-xs flex items-center gap-3.5"
     >
       <div class="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0 border border-neutral-200/60 dark:border-neutral-700/60">
-        <UIcon :name="providerIcon" class="size-5 text-foreground" />
+        <UIcon :name="providerIcon" class="size-5 text-default" />
       </div>
 
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
-          <span class="text-sm font-medium text-foreground">Executing on {{ providerDisplayName }}</span>
+          <span class="text-sm font-medium text-default">Executing on {{ providerDisplayName }}</span>
           <UIcon name="i-lucide-loader-2" class="size-3.5 text-muted animate-spin shrink-0" />
         </div>
         <p class="text-xs text-muted truncate mt-0.5 m-0">{{ instruction }}</p>
@@ -216,18 +213,17 @@ function copyOutput() {
     <!-- STATE 3: EXECUTION SUCCESS -->
     <div
       v-else-if="isSuccess"
-      id="integration-success-card"
       class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 sm:p-5 shadow-xs transition-all"
     >
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-center gap-3">
           <div class="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0 border border-neutral-200/60 dark:border-neutral-700/60">
-            <UIcon :name="providerIcon" class="size-5 text-foreground" />
+            <UIcon :name="providerIcon" class="size-5 text-default" />
           </div>
 
           <div>
             <div class="flex items-center gap-2">
-              <h4 class="text-sm font-semibold text-foreground m-0">
+              <h4 class="text-sm font-semibold text-default m-0">
                 {{ providerDisplayName }}
               </h4>
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
@@ -246,7 +242,6 @@ function copyOutput() {
 
         <div v-if="outputText" class="shrink-0">
           <UButton
-            id="integration-copy-output-btn"
             variant="ghost"
             color="neutral"
             size="xs"
@@ -261,8 +256,7 @@ function copyOutput() {
       <!-- Execution Output Display -->
       <div
         v-if="outputText"
-        id="integration-output-block"
-        class="mt-3.5 p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/70 border border-neutral-200/70 dark:border-neutral-800/80 text-xs text-foreground/90 font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto"
+        class="mt-3.5 p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/70 border border-neutral-200/70 dark:border-neutral-800/80 text-xs text-default font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto"
       >
         {{ outputText }}
       </div>
@@ -271,7 +265,6 @@ function copyOutput() {
     <!-- STATE 4: EXECUTION ERROR -->
     <div
       v-else
-      id="integration-error-card"
       class="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-4 shadow-xs"
     >
       <div class="flex items-start gap-3">
@@ -287,7 +280,6 @@ function copyOutput() {
           </p>
           <div v-if="authUrl" class="mt-3">
             <UButton
-              id="integration-error-reconnect-btn"
               :to="authUrl"
               target="_blank"
               color="error"

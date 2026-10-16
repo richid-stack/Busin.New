@@ -6,43 +6,22 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { useChats } from '../composables/useChats'
 import { useCsrf } from '../composables/useCsrf'
 import { useUserSession } from '../composables/useUserSession'
+import { useFirebaseAuth } from '../composables/useFirebaseAuth'
+import { usePromptAttachments } from '../composables/usePromptAttachments'
 import Navbar from '../components/Navbar.vue'
+import PromptAttachments from '../components/PromptAttachments.vue'
 
-import { compressImage } from '../utils/image'
-
+const toast = useToast()
 const { fetchChats } = useChats()
 const { csrf, headerName } = useCsrf()
-const { user } = useUserSession()
+const { user, loggedIn } = useUserSession()
+const { openAuthModal } = useFirebaseAuth()
+const { attachments, processing, onInputChange, remove, clear, toApiAttachments } = usePromptAttachments()
+
 const input = ref('')
 const loading = ref(false)
 const router = useRouter()
-const attachments = ref<Array<{ file: File, url: string }>>([])
 const fileInput = ref<HTMLInputElement | null>(null)
-
-async function handleFileSelect(e: Event) {
-  const target = e.target as HTMLInputElement
-  if (target.files) {
-    const newAttachments = await Promise.all(
-      Array.from(target.files).map(async (file) => {
-        const compressed = await compressImage(file)
-        return {
-          file: compressed,
-          url: compressed.type.startsWith('image/') ? URL.createObjectURL(compressed) : ''
-        }
-      })
-    )
-    attachments.value = [...attachments.value, ...newAttachments]
-  }
-  target.value = ''
-}
-
-function removeAttachment(index: number) {
-  const attachment = attachments.value[index]
-  if (attachment && attachment.url) {
-    URL.revokeObjectURL(attachment.url)
-  }
-  attachments.value.splice(index, 1)
-}
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -56,29 +35,10 @@ const greeting = computed(() => {
 })
 
 async function createChat(prompt: string) {
+  if (loading.value || processing.value) return
   if (!prompt.trim() && attachments.value.length === 0) return
 
-  input.value = prompt
   loading.value = true
-
-  let experimental_attachments = undefined
-  if (attachments.value.length > 0) {
-    experimental_attachments = await Promise.all(
-      attachments.value.map(async (attachment) => {
-        return new Promise<{ name: string; contentType: string; url: string }>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            resolve({
-              name: attachment.file.name,
-              contentType: attachment.file.type,
-              url: reader.result as string
-            })
-          }
-          reader.readAsDataURL(attachment.file)
-        })
-      })
-    )
-  }
 
   try {
     const chat = await $fetch('/api/chats', {
@@ -86,14 +46,22 @@ async function createChat(prompt: string) {
       headers: { [headerName]: csrf() },
       body: {
         input: prompt,
-        attachments: experimental_attachments
+        attachments: attachments.value.length > 0 ? await toApiAttachments() : undefined
       }
     })
 
+    clear()
     fetchChats()
     if (chat?.id) {
       router.push(`/chat/${chat.id}`)
     }
+  } catch (err: any) {
+    toast.add({
+      title: 'Could not start the chat',
+      description: err?.data?.statusMessage || err?.statusMessage || 'Please try again in a moment.',
+      icon: 'i-lucide-alert-circle',
+      color: 'error'
+    })
   } finally {
     loading.value = false
   }
@@ -106,14 +74,14 @@ function onSubmit() {
 const mcpItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      label: 'Upload Files',
+      label: 'Upload files',
       icon: 'i-lucide-paperclip',
       onSelect: () => {
         fileInput.value?.click()
       }
     },
     {
-      label: 'Web Search (Agent)',
+      label: 'Search the web',
       icon: 'i-lucide-globe',
       onSelect: () => {
         input.value = 'Search the web for: '
@@ -122,36 +90,17 @@ const mcpItems = computed<DropdownMenuItem[][]>(() => [
   ],
   [
     {
-      label: 'Connect Gmail',
-      icon: 'i-logos-google-gmail',
-      onSelect: () => {
-        input.value = 'Connect my Gmail account and check for client inquiries'
-        onSubmit()
-      }
-    },
-    {
-      label: 'Connect Slack',
-      icon: 'i-logos-slack-icon',
-      onSelect: () => {
-        input.value = 'Connect Slack workspace and alerts'
-        onSubmit()
-      }
-    },
-    {
-      label: 'Connect Google Drive',
-      icon: 'i-logos-google-drive',
-      onSelect: () => {
-        input.value = 'Connect Google Drive and check shared folders'
-        onSubmit()
-      }
-    }
-  ],
-  [
-    {
-      label: 'Create Automated Workflow',
+      label: 'Workflow Studio',
       icon: 'i-lucide-workflow',
       onSelect: () => {
         router.push('/workflows')
+      }
+    },
+    {
+      label: 'Integrations',
+      icon: 'i-lucide-blocks',
+      onSelect: () => {
+        router.push('/integrations')
       }
     }
   ]
@@ -183,12 +132,27 @@ const proactiveAutomations = [
     prompt: 'Create an agent that reads my meeting transcripts and automatically extracts action items into a structured document.'
   }
 ]
+
+function startAutomation(prompt: string) {
+  // Workflow tools act on an account, so they need a signed-in user.
+  if (!loggedIn.value) {
+    toast.add({
+      title: 'Sign in to build workflows',
+      description: 'Workflows and app integrations are tied to your account.',
+      icon: 'i-lucide-lock',
+      color: 'info'
+    })
+    openAuthModal()
+    return
+  }
+  createChat(prompt)
+}
 </script>
 
 <template>
   <UDashboardPanel
     id="home"
-    class="min-h-0 flex-1 h-full bg-background"
+    class="min-h-0 flex-1 h-full"
     :ui="{ body: 'p-0 sm:p-0' }"
   >
     <template #header>
@@ -198,7 +162,7 @@ const proactiveAutomations = [
     <template #body>
       <UContainer class="flex-1 flex flex-col justify-center gap-6 sm:gap-8 py-12 max-w-4xl mx-auto">
         <div class="text-center space-y-2">
-          <h1 class="text-3xl sm:text-4xl text-foreground font-semibold tracking-tight">
+          <h1 class="text-3xl sm:text-4xl text-default font-semibold tracking-tight">
             {{ greeting }}
           </h1>
           <p class="text-muted text-sm sm:text-base max-w-lg mx-auto">
@@ -207,22 +171,8 @@ const proactiveAutomations = [
         </div>
 
         <div class="flex flex-col gap-2 relative">
-          <!-- Active Connections Context Pills -->
-          <div class="flex items-center gap-2 px-1 mb-1">
-            <span class="text-xs font-medium text-muted uppercase tracking-wider mr-2">Context</span>
-            <UBadge color="neutral" variant="subtle" size="sm" class="rounded-full shadow-sm flex items-center gap-1.5">
-              <UIcon name="i-logos-google-gmail" class="size-3" />
-              Connected
-            </UBadge>
-            <UBadge color="neutral" variant="subtle" size="sm" class="rounded-full shadow-sm flex items-center gap-1.5 opacity-50 hover:opacity-100 cursor-pointer transition-opacity">
-              <UIcon name="i-logos-google-drive" class="size-3 grayscale" />
-              Connect
-            </UBadge>
-          </div>
-
           <UChatPrompt
             v-model="input"
-            :loading="loading"
             class="[view-transition-name:chat-prompt] shadow-sm border border-default rounded-2xl bg-elevated/50 backdrop-blur-md focus-within:ring-2 focus-within:ring-primary/20 transition-all"
             color="neutral"
             variant="subtle"
@@ -231,55 +181,10 @@ const proactiveAutomations = [
             @submit="onSubmit"
           >
           <template #header>
-            <div v-if="attachments.length > 0" class="flex flex-wrap gap-2 px-3 pt-3">
-              <template
-                v-for="(attachment, index) in attachments"
-                :key="index"
-              >
-                <!-- Image Attachment -->
-                <div
-                  v-if="attachment.file.type.startsWith('image/')"
-                  class="relative group"
-                >
-                  <img
-                    :src="attachment.url"
-                    class="size-16 object-cover rounded-xl border border-default shadow-sm"
-                    alt="Attachment preview"
-                  />
-                  <UButton
-                    icon="i-lucide-x"
-                    color="neutral"
-                    variant="solid"
-                    class="absolute -top-2 -right-2 !rounded-full !p-1 size-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-inverted text-inverted shadow-sm"
-                    @click="removeAttachment(index)"
-                  />
-                </div>
-                <!-- Non-Image Attachment -->
-                <div
-                  v-else
-                  class="relative group flex items-center gap-2 bg-elevated border border-default rounded-md p-1.5 text-xs max-w-[12rem] pr-8"
-                >
-                  <UIcon
-                    v-if="attachment.file.type.includes('pdf')"
-                    name="i-lucide-file-text"
-                    class="size-4 shrink-0 text-muted"
-                  />
-                  <UIcon
-                    v-else
-                    name="i-lucide-file"
-                    class="size-4 shrink-0 text-muted"
-                  />
-                  <span class="truncate">{{ attachment.file.name }}</span>
-                  <UButton
-                    icon="i-lucide-x"
-                    color="neutral"
-                    variant="ghost"
-                    class="absolute right-0.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity !p-1"
-                    @click="removeAttachment(index)"
-                  />
-                </div>
-              </template>
-            </div>
+            <PromptAttachments
+              :attachments="attachments"
+              @remove="remove"
+            />
           </template>
 
           <template #footer>
@@ -304,13 +209,14 @@ const proactiveAutomations = [
                 type="file"
                 multiple
                 class="hidden"
-                accept="image/*,application/pdf,text/plain,.doc,.docx"
-                @change="handleFileSelect"
+                accept="image/*,application/pdf,text/plain"
+                @change="onInputChange"
               >
               <ModelSelect />
             </div>
 
             <UChatPromptSubmit
+              :loading="loading"
               color="primary"
               size="sm"
               class="rounded-full"
@@ -321,27 +227,28 @@ const proactiveAutomations = [
 
         <!-- Proactive Automations -->
         <div class="mt-8">
-          <div class="flex items-center gap-2 mb-4 px-2 text-sm font-medium text-foreground">
+          <div class="flex items-center gap-2 mb-4 px-2 text-sm font-medium text-default">
             <UIcon name="i-lucide-sparkles" class="size-4 text-primary" />
             Suggested Workflows
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div
+            <button
               v-for="automation in proactiveAutomations"
               :key="automation.title"
-              class="group relative flex flex-col items-start p-5 bg-elevated border border-default rounded-2xl hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer text-left"
-              @click="createChat(automation.prompt)"
+              type="button"
+              class="group relative flex flex-col items-start p-5 bg-elevated border border-default rounded-2xl hover:border-primary/50 hover:shadow-lg focus-visible:border-primary/50 focus-visible:outline-2 focus-visible:outline-primary/30 transition-all cursor-pointer text-left"
+              @click="startAutomation(automation.prompt)"
             >
-              <div class="p-2.5 bg-background rounded-xl border border-default shadow-sm mb-4 group-hover:scale-105 transition-transform">
+              <div class="p-2.5 rounded-xl border border-default shadow-sm mb-4 group-hover:scale-105 transition-transform">
                 <UIcon :name="automation.icon" class="size-5" />
               </div>
-              <h3 class="text-sm font-semibold text-foreground mb-1">{{ automation.title }}</h3>
+              <h3 class="text-sm font-semibold text-default mb-1">{{ automation.title }}</h3>
               <p class="text-xs text-muted leading-relaxed">{{ automation.description }}</p>
-              
-              <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+
+              <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
                 <UIcon name="i-lucide-arrow-right" class="size-4 text-primary" />
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </UContainer>

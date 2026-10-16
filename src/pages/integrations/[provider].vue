@@ -273,9 +273,9 @@ const prompts = computed(() => {
         <!-- Hero Identity -->
         <div class="mb-8">
           <div class="size-16 sm:size-20 rounded-2xl bg-white dark:bg-neutral-800 shadow-sm border border-neutral-100 dark:border-neutral-700/50 flex items-center justify-center mb-6">
-            <UIcon :name="integration.icon" class="size-8 sm:size-10 text-foreground" />
+            <UIcon :name="integration.icon" class="size-8 sm:size-10 text-default" />
           </div>
-          <h1 class="text-3xl font-bold tracking-tight text-foreground mb-2">{{ integration.name }}</h1>
+          <h1 class="text-3xl font-bold tracking-tight text-default mb-2">{{ integration.name }}</h1>
           <p class="text-muted text-base md:text-lg">{{ integration.description }}</p>
         </div>
 
@@ -284,7 +284,7 @@ const prompts = computed(() => {
           <div 
             v-for="(prompt, idx) in prompts" 
             :key="idx"
-            class="bg-white/80 dark:bg-neutral-900/80 backdrop-blur shadow-sm border border-white/20 dark:border-white/5 rounded-2xl p-5 text-sm md:text-base text-foreground leading-relaxed"
+            class="bg-white/80 dark:bg-neutral-900/80 backdrop-blur shadow-sm border border-white/20 dark:border-white/5 rounded-2xl p-5 text-sm md:text-base text-default leading-relaxed"
           >
             <span class="font-semibold text-primary">{{ prompt.split(' ')[0] }}</span>
             <span>{{ prompt.substring(prompt.split(' ')[0].length) }}</span>
@@ -293,19 +293,19 @@ const prompts = computed(() => {
 
         <!-- Information List -->
         <div>
-          <h3 class="text-lg font-medium text-foreground mb-4">Information</h3>
+          <h3 class="text-lg font-medium text-default mb-4">Information</h3>
           <div class="divide-y divide-neutral-100 dark:divide-neutral-800/50 border-y border-neutral-100 dark:border-neutral-800/50 text-sm">
             <div class="flex items-center justify-between py-4">
               <span class="text-muted">Capabilities</span>
-              <span class="font-medium text-foreground text-right w-1/2 line-clamp-1">{{ integration.capabilities?.length ? integration.capabilities.length + ' actions' : 'Interactive' }}</span>
+              <span class="font-medium text-default text-right w-1/2 line-clamp-1">{{ integration.capabilities?.length ? integration.capabilities.length + ' actions' : 'Interactive' }}</span>
             </div>
             <div class="flex items-center justify-between py-4">
               <span class="text-muted">Developer</span>
-              <span class="font-medium text-foreground">{{ integration.type === 'native' ? 'Google' : 'Composio' }}</span>
+              <span class="font-medium text-default">{{ integration.type === 'native' ? 'Google' : 'Composio' }}</span>
             </div>
             <div class="flex items-center justify-between py-4">
               <span class="text-muted">Category</span>
-              <span class="font-medium text-foreground capitalize">{{ integration.category }}</span>
+              <span class="font-medium text-default capitalize">{{ integration.category }}</span>
             </div>
             <div class="flex items-center justify-between py-4">
               <span class="text-muted">Website</span>
@@ -323,7 +323,7 @@ const prompts = computed(() => {
         </div>
 
         <p class="text-xs text-muted mt-8 leading-relaxed">
-          When connected to {{ integration.name }}, this app may share relevant chats and memories to help provide context for your requests. {{ integration.name }}'s use of this data is subject to their <a :href="integration.externalLinks?.terms || '#'" target="_blank" class="underline hover:text-foreground">terms</a> and <a :href="integration.externalLinks?.privacy || '#'" target="_blank" class="underline hover:text-foreground">privacy policy</a>.
+          When connected to {{ integration.name }}, this app may share relevant chats and memories to help provide context for your requests. {{ integration.name }}'s use of this data is subject to their <a :href="integration.externalLinks?.terms || '#'" target="_blank" class="underline hover:text-default">terms</a> and <a :href="integration.externalLinks?.privacy || '#'" target="_blank" class="underline hover:text-default">privacy policy</a>.
         </p>
       </div>
     </div>
@@ -331,7 +331,7 @@ const prompts = computed(() => {
     <div v-else class="flex-1 flex justify-center items-center">
       <div class="text-center">
         <UIcon name="i-lucide-box" class="size-12 mx-auto text-muted mb-4" />
-        <h2 class="text-lg font-medium text-foreground">Integration not found</h2>
+        <h2 class="text-lg font-medium text-default">Integration not found</h2>
         <p class="text-muted mt-1">The requested plugin does not exist.</p>
       </div>
     </div>
@@ -352,7 +352,7 @@ const prompts = computed(() => {
         <UButton
           v-else
           :label="integration.type === 'native' ? 'Connect via Google' : 'Install plugin'"
-          color="black"
+          color="neutral"
           variant="solid"
           size="xl"
           class="w-full justify-center rounded-full shadow-lg dark:bg-white dark:text-black dark:hover:bg-neutral-200"
@@ -376,7 +376,7 @@ const prompts = computed(() => {
                 <UIcon :name="integration?.icon || 'i-lucide-box'" class="size-6" />
               </div>
             </div>
-            <h3 class="text-xl font-bold text-foreground text-center">Connect {{ integration?.name }}</h3>
+            <h3 class="text-xl font-bold text-default text-center">Connect {{ integration?.name }}</h3>
             <p class="text-sm text-muted text-center mt-2">
               Select the permissions you want to grant to this application. 
               These scopes are requested via standard Google OAuth.
@@ -399,7 +399,7 @@ const prompts = computed(() => {
               <div class="min-w-0 flex-1 select-none">
                 <div class="flex items-center gap-2 mb-0.5">
                   <UIcon :name="scopeDef.icon" class="size-4" />
-                  <span class="text-sm font-semibold text-foreground">{{ scopeDef.title }}</span>
+                  <span class="text-sm font-semibold text-default">{{ scopeDef.title }}</span>
                 </div>
                 <p class="text-xs text-muted leading-snug">{{ scopeDef.description }}</p>
                 <p class="text-[10px] text-muted font-mono mt-1.5 truncate">{{ scopeDef.scope }}</p>

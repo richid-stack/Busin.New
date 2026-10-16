@@ -25,7 +25,7 @@ const output = computed(() => props.invocation.output)
           <UIcon name="i-lucide-check-circle-2" class="size-5" />
         </div>
         <div>
-          <h4 class="font-semibold text-foreground text-sm">{{ output.title || props.invocation.input?.title }}</h4>
+          <h4 class="font-semibold text-default text-sm">{{ output.title || props.invocation.input?.title }}</h4>
           <p class="text-xs text-muted">{{ output.message }}</p>
         </div>
       </div>

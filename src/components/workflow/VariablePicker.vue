@@ -52,14 +52,14 @@ const insertVariable = (value: string) => {
             color="primary"
             variant="ghost"
             icon="i-lucide-brackets"
-            size="2xs"
+            size="xs"
             class="h-full"
             title="Insert Variable"
           />
           <template #panel>
             <div class="w-64 max-h-72 flex flex-col bg-elevated border border-default rounded-md shadow-lg overflow-hidden">
-              <div class="p-2 border-b border-default bg-background">
-                <span class="text-xs font-semibold text-foreground px-1">Available Variables</span>
+              <div class="p-2 border-b border-default">
+                <span class="text-xs font-semibold text-default px-1">Available Variables</span>
               </div>
               <div class="overflow-y-auto p-1.5 space-y-1">
                 <template v-for="(group, i) in [...new Set(availableVariables.map(v => v.group))]" :key="group">
@@ -73,9 +73,9 @@ const insertVariable = (value: string) => {
                   >
                     <div class="flex items-center gap-2">
                       <UIcon :name="v.icon" class="size-3.5 text-muted" />
-                      <span class="text-foreground font-medium">{{ v.label }}</span>
+                      <span class="text-default font-medium">{{ v.label }}</span>
                     </div>
-                    <span class="text-[9px] font-mono text-muted bg-background px-1 py-0.5 rounded border border-default truncate max-w-[80px]">
+                    <span class="text-[9px] font-mono text-muted px-1 py-0.5 rounded border border-default truncate max-w-[80px]">
                       {{ v.value }}
                     </span>
                   </button>
