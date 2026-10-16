@@ -20,10 +20,12 @@ import VariableTextarea from '../../components/workflow/VariableTextarea.vue'
 import { useModels } from '../../composables/useModels'
 import { useRoute } from 'vue-router'
 import { useCsrf } from '../../composables/useCsrf'
+import { useIntegrationConnect } from '../../composables/useIntegrationConnect'
 import { $fetch } from 'ofetch'
 
 const { onPaneReady, fitView, project, onConnect, addEdges, removeNodes, removeEdges } = useVueFlow()
 const { csrf, headerName } = useCsrf()
+const { connect: connectIntegration } = useIntegrationConnect()
 const { models } = useModels()
 const route = useRoute()
 
@@ -289,17 +291,7 @@ onMounted(async () => {
     isPropertiesPanelOpen.value = false
   }
 
-  if (window.opener && window.name !== '') {
-    window.opener.postMessage({ type: 'COMPOSIO_AUTH_SUCCESS' }, '*')
-    window.close()
-    return
-  }
   await loadIntegrations()
-  window.addEventListener('message', (e) => {
-    if (e.data?.type === 'COMPOSIO_AUTH_SUCCESS') {
-      loadIntegrations()
-    }
-  })
 
   const workflowId = route.query.id as string
   try {
@@ -378,29 +370,8 @@ const selectedIntegration = computed(() => {
 })
 
 async function connectSelectedProvider(provider: string) {
-  try {
-    const data = await $fetch<any>('/api/integrations/connect', {
-      method: 'POST',
-      headers: getHeaders(),
-      body: {
-        provider,
-        callbackUrl: window.location.origin + '/workflows'
-      }
-    })
-    if (data?.redirectUrl) {
-      const popup = window.open(data.redirectUrl, `Connect_${provider}`, 'width=600,height=750')
-      const timer = setInterval(async () => {
-        if (!popup || popup.closed) {
-          clearInterval(timer)
-          await loadIntegrations()
-        }
-      }, 1000)
-    } else {
-      await loadIntegrations()
-    }
-  } catch (err) {
-    console.error('Error connecting provider:', err)
-  }
+  const connected = await connectIntegration(provider)
+  if (connected) await loadIntegrations()
 }
 
 function handleProviderChange(newProvider: string) {

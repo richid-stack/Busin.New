@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useChats } from '../composables/useChats'
@@ -21,6 +21,7 @@ const { attachments, processing, onInputChange, remove, clear, toApiAttachments 
 const input = ref('')
 const loading = ref(false)
 const router = useRouter()
+const route = useRoute()
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const greeting = computed(() => {
@@ -32,6 +33,15 @@ const greeting = computed(() => {
   const name = user.value?.name?.split(' ')[0] || user.value?.username
 
   return name ? `${timeGreeting}, ${name}` : `${timeGreeting}`
+})
+
+// Deep links like /?prompt=... (from integration pages) prefill the box without sending it.
+onMounted(() => {
+  const prefill = route.query.prompt
+  if (typeof prefill === 'string' && prefill.trim()) {
+    input.value = prefill.slice(0, 2000)
+    router.replace({ path: '/' })
+  }
 })
 
 async function createChat(prompt: string) {
