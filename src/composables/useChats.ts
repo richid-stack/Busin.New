@@ -2,7 +2,12 @@ import { isToday, isYesterday, subMonths } from 'date-fns'
 import { computed, ref } from 'vue'
 import { createSharedComposable } from '@vueuse/core'
 import { $fetch } from 'ofetch'
-import type { Chat as ChatData } from '~/server/utils/drizzle'
+
+interface ChatData {
+  id: string
+  title?: string | null
+  createdAt: string | number | Date
+}
 
 interface Chat {
   id: string

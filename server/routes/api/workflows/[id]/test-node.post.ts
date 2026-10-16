@@ -3,10 +3,12 @@ import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../../utils/session'
 import { executeSingleNode } from '../../../../utils/workflowEngine'
+import { enforceRateLimit } from '../../../../utils/rateLimit'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
   const userId = user.id
+  enforceRateLimit(event, 'test-node', userId, 60, 10 * 60_000)
 
   const body = await readValidatedBody(event, z.object({
     node: z.any(),

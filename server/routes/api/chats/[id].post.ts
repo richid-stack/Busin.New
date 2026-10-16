@@ -16,6 +16,8 @@ import { webSearchTool } from '../../../utils/tools/webSearch'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
 import { DEFAULT_MODEL, getLanguageModel, pickAvailableModel } from '../../../utils/models'
+import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
+import { allowAnonymousChat, assertMessageSizes } from '../../../utils/limits'
 
 const RATE_LIMIT_PATTERN = /quota|RESOURCE_EXHAUSTED|429|rate[ -]?limit|\bI?O?TPM\b/i
 
@@ -28,6 +30,19 @@ function describeModelError(error: unknown): string {
   }
   return 'Something went wrong while generating the response. Please try again.'
 }
+
+const WORKFLOW_PROMPT = `**WORKFLOWS & SERVICE AUTOMATIONS (CRITICAL):**
+- You are equipped with autonomous workflow automation tools.
+- When the user asks to automate tasks, create pipelines, connect Gmail/Drive/Slack, or build workflows (e.g., "Automate my inbox", "When an email comes from a client, triage it, draft a proposal and save to Drive", "Connect Gmail and Slack to notify team", "Route this to workstudio"):
+  * Call the 'workflow_create' tool to construct the pipeline, generate nodes, and register it in the visual Workflow Studio!
+  * Outline the steps created (Trigger -> AI Agents -> Actions) and provide a link to the Workflow Studio at /workflows.
+- When the user asks to test or run an automation, call 'workflow_run'.
+- When the user asks to perform tasks using multiple tools (e.g., "Read my emails and save to Drive"), ALWAYS call 'integration_status' FIRST to verify if the tools are connected. If any required tool is not connected, provide the connection links (authUrl) returned by the tool so the user can connect them before proceeding.
+- When the user asks about connected accounts or service status, call 'integration_status'.
+- When the user asks to connect, verify, or execute an action on an integration (e.g., GitHub, Slack, Gmail, Notion, Discord via Composio), call 'integration_execute' with the provider and instruction. If unauthenticated, the tool will return a Connect Link. You must then output this tool call so the UI renders the connection card. Do not output raw markdown links for authentication.`
+
+const ANON_PROMPT = `**WORKFLOWS & INTEGRATIONS:**
+- Workflow automation and connected apps (Gmail, Slack, Drive, ...) are available only to signed-in users. If the user asks for them, tell them to sign in first. Do not pretend to run them.`
 
 export default defineHandler(async (event) => {
   const session = await useUserSession(event)
@@ -43,8 +58,17 @@ export default defineHandler(async (event) => {
     messages: z.array(z.custom<UIMessage>())
   }).parse)
 
+  assertMessageSizes(messages)
+
+  const signedIn = Boolean(session.data.user?.id)
+  if (!signedIn && !allowAnonymousChat()) {
+    throw createError({ statusCode: 401, statusMessage: 'Sign in to chat.' })
+  }
+
   const chat = await getChat(id)
   const userId = session.data.user?.id || session.id!
+  // The model call is the expensive part, so this is where callers are throttled.
+  enforceRateLimit(event, 'chat-completion', rateLimitSubject(event, signedIn ? userId : undefined), signedIn ? 40 : 12, 10 * 60_000)
 
   if (!chat || chat.userId !== userId) {
     throw createError({ statusCode: 404, statusMessage: 'Chat not found' })
@@ -138,8 +162,25 @@ export default defineHandler(async (event) => {
   // for the chosen provider produces a clear 400 from getLanguageModel.
   const languageModel = getLanguageModel(model)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let assistantFinishEvent: any = null
+
+  // Workflow and app-integration tools act on a person's account, so they exist only for signed-in users.
+  const tools = {
+    chart: chartTool,
+    weather: weatherTool,
+    plan: planTool,
+    calculator: calculatorTool,
+    web_search: webSearchTool,
+    ...(signedIn
+      ? {
+          workflow_create: createWorkflowCreateTool(userId),
+          workflow_run: createWorkflowRunTool(userId),
+          integration_status: createIntegrationStatusTool(userId),
+          integration_execute: createIntegrationExecuteTool(userId)
+        }
+      : {})
+  }
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
@@ -171,27 +212,9 @@ export default defineHandler(async (event) => {
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-**WORKFLOWS & SERVICE AUTOMATIONS (CRITICAL):**
-- You are equipped with autonomous workflow automation tools.
-- When the user asks to automate tasks, create pipelines, connect Gmail/Drive/Slack, or build workflows (e.g., "Automate my inbox", "When an email comes from a client, triage it, draft a proposal and save to Drive", "Connect Gmail and Slack to notify team", "Route this to workstudio"):
-  * Call the 'workflow_create' tool to construct the pipeline, generate nodes, and register it in the visual Workflow Studio!
-  * Outline the steps created (Trigger -> AI Agents -> Actions) and provide a link to the Workflow Studio at /workflows.
-- When the user asks to test or run an automation, call 'workflow_run'.
-- When the user asks to perform tasks using multiple tools (e.g., "Read my emails and save to Drive"), ALWAYS call 'integration_status' FIRST to verify if the tools are connected. If any required tool is not connected, provide the connection links (authUrl) returned by the tool so the user can connect them before proceeding.
-- When the user asks about connected accounts or service status, call 'integration_status'.
-- When the user asks to connect, verify, or execute an action on an integration (e.g., GitHub, Slack, Gmail, Notion, Discord via Composio), call 'integration_execute' with the provider and instruction. If unauthenticated, the tool will return a Connect Link. You must then output this tool call so the UI renders the connection card. Do not output raw markdown links for authentication.`,
+${signedIn ? WORKFLOW_PROMPT : ANON_PROMPT}`,
           messages: await convertToModelMessages(messages),
-          tools: {
-            chart: chartTool,
-            weather: weatherTool,
-            plan: planTool,
-            calculator: calculatorTool,
-            workflow_create: createWorkflowCreateTool(userId),
-            workflow_run: createWorkflowRunTool(userId),
-            integration_status: createIntegrationStatusTool(userId),
-            integration_execute: createIntegrationExecuteTool(userId),
-            web_search: webSearchTool
-          },
+          tools,
           providerOptions: {
             anthropic: {
               thinking: {

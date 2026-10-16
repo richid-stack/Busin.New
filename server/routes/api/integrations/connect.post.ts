@@ -4,9 +4,11 @@ import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
 import { createComposioConnectionLink, isComposioConfigured } from '../../../services/composio/client'
 import { ALL_INTEGRATIONS_CATALOG } from '../../../services/integrations/registry'
+import { enforceRateLimit } from '../../../utils/rateLimit'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
+  enforceRateLimit(event, 'integration-connect', user.id, 20, 10 * 60_000)
 
   const body = await readValidatedBody(event, z.object({
     provider: z.string().min(1),

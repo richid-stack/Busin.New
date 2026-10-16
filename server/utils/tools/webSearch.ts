@@ -1,76 +1,63 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
+const stripTags = (html: string) => html
+  .replace(/<[^>]+>/g, '')
+  .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+/** Extracts titles, URLs and snippets from DuckDuckGo's HTML results page. */
+export function parseSearchResults(html: string, limit = 5) {
+  const sources: Array<{ title: string, url: string }> = []
+  const snippets: string[] = []
+
+  for (const m of html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    if (sources.length >= limit) break
+    let url = (m[1] || '').replace(/&amp;/g, '&')
+    if (url.includes('uddg=')) {
+      try {
+        const decoded = new URL(url, 'https://duckduckgo.com').searchParams.get('uddg')
+        if (decoded) url = decoded
+      } catch { /* keep raw */ }
+    }
+    const title = stripTags(m[2] || '')
+    if (/^https?:\/\//.test(url) && title) sources.push({ title, url })
+  }
+
+  for (const m of html.matchAll(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    if (snippets.length >= limit) break
+    const text = stripTags(m[1] || '')
+    if (text) snippets.push(text)
+  }
+
+  return { sources, snippets }
+}
+
 export const webSearchTool = tool({
   description: 'Search the live web for real-time information, recent news, current events, and facts.',
   inputSchema: z.object({
-    query: z.string().describe('The web search query')
+    query: z.string().min(1).max(300).describe('The web search query')
   }),
   execute: async ({ query }) => {
     try {
-      const encodedQuery = encodeURIComponent(query)
-      const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodedQuery}`, {
+      const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9'
         },
         signal: AbortSignal.timeout(6000)
       })
+      if (!res.ok) throw new Error(`search provider responded with ${res.status}`)
 
-      if (!res.ok) {
-        return {
-          query,
-          sources: [],
-          results: `No live search results available for query: "${query}"`
-        }
+      const { sources, snippets } = parseSearchResults(await res.text())
+      if (sources.length === 0) {
+        return { query, sources: [], summary: '', error: 'The search returned no results. Do not guess; tell the user the search found nothing.' }
       }
-
-      const html = await res.text()
-      const sources: Array<{ title: string, url: string }> = []
-      const snippets: string[] = []
-
-      // Extract main result titles & links
-      const linkMatches = html.matchAll(/<h2[^>]*class="[^"]*result__title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi)
-      
-      for (const m of linkMatches) {
-        if (sources.length >= 5) break
-        let rawUrl = m[1] || ''
-        const title = (m[2] || '').replace(/<[^>]+>/g, '').trim()
-        
-        // Handle DuckDuckGo redirect url
-        if (rawUrl.includes('uddg=')) {
-          try {
-            const urlObj = new URL(rawUrl, 'https://duckduckgo.com')
-            const decoded = urlObj.searchParams.get('uddg')
-            if (decoded) rawUrl = decoded
-          } catch {
-            // keep raw
-          }
-        }
-        
-        if (rawUrl.startsWith('http') && title) {
-          sources.push({ title, url: rawUrl })
-        }
-      }
-
-      // Extract snippets
-      const snippetMatches = html.matchAll(/<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi)
-      for (const s of snippetMatches) {
-        if (snippets.length >= 5) break
-        const text = (s[1] || '').replace(/<[^>]+>/g, '').trim()
-        if (text) snippets.push(text)
-      }
-
-      return {
-        query,
-        sources,
-        summary: snippets.join('\n\n') || `Found information relevant to ${query}`
-      }
-    } catch {
-      return {
-        query,
-        sources: [],
-        summary: `Searched for ${query}`
-      }
+      return { query, sources, summary: snippets.join('\n\n') }
+    } catch (err: any) {
+      console.warn('[web_search] failed:', err?.message)
+      return { query, sources: [], summary: '', error: 'Web search is unavailable right now. Tell the user you could not search and answer only from what you already know, clearly saying so.' }
     }
   }
 })

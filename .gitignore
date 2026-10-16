@@ -42,3 +42,7 @@ dist
 .env
 .env.local
 .vercel
+
+# Build output and local data
+.output
+.data
