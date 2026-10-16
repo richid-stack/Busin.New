@@ -23,7 +23,7 @@ export interface FirestoreMessage {
   id: string
   chatId: string
   role: 'user' | 'assistant'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   parts: any[]
   createdAt: Date
 }
@@ -43,11 +43,11 @@ export interface FirestoreWorkflow {
   description?: string
   userId: string
   status: 'active' | 'draft' | 'paused'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   nodes: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   edges: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   nodeSchemas?: Record<string, any>
   /** Shared secret callers must present to trigger the workflow via its public webhook. */
   webhookSecret?: string
@@ -62,13 +62,13 @@ export interface FirestoreWorkflowRun {
   status: 'completed' | 'failed' | 'running' | 'waiting_approval' | 'rejected'
   approvalNodeId?: string
   approvalPrompt?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   approvalData?: Record<string, any>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   input: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   output: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   logs: any[]
   durationMs: number
   createdAt: Date
@@ -158,7 +158,7 @@ export async function createChat(data: {
 
   if (data.initialMessage || data.attachments?.length) {
     const msgId = crypto.randomUUID()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const parts: any[] = []
     if (data.attachments?.length) {
       for (const att of data.attachments) {
@@ -226,7 +226,7 @@ export function sanitizeForFirestore<T>(data: T): T {
       .map(item => sanitizeForFirestore(item)) as unknown as T
   }
   if (typeof data === 'object' && !(data instanceof Date) && !(data instanceof Timestamp)) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const cleaned: Record<string, any> = {}
     for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {
@@ -240,7 +240,7 @@ export function sanitizeForFirestore<T>(data: T): T {
 
 export async function saveChatMessage(
   chatId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   message: { id: string, role: string, parts: any[], createdAt?: Date }
 ) {
   await getFirebaseDb().collection('chats').doc(chatId).collection('messages').doc(message.id).set(sanitizeForFirestore({
@@ -259,7 +259,7 @@ export async function saveChatMessage(
  */
 export async function saveChatMessages(
   chatId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   messages: Array<{ id: string, role: string, parts: any[] }>,
   existingCreatedAt: Map<string, Date> = new Map()
 ) {
@@ -340,7 +340,7 @@ export async function setChatVote(chatId: string, messageId: string, userId: str
 
 // ==================== WORKFLOWS ====================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function toWorkflow(id: string, data: Record<string, any>, userIdFallback = ''): FirestoreWorkflow {
   return {
     id,
@@ -395,11 +395,11 @@ export async function createWorkflow(data: {
   title: string
   description?: string
   userId: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   nodes: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   edges: any[]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   nodeSchemas?: Record<string, any>
   status?: 'active' | 'draft' | 'paused'
 }): Promise<FirestoreWorkflow> {
@@ -451,7 +451,7 @@ export async function deleteWorkflow(workflowId: string): Promise<void> {
   await db.recursiveDelete(db.collection('workflows').doc(workflowId))
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function toWorkflowRun(id: string, workflowId: string, data: Record<string, any>): FirestoreWorkflowRun {
   return {
     id,

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { generateObject } from 'ai'
 import { requireUser } from '../../../utils/session'
 import { getLanguageModel, pickAvailableModel } from '../../../utils/models'
+import { enforceRateLimit } from '../../../utils/rateLimit'
 
 const nodeSchema = z.object({
   id: z.string().min(1).max(100),
@@ -20,7 +21,8 @@ const edgeSchema = z.object({
 }).passthrough()
 
 export default defineHandler(async (event) => {
-  await requireUser(event)
+  const user = await requireUser(event)
+  enforceRateLimit(event, 'copilot', user.id, 20, 10 * 60_000)
 
   const body = await readValidatedBody(event, z.object({
     prompt: z.string().min(1).max(4000),
