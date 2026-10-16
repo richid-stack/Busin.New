@@ -1,4 +1,4 @@
-import { isToday, isYesterday, subMonths } from 'date-fns'
+import { isToday, isYesterday, subDays, subMonths } from 'date-fns'
 import { computed, ref } from 'vue'
 import { createSharedComposable } from '@vueuse/core'
 import { $fetch } from 'ofetch'
@@ -49,10 +49,12 @@ export const useChats = createSharedComposable(() => {
     const lastMonth: Chat[] = []
     const older: Record<string, Chat[]> = {}
 
-    const oneWeekAgo = subMonths(new Date(), 0.25) // ~7 days ago
+    const oneWeekAgo = subDays(new Date(), 7)
     const oneMonthAgo = subMonths(new Date(), 1)
 
-    chats.value?.forEach((chat) => {
+    const newestFirst = [...(chats.value ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    newestFirst.forEach((chat) => {
       const chatDate = new Date(chat.createdAt)
 
       if (isToday(chatDate)) {

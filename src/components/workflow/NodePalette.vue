@@ -41,7 +41,7 @@ const handleNodeSelect = (node: any) => {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-library" class="size-4 text-primary" />
-          <span class="font-semibold text-sm text-foreground">Node Library</span>
+          <span class="font-semibold text-sm text-default">Node Library</span>
         </div>
         <UButton
           color="neutral"
@@ -66,7 +66,7 @@ const handleNodeSelect = (node: any) => {
       <div v-for="category in filteredCategories" :key="category.id">
         <div class="flex items-center gap-2 mb-2 px-1">
           <UIcon :name="category.icon" class="size-3.5 text-muted" />
-          <h4 class="text-xs font-semibold text-foreground tracking-wide uppercase">{{ category.label }}</h4>
+          <h4 class="text-xs font-semibold text-default tracking-wide uppercase">{{ category.label }}</h4>
         </div>
         
         <div class="space-y-1">
@@ -80,10 +80,10 @@ const handleNodeSelect = (node: any) => {
           >
             <div class="flex items-center gap-2.5 min-w-0">
               <div class="size-7 rounded-md bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
-                <UIcon :name="node.icon" class="size-4 transition-colors" :class="[node.color || 'text-foreground']" />
+                <UIcon :name="node.icon" class="size-4 transition-colors" :class="[node.color || 'text-default']" />
               </div>
               <div class="min-w-0">
-                <div class="text-xs font-medium text-foreground truncate">{{ node.title }}</div>
+                <div class="text-xs font-medium text-default truncate">{{ node.title }}</div>
                 <div class="text-[10px] text-muted truncate">{{ node.subtitle }}</div>
               </div>
             </div>

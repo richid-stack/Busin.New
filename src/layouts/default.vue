@@ -84,11 +84,12 @@ defineShortcuts({
           to="/"
           class="flex items-center gap-0.5 outline-primary/25 focus-visible:outline-3 rounded-md"
         >
-          <UIcon
-            name="i-logos-vue"
-            class="h-5 w-auto shrink-0"
-          />
-          <span class="text-xl font-bold text-highlighted">Chat</span>
+          <img
+            src="/favicon.svg"
+            alt=""
+            class="size-6 shrink-0"
+          >
+          <span class="text-xl font-bold text-highlighted">OpenLobs</span>
         </ULink>
 
         <UDashboardSidebarCollapse class="ms-auto" />
@@ -204,7 +205,7 @@ defineShortcuts({
           <Suspense>
             <component :is="Component" />
             <template #fallback>
-              <div class="flex items-center justify-center w-full h-full bg-background">
+              <div class="flex items-center justify-center w-full h-full">
                 <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
               </div>
             </template>

@@ -10,7 +10,7 @@ const color = computed(() => {
   return ({
     'output-available': 'bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600 dark:from-sky-500 dark:via-blue-600 dark:to-indigo-700 text-white',
     'output-error': 'bg-muted text-error'
-  })[props.invocation.state as string] || 'bg-muted text-white'
+  })[props.invocation.state as string] || 'bg-muted text-muted'
 })
 
 const icon = computed(() => {

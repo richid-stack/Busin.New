@@ -43,3 +43,12 @@ html.dark .shiki span {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
 }
+
+/* Hide scrollbars on horizontally scrolling toolbars while keeping them scrollable. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
