@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   signOut,
+  sendPasswordResetEmail,
   onAuthStateChanged,
   type User
 } from 'firebase/auth'
@@ -175,6 +176,27 @@ export const useFirebaseAuth = createSharedComposable(() => {
     }
   }
 
+  /** Sends Firebase's reset email. Resolves the same way for unknown addresses (no account enumeration). */
+  const sendPasswordReset = async (email: string) => {
+    loading.value = true
+    error.value = null
+    try {
+      await sendPasswordResetEmail(auth, email.trim())
+    } catch (err: unknown) {
+      const e = err as { message?: string, code?: string }
+      if (e.code === 'auth/invalid-email') {
+        error.value = 'Invalid email address'
+        throw err
+      }
+      if (e.code !== 'auth/user-not-found') {
+        error.value = e.message || 'Could not send the reset email'
+        throw err
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
   const signOutUser = async () => {
     loading.value = true
     try {
@@ -199,6 +221,7 @@ export const useFirebaseAuth = createSharedComposable(() => {
     signInWithGithub,
     signInWithEmail,
     signUpWithEmail,
+    sendPasswordReset,
     signOutUser,
     isAuthenticated: computed(() => Boolean(firebaseUser.value))
   }

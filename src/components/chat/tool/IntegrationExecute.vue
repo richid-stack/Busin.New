@@ -49,14 +49,14 @@ const BRAND_ICON_MAP: Record<string, string> = {
   gmail: 'i-logos-google-gmail',
   google_drive: 'i-logos-google-drive',
   drive: 'i-logos-google-drive',
-  google_sheets: 'i-logos-google-sheets',
-  sheets: 'i-logos-google-sheets',
-  google_docs: 'i-logos-google-docs',
-  docs: 'i-logos-google-docs',
+  google_sheets: 'i-simple-icons:googlesheets',
+  sheets: 'i-simple-icons:googlesheets',
+  google_docs: 'i-simple-icons:googledocs',
+  docs: 'i-simple-icons:googledocs',
   google_calendar: 'i-logos-google-calendar',
   calendar: 'i-logos-google-calendar',
-  google_tasks: 'i-logos-google-tasks',
-  tasks: 'i-logos-google-tasks',
+  google_tasks: 'i-simple-icons:googletasks',
+  tasks: 'i-simple-icons:googletasks',
   microsoft_teams: 'i-logos-microsoft-teams',
   teams: 'i-logos-microsoft-teams',
   outlook: 'i-logos-microsoft-icon',
@@ -133,13 +133,13 @@ function copyOutput() {
     <!-- STATE 1: AUTHENTICATION / CONNECTION REQUIRED -->
     <div
       v-if="requiresAuth"
-      class="relative overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-gradient-to-b from-neutral-50/90 to-neutral-100/50 dark:from-neutral-900/90 dark:to-neutral-950/60 p-5 shadow-xs transition-all"
+      class="relative overflow-hidden rounded-2xl border border-default bg-gradient-to-b from-elevated/80 to-default p-5 shadow-xs transition-all"
     >
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-start sm:items-center gap-3.5 min-w-0">
           <!-- Authentic Brand Favicon / Logo Container -->
           <div
-            class="size-11 sm:size-12 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/60 shadow-xs flex items-center justify-center shrink-0"
+            class="size-11 sm:size-12 rounded-xl bg-default border border-default shadow-xs flex items-center justify-center shrink-0"
           >
             <UIcon :name="providerIcon" class="size-6 sm:size-7 text-default" />
           </div>
@@ -182,7 +182,7 @@ function copyOutput() {
 
       <!-- Action Context Box -->
       <div
-        class="mt-4 p-3 rounded-xl bg-white/80 dark:bg-neutral-900/80 border border-neutral-200/70 dark:border-neutral-800/80 flex items-start gap-2.5 text-xs text-muted"
+        class="mt-4 p-3 rounded-xl bg-default/80 border border-default flex items-start gap-2.5 text-xs text-muted"
       >
         <UIcon name="i-lucide-terminal" class="size-4 shrink-0 text-muted mt-0.5" />
         <div class="min-w-0 leading-relaxed">
@@ -195,9 +195,9 @@ function copyOutput() {
     <!-- STATE 2: ACTION EXECUTING / STREAMING -->
     <div
       v-else-if="isExecuting"
-      class="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-xs flex items-center gap-3.5"
+      class="rounded-2xl border border-default bg-default p-4 shadow-xs flex items-center gap-3.5"
     >
-      <div class="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0 border border-neutral-200/60 dark:border-neutral-700/60">
+      <div class="size-10 rounded-xl bg-elevated flex items-center justify-center shrink-0 border border-default">
         <UIcon :name="providerIcon" class="size-5 text-default" />
       </div>
 
@@ -213,11 +213,11 @@ function copyOutput() {
     <!-- STATE 3: EXECUTION SUCCESS -->
     <div
       v-else-if="isSuccess"
-      class="rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 sm:p-5 shadow-xs transition-all"
+      class="rounded-2xl border border-default bg-default p-4 sm:p-5 shadow-xs transition-all"
     >
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-center gap-3">
-          <div class="size-10 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0 border border-neutral-200/60 dark:border-neutral-700/60">
+          <div class="size-10 rounded-xl bg-elevated flex items-center justify-center shrink-0 border border-default">
             <UIcon :name="providerIcon" class="size-5 text-default" />
           </div>
 
@@ -256,7 +256,7 @@ function copyOutput() {
       <!-- Execution Output Display -->
       <div
         v-if="outputText"
-        class="mt-3.5 p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-950/70 border border-neutral-200/70 dark:border-neutral-800/80 text-xs text-default font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto"
+        class="mt-3.5 p-3.5 rounded-xl bg-elevated/50 border border-default text-xs text-default font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto"
       >
         {{ outputText }}
       </div>
@@ -265,17 +265,17 @@ function copyOutput() {
     <!-- STATE 4: EXECUTION ERROR -->
     <div
       v-else
-      class="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-4 shadow-xs"
+      class="rounded-2xl border border-error/20 bg-error/5 p-4 shadow-xs"
     >
       <div class="flex items-start gap-3">
-        <div class="size-9 rounded-xl bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0 text-red-600 dark:text-red-400">
+        <div class="size-9 rounded-xl bg-error/10 flex items-center justify-center shrink-0 text-error">
           <UIcon name="i-lucide-alert-circle" class="size-5" />
         </div>
         <div class="min-w-0 flex-1">
-          <div class="text-sm font-semibold text-red-800 dark:text-red-300">
+          <div class="text-sm font-semibold text-error">
             Action Failed on {{ providerDisplayName }}
           </div>
-          <p class="text-xs text-red-700/80 dark:text-red-400/80 mt-1 m-0">
+          <p class="text-xs text-error/80 mt-1 m-0">
             {{ errorMessage }}
           </p>
           <div v-if="authUrl" class="mt-3">

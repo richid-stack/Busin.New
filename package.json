@@ -10,7 +10,8 @@
     "lint": "eslint src server shared tests",
     "typecheck": "vue-tsc -p ./tsconfig.app.json",
     "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts && tsx tests/hardening.test.mts",
-    "typecheck:server": "tsc -p tsconfig.server.json"
+    "typecheck:server": "tsc -p tsconfig.server.json",
+    "icons": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
@@ -50,6 +51,9 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@iconify-json/logos": "^1.2.16",
+    "@iconify-json/lucide": "^1.2.145",
+    "@iconify-json/simple-icons": "^1.2.100",
     "@types/dagre": "^0.7.54",
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
