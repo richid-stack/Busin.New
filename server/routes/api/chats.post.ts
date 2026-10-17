@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { useUserSession } from '../../utils/session'
 import { createChat } from '../../utils/firebase'
 import { enforceRateLimit, rateLimitSubject } from '../../utils/rateLimit'
-import { MAX_INPUT_CHARS, allowAnonymousChat, assertAttachments } from '../../utils/limits'
+import { MAX_INPUT_CHARS, allowAnonymousChat, assertNewChatMessage } from '../../utils/limits'
 
 export default defineHandler(async (event) => {
   const session = await useUserSession(event)
@@ -24,7 +24,7 @@ export default defineHandler(async (event) => {
   }
   const userId = session.data.user?.id || session.id!
   enforceRateLimit(event, 'chat-create', rateLimitSubject(event, signedIn ? userId : undefined), signedIn ? 60 : 20, 10 * 60_000)
-  assertAttachments(attachments)
+  assertNewChatMessage(input, attachments)
 
   const initialTitle = input && input.trim()
     ? input.trim().replace(/^["'`]|["'`]$/g, '').replace(/\s+/g, ' ').slice(0, 36)

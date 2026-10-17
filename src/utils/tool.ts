@@ -22,6 +22,12 @@ export function getSearchQuery(part: ToolPart): string | undefined {
   return (part.input as { query?: string } | undefined)?.query
 }
 
+/** 'failed' or 'empty' when our own search tool could not produce sources. */
+export function getSearchProblem(part: ToolPart): 'failed' | 'empty' | null {
+  const status = (part.output as { status?: string } | undefined)?.status
+  return status === 'failed' || status === 'empty' ? status : null
+}
+
 export function getSources(part: ToolPart): Source[] {
   const output = part.output
   if (!output) return []

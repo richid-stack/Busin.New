@@ -1,4 +1,4 @@
-import { executeWorkflowDAG } from '../server/utils/workflowEngine'
+import { executeWorkflowDAG, snapshotOutputs } from '../server/utils/workflowEngine'
 const wf = (nodes: any[], edges: any[]) => ({ id: 'w', title: 't', userId: 'u', status: 'active', nodes, edges, createdAt: new Date() }) as any
 const n = (id: string, type: string, data: any = {}) => ({ id, type, data: { title: id, ...data } })
 const e = (source: string, target: string, sourceHandle?: string) => ({ id: `${source}-${target}`, source, target, sourceHandle })
@@ -42,3 +42,8 @@ assert(r.status === 'failed' && /No AI provider/.test(r.logs.find(l=>l.nodeId===
 // 5. cycle is reported, not faked
 r = await executeWorkflowDAG(wf([n('t','trigger'), n('x','logic',{subtype:'code',code:'return 1'}), n('y','logic',{subtype:'code',code:'return 1'})],[e('t','x'), e('x','y'), e('y','x')]), undefined, 'u')
 assert(r.status === 'failed', 'cycle -> failed, not fake success')
+
+// 6. oversized outputs are cut per node, so every node keeps its key for {{nodeId.path}} lookups
+const big = snapshotOutputs({ a: { result: 'x'.repeat(50_000) }, b: { result: 'small' } }, 30_000)
+assert(Object.keys(big).join() === 'a,b' && big.b.result === 'small' && big.a.truncated === true, 'snapshotOutputs keeps per-node shape')
+assert(snapshotOutputs({ a: { r: 1 } }).a.r === 1, 'small contexts are returned untouched')

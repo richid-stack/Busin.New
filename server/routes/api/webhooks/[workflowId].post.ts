@@ -19,8 +19,9 @@ export default defineHandler(async (event) => {
     // If not JSON, ignore
   }
 
-  // Public endpoint: throttle per caller and workflow before touching the database.
-  enforceRateLimit(event, 'webhook', `${workflowId}:${rateLimitSubject(event)}`, 60, 60_000)
+  // Public endpoint: throttle per caller before touching the database. Calls for workflow ids
+  // that do not exist share this one bucket, so they cannot churn the per-workflow buckets below.
+  enforceRateLimit(event, 'webhook-caller', rateLimitSubject(event), 120, 60_000)
 
   const query = getQuery(event)
 
@@ -29,6 +30,8 @@ export default defineHandler(async (event) => {
   if (!workflow) {
     throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
   }
+
+  enforceRateLimit(event, 'webhook', `${workflowId}:${rateLimitSubject(event)}`, 60, 60_000)
 
   // The endpoint is public, so every call must present the workflow's secret
   // (`x-webhook-secret` header or `?secret=`). Compared in constant time.

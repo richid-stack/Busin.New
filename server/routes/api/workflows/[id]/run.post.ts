@@ -2,7 +2,7 @@ import { defineHandler, HTTPError } from 'nitro'
 import { getValidatedRouterParams, readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../../utils/session'
-import { getWorkflow, resolveWorkflowId } from '../../../../utils/firebase'
+import { getWorkflow, ensureDefaultWorkflow, resolveWorkflowId } from '../../../../utils/firebase'
 import { DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../../../../utils/workflowEngine'
 import { executeAndRecordRun } from '../../../../utils/workflowRuns'
 import { enforceRateLimit } from '../../../../utils/rateLimit'
@@ -21,25 +21,13 @@ export default defineHandler(async (event) => {
     input: z.record(z.string(), z.any()).optional()
   }).parse).catch(() => ({ input: undefined }))
 
-  let workflow = await getWorkflow(id)
+  // Runs are stored under the workflow, so the built-in pipeline must exist as a real document.
+  const workflow = id !== requestedId
+    ? await ensureDefaultWorkflow(userId, { nodes: DEFAULT_WORKFLOW_NODES, edges: DEFAULT_WORKFLOW_EDGES })
+    : await getWorkflow(id)
 
   if (!workflow) {
-    // Built-in default pipeline that has not been saved yet
-    if (id !== requestedId) {
-      workflow = {
-        id,
-        title: 'Client Onboarding Pipeline',
-        description: 'Default onboarding pipeline',
-        userId,
-        status: 'active',
-        nodes: DEFAULT_WORKFLOW_NODES,
-        edges: DEFAULT_WORKFLOW_EDGES,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    } else {
-      throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
-    }
+    throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
   }
 
   if (workflow.userId !== userId) {

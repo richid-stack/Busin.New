@@ -14,6 +14,7 @@ import {
 import { auth } from '../lib/firebase'
 import { $fetch } from 'ofetch'
 import { useCsrf } from './useCsrf'
+import { useUserSession } from './useUserSession'
 
 export const useFirebaseAuth = createSharedComposable(() => {
   const firebaseUser = ref<User | null>(auth.currentUser)
@@ -22,6 +23,7 @@ export const useFirebaseAuth = createSharedComposable(() => {
   const error = ref<string | null>(null)
   const isAuthModalOpen = ref<boolean>(false)
   const { csrf, setCsrf, headerName } = useCsrf()
+  const userSession = useUserSession()
 
   const syncServerSession = async (user: User | null, retries = 2) => {
     try {
@@ -39,11 +41,14 @@ export const useFirebaseAuth = createSharedComposable(() => {
         if (respCsrf) {
           setCsrf(respCsrf)
         }
+        // Whatever signed in (popup, restored session, another tab) the UI must now see the server's identity.
+        await userSession.fetchSession()
       } else {
         await $fetch('/api/session', {
           method: 'DELETE',
           headers
         }).catch(() => {})
+        userSession.session.value = null
       }
     } catch (e) {
       if (retries > 0) {

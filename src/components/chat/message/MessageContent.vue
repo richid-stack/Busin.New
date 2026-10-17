@@ -15,7 +15,7 @@ import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
-import { getSearchQuery, getSources } from '../../../utils/tool'
+import { getSearchProblem, getSearchQuery, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -95,7 +95,7 @@ const emit = defineEmits<{
       />
       <UChatTool
         v-else-if="getToolName(part) === 'web_search' || getToolName(part) === 'google_search'"
-        :text="isToolStreaming(part) ? 'Searching the web...' : 'Searched the web'"
+        :text="isToolStreaming(part) ? 'Searching the web...' : getSearchProblem(part) === 'failed' ? 'Web search unavailable' : getSearchProblem(part) === 'empty' ? 'No results found' : 'Searched the web'"
         :suffix="getSearchQuery(part)"
         :streaming="isToolStreaming(part)"
         chevron="leading"

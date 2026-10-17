@@ -11,27 +11,32 @@ export function installAuthFetch() {
 
   const originalFetch = globalThis.fetch.bind(globalThis)
 
-  const authFetch: typeof fetch = async (input, init) => {
+  /** Adds the bearer token when possible. Resolves to null when the request goes out unchanged. */
+  const withAuth = async (input: RequestInfo | URL, init?: RequestInit): Promise<RequestInit | null> => {
     try {
       const rawUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       const url = new URL(rawUrl, window.location.href)
-      if (url.origin !== window.location.origin || !url.pathname.startsWith('/api/')) {
-        return originalFetch(input, init)
-      }
+      if (url.origin !== window.location.origin || !url.pathname.startsWith('/api/')) return null
 
       await auth.authStateReady()
       const user = auth.currentUser
-      if (!user) return originalFetch(input, init)
+      if (!user) return null
 
       const token = await user.getIdToken()
       const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
-      if (!headers.has('authorization')) {
-        headers.set('Authorization', `Bearer ${token}`)
-      }
-      return originalFetch(input, { ...init, headers })
+      if (!headers.has('authorization')) headers.set('Authorization', `Bearer ${token}`)
+      return { ...init, headers }
     } catch {
-      return originalFetch(input, init)
+      // Could not prepare credentials: send the request as it is.
+      return null
     }
+  }
+
+  const authFetch: typeof fetch = async (input, init) => {
+    const authorized = await withAuth(input, init)
+    // The request itself runs outside the try block above: a network failure must reach the
+    // caller, never trigger a silent second send of a request that may already have been processed.
+    return originalFetch(input, authorized ?? init)
   }
 
   ;(authFetch as { __authFetch?: boolean }).__authFetch = true

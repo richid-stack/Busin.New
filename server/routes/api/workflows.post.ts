@@ -2,7 +2,7 @@ import { defineHandler, HTTPError } from 'nitro'
 import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../utils/session'
-import { createWorkflow, resolveWorkflowId } from '../../utils/firebase'
+import { createWorkflow, isReservedWorkflowId, resolveWorkflowId } from '../../utils/firebase'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
@@ -17,10 +17,15 @@ export default defineHandler(async (event) => {
     edges: z.array(z.any()).default([])
   }).parse)
 
+  const requestedId = body.id ? resolveWorkflowId(userId, body.id) : undefined
+  if (requestedId && isReservedWorkflowId(userId, requestedId)) {
+    throw new HTTPError({ statusCode: 400, statusMessage: 'This workflow id is reserved.' })
+  }
+
   let workflow
   try {
     workflow = await createWorkflow({
-    id: body.id ? resolveWorkflowId(userId, body.id) : undefined,
+    id: requestedId,
     title: body.title,
     description: body.description,
     status: body.status,

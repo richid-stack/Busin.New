@@ -8,13 +8,14 @@ definePage({ meta: { layout: 'blank' } })
 const route = useRoute()
 const router = useRouter()
 
+const attempt = typeof route.query.attempt === 'string' ? route.query.attempt : ''
 const failed = ref(String(route.query.status || '').toLowerCase() === 'failed')
 const handedOff = ref(false)
 
 onMounted(() => {
   if (window.opener && !window.opener.closed) {
     window.opener.postMessage(
-      { type: INTEGRATION_AUTH_MESSAGE, status: failed.value ? 'failed' : 'success' },
+      { type: INTEGRATION_AUTH_MESSAGE, status: failed.value ? 'failed' : 'success', attempt },
       window.location.origin
     )
     handedOff.value = true

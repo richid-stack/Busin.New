@@ -16,7 +16,7 @@ const appConfig = useAppConfig()
 const { user, clearSession } = useUserSession()
 const { signOutUser } = useFirebaseAuth()
 
-const colors = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'success', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose']
+const colors = ['red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose']
 const neutrals = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'taupe', 'mauve', 'mist', 'olive']
 
 const items = computed<DropdownMenuItem[][]>(() => ([[{
