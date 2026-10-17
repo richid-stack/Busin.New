@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch, defineAsyncComponent } from 'vue'
+import { showcaseFor } from '../../utils/integrationShowcase'
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '@vueuse/core'
 import { useIntegrations } from '../../composables/useIntegrations'
@@ -16,6 +17,7 @@ const { copy } = useClipboard()
 const { openAuthModal, isAuthenticated } = useFirebaseAuth()
 
 const provider = computed(() => String(route.params.provider || ''))
+const showcase = computed(() => showcaseFor(provider.value))
 
 const {
   integrations,
@@ -115,7 +117,7 @@ function examplePrompts(name: string, category: string): string[] {
 }
 
 const prompts = computed(() =>
-  integration.value ? examplePrompts(integration.value.name, integration.value.category) : []
+  showcase.value?.prompts ?? (integration.value ? examplePrompts(integration.value.name, integration.value.category) : [])
 )
 
 function usePrompt(prompt: string) {
@@ -199,8 +201,27 @@ const links = computed(() => {
               variant="subtle"
             />
           </div>
-          <p class="text-muted text-base md:text-lg">{{ integration.description }}</p>
+          <p class="text-muted text-base md:text-lg">{{ showcase?.tagline || integration.description }}</p>
+          <p v-if="showcase" class="text-sm text-muted leading-relaxed mt-3">{{ showcase.overview }}</p>
         </div>
+
+        <!-- What OpenLobs can do -->
+        <section v-if="showcase" class="mb-10">
+          <h3 class="text-lg font-medium text-highlighted mb-4">What OpenLobs can do with {{ integration.name }}</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              v-for="ability in showcase.abilities"
+              :key="ability.title"
+              class="rounded-2xl border border-default bg-elevated/40 p-4"
+            >
+              <div class="size-8 rounded-lg border border-default bg-default shadow-sm flex items-center justify-center mb-3">
+                <UIcon :name="ability.icon" class="size-4 text-primary" />
+              </div>
+              <h4 class="text-sm font-semibold text-highlighted mb-1">{{ ability.title }}</h4>
+              <p class="text-xs text-muted leading-relaxed">{{ ability.detail }}</p>
+            </div>
+          </div>
+        </section>
 
         <!-- Example prompts -->
         <section class="mb-10">
@@ -223,6 +244,37 @@ const links = computed(() => {
               />
             </button>
           </div>
+        </section>
+
+        <!-- Workflow ideas -->
+        <section v-if="showcase" class="mb-10">
+          <h3 class="text-lg font-medium text-highlighted mb-1">Build a workflow with {{ integration.name }}</h3>
+          <p class="text-sm text-muted mb-4">Describe it in chat and OpenLobs drafts it on the canvas for you to test and edit.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              v-for="idea in showcase.ideas"
+              :key="idea.title"
+              type="button"
+              class="group text-left rounded-2xl border border-default bg-default p-4 hover:bg-elevated/60 hover:shadow-md hover:-translate-y-0.5 transition-all focus-visible:outline-2 focus-visible:outline-primary"
+              @click="usePrompt(idea.prompt)"
+            >
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <h4 class="text-sm font-semibold text-highlighted">{{ idea.title }}</h4>
+                <UIcon name="i-lucide-arrow-up-right" class="size-4 text-muted shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p class="text-xs text-muted leading-relaxed">{{ idea.detail }}</p>
+            </button>
+          </div>
+        </section>
+
+        <!-- Good to know -->
+        <section class="mb-10 rounded-2xl border border-default bg-elevated/40 p-5">
+          <h3 class="text-sm font-semibold text-highlighted mb-3">Good to know</h3>
+          <ul class="space-y-2 text-sm text-muted">
+            <li class="flex items-start gap-2"><UIcon name="i-lucide-user-check" class="size-4 mt-0.5 shrink-0 text-primary" />OpenLobs only acts through the account you connect, and only when you ask in chat or run a workflow.</li>
+            <li class="flex items-start gap-2"><UIcon name="i-lucide-shield-check" class="size-4 mt-0.5 shrink-0 text-primary" />Add an approval step to a workflow to review anything before it is sent or changed.</li>
+            <li class="flex items-start gap-2"><UIcon name="i-lucide-unplug" class="size-4 mt-0.5 shrink-0 text-primary" />You can disconnect at any time, and OpenLobs loses access straight away.</li>
+          </ul>
         </section>
 
         <!-- Information -->
