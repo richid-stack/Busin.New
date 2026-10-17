@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { useUserSession } from '../composables/useUserSession'
 
@@ -9,6 +9,7 @@ const {
   signInWithGithub,
   signInWithEmail,
   signUpWithEmail,
+  sendPasswordReset,
   loading,
   error
 } = useFirebaseAuth()
@@ -20,6 +21,31 @@ const email = ref('')
 const password = ref('')
 const displayName = ref('')
 const formError = ref<string | null>(null)
+const resetSent = ref(false)
+
+// Never leave credentials sitting in component state once the dialog is closed.
+watch(isAuthModalOpen, (open) => {
+  if (!open) {
+    password.value = ''
+    formError.value = null
+    resetSent.value = false
+  }
+})
+
+async function handleForgotPassword() {
+  formError.value = null
+  resetSent.value = false
+  if (!email.value.trim()) {
+    formError.value = 'Enter your email above, then choose "Forgot password?" again.'
+    return
+  }
+  try {
+    await sendPasswordReset(email.value)
+    resetSent.value = true
+  } catch (err: unknown) {
+    formError.value = error.value || (err as { message?: string }).message || 'Could not send the reset email'
+  }
+}
 
 async function handleGoogle() {
   formError.value = null
@@ -63,6 +89,7 @@ async function handleSubmit() {
   } catch (err: unknown) {
     const e = err as { message?: string }
     formError.value = error.value || e.message || 'Authentication failed'
+    password.value = ''
   }
 }
 </script>
@@ -106,9 +133,9 @@ async function handleSubmit() {
         <!-- Divider -->
         <div class="relative my-2 flex items-center justify-center">
           <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-neutral-200 dark:border-neutral-800" />
+            <div class="w-full border-t border-default" />
           </div>
-          <span class="relative bg-white dark:bg-neutral-900 px-3 text-xs uppercase tracking-wider text-neutral-500 font-medium">
+          <span class="relative bg-default px-3 text-xs uppercase tracking-wider text-muted font-medium">
             or with email
           </span>
         </div>
@@ -161,10 +188,28 @@ async function handleSubmit() {
             />
           </UFormField>
 
+          <button
+            v-if="mode === 'signin'"
+            type="button"
+            class="self-end -mt-1 text-xs text-muted hover:text-highlighted hover:underline cursor-pointer"
+            :disabled="loading"
+            @click="handleForgotPassword"
+          >
+            Forgot password?
+          </button>
+
+          <div
+            v-if="resetSent"
+            class="rounded-lg bg-success/10 p-3 text-xs text-success border border-success/20"
+            role="status"
+          >
+            If an account exists for {{ email }}, a reset link is on its way.
+          </div>
+
           <!-- Error Feedback -->
           <div
             v-if="formError || error"
-            class="rounded-lg bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900"
+            class="rounded-lg bg-error/10 p-3 text-xs text-error border border-error/20"
           >
             {{ formError || error }}
           </div>
@@ -181,13 +226,13 @@ async function handleSubmit() {
         </form>
 
         <!-- Toggle Mode -->
-        <div class="text-center text-xs text-neutral-500 mt-2">
+        <div class="text-center text-xs text-muted mt-2">
           <span v-if="mode === 'signin'">
             Don't have an account?
             <button
               type="button"
               class="text-primary font-medium hover:underline ml-1 cursor-pointer"
-              @click="mode = 'signup'; formError = null"
+              @click="mode = 'signup'; formError = null; resetSent = false"
             >
               Sign up
             </button>
@@ -197,7 +242,7 @@ async function handleSubmit() {
             <button
               type="button"
               class="text-primary font-medium hover:underline ml-1 cursor-pointer"
-              @click="mode = 'signin'; formError = null"
+              @click="mode = 'signin'; formError = null; resetSent = false"
             >
               Sign in
             </button>
