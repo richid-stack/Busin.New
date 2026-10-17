@@ -300,31 +300,36 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
 /**
  * Fetch all active connected accounts for a specific user ID via Composio
  */
-export async function getComposioUserConnections(userId: string): Promise<ComposioConnectionInfo[]> {
+export async function listComposioUserConnections(userId: string): Promise<ComposioConnectionInfo[]> {
   const client = getComposioClient()
   if (!client) {
     return []
   }
 
-  try {
-    const res = await client.connectedAccounts.list({
-      userIds: [userId]
-    })
+  const res = await client.connectedAccounts.list({
+    userIds: [userId]
+  })
 
-    const items = (res.items || []) as any[]
-    return items
-      // Defence in depth: never surface another user's connection.
-      .filter(item => !item.userId || item.userId === userId)
-      .map(item => ({
-        id: item.id,
-        userId,
-        appUniqueId: item.appUniqueId,
-        toolkitSlug: providerFromToolkitSlug(item.toolkit?.slug || item.toolkitSlug || item.appName || ''),
-        status: item.status || 'ACTIVE',
-        accountName: item.params?.user_info?.name || item.params?.user_info?.email || item.integrationName || item.toolkit?.name,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt
-      }))
+  const items = (res.items || []) as any[]
+  return items
+    // Defence in depth: never surface another user's connection.
+    .filter(item => !item.userId || item.userId === userId)
+    .map(item => ({
+      id: item.id,
+      userId,
+      appUniqueId: item.appUniqueId,
+      toolkitSlug: providerFromToolkitSlug(item.toolkit?.slug || item.toolkitSlug || item.appName || ''),
+      status: item.status || 'ACTIVE',
+      accountName: item.params?.user_info?.name || item.params?.user_info?.email || item.integrationName || item.toolkit?.name,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt
+    }))
+}
+
+/** Same as the throwing variant, but a failed lookup reads as "no connections" (best-effort callers only). */
+export async function getComposioUserConnections(userId: string): Promise<ComposioConnectionInfo[]> {
+  try {
+    return await listComposioUserConnections(userId)
   } catch (err) {
     console.warn(`[ComposioService] Failed to list connections for user ${userId}:`, err)
     return []
@@ -468,15 +473,18 @@ export async function createComposioConnectionLink(
 /**
  * Disconnect/delete a connected account
  */
-export async function deleteComposioConnection(userId: string, connectionId: string): Promise<boolean> {
+export async function deleteComposioConnection(userId: string, connectionId: string, opts: { ownershipVerified?: boolean } = {}): Promise<boolean> {
   const client = getComposioClient()
   if (!client) return false
 
   try {
-    // Only connections that belong to this user can be removed.
-    const mine = await getComposioUserConnections(userId)
-    if (!mine.some(c => c.id === connectionId)) {
-      throw new Error('Unauthorized: Connection belongs to a different user.')
+    // Only connections that belong to this user can be removed. Callers that just listed the
+    // user's own connections pass ownershipVerified to avoid one extra listing per delete.
+    if (!opts.ownershipVerified) {
+      const mine = await listComposioUserConnections(userId)
+      if (!mine.some(c => c.id === connectionId)) {
+        throw new Error('Unauthorized: Connection belongs to a different user.')
+      }
     }
     await client.connectedAccounts.delete(connectionId)
     return true

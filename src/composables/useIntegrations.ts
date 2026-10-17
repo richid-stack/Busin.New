@@ -1,8 +1,9 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { createSharedComposable } from '@vueuse/core'
 import { $fetch } from 'ofetch'
 import type { IntegrationItem } from '../types/integrations'
 import { useCsrf } from './useCsrf'
+import { useFirebaseAuth } from './useFirebaseAuth'
 
 export const useIntegrations = createSharedComposable(() => {
   const integrations = ref<IntegrationItem[]>([])
@@ -12,8 +13,13 @@ export const useIntegrations = createSharedComposable(() => {
   const unauthorized = ref(false)
   const loadError = ref<string | null>(null)
   const { csrf, headerName } = useCsrf()
+  const { firebaseUser } = useFirebaseAuth()
+
+  // Only the newest request may write state, so a slow earlier answer can never overwrite it.
+  let generation = 0
 
   const fetchIntegrations = async () => {
+    const mine = ++generation
     loading.value = true
     loadError.value = null
     try {
@@ -22,9 +28,11 @@ export const useIntegrations = createSharedComposable(() => {
       if (token) headers[headerName] = token
 
       const data = await $fetch<IntegrationItem[]>('/api/integrations', { headers })
+      if (mine !== generation) return
       integrations.value = Array.isArray(data) ? data : []
       unauthorized.value = false
     } catch (err: any) {
+      if (mine !== generation) return
       const status = err?.statusCode ?? err?.status ?? err?.response?.status
       if (status === 401 || status === 403) {
         unauthorized.value = true
@@ -33,10 +41,23 @@ export const useIntegrations = createSharedComposable(() => {
         loadError.value = err?.data?.statusMessage || err?.statusMessage || 'Could not load integrations.'
       }
     } finally {
-      loading.value = false
-      loaded.value = true
+      if (mine === generation) {
+        loading.value = false
+        loaded.value = true
+      }
     }
   }
+
+  // A different account must never see the previous account's apps.
+  watch(() => firebaseUser.value?.uid ?? null, (uid, previous) => {
+    if (uid === previous) return
+    generation++
+    integrations.value = []
+    loaded.value = false
+    loading.value = false
+    loadError.value = null
+    unauthorized.value = false
+  })
 
   const installedIntegrations = computed(() =>
     integrations.value.filter(i => i.status === 'connected')

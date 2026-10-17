@@ -1,9 +1,9 @@
-import { defineHandler } from 'nitro'
+import { defineHandler, HTTPError } from 'nitro'
 import { getValidatedRouterParams } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
 import { deleteIntegration } from '../../../utils/firebase'
-import { getComposioUserConnections, deleteComposioConnection } from '../../../services/composio/client'
+import { listComposioUserConnections, deleteComposioConnection } from '../../../services/composio/client'
 import { composioToolkitSlug, providerFromToolkitSlug } from '../../../services/integrations/slugs'
 
 export default defineHandler(async (event) => {
@@ -18,8 +18,20 @@ export default defineHandler(async (event) => {
 
   // Remove every one of this user's connections for the provider (users can have several).
   const slug = providerFromToolkitSlug(composioToolkitSlug(provider))
-  const connections = (await getComposioUserConnections(user.id)).filter(c => c.toolkitSlug === slug)
-  const results = await Promise.all(connections.map(c => deleteComposioConnection(user.id, c.id)))
+  let all
+  try {
+    all = await listComposioUserConnections(user.id)
+  } catch (err) {
+    // A failed lookup must not read as "nothing to disconnect".
+    console.warn('[integrations] Could not list connections for disconnect:', err)
+    throw new HTTPError({ statusCode: 502, statusMessage: 'Could not reach the integrations service. Nothing was disconnected; try again.' })
+  }
+  const connections = all.filter(c => c.toolkitSlug === slug)
+  // Ownership is already established: these came from this user's own listing.
+  const results = await Promise.all(connections.map(c => deleteComposioConnection(user.id, c.id, { ownershipVerified: true })))
 
-  return { success: results.every(Boolean), provider, removed: results.filter(Boolean).length }
+  if (!results.every(Boolean)) {
+    throw new HTTPError({ statusCode: 502, statusMessage: `Could not disconnect ${results.filter(r => !r).length} account(s). Try again.` })
+  }
+  return { success: true, provider, removed: results.length }
 })

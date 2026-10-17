@@ -57,6 +57,15 @@ export function pickAvailableModel(preferred?: string | null): string | null {
   return PROVIDER_FALLBACKS.find(f => getProviderApiKey(f.provider))?.model ?? null
 }
 
+/** Every model that can run right now, preferred one first, one per provider. */
+export function availableModels(preferred?: string | null): string[] {
+  const first = pickAvailableModel(preferred)
+  const rest = PROVIDER_FALLBACKS
+    .filter(f => getProviderApiKey(f.provider) && f.provider !== (first ? providerOf(first) : null))
+    .map(f => f.model)
+  return first ? [first, ...rest] : rest
+}
+
 function missingKey(envName: string): never {
   throw new HTTPError({
     statusCode: 400,

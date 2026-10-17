@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { executeWorkflowDAG, type WorkflowRunResult } from './workflowEngine'
 import {
   saveWorkflowRun,
+  updateWorkflowRun,
   getUserChats,
   createChat,
   saveChatMessage,
@@ -72,9 +73,11 @@ export async function executeAndRecordRun(
 
   if (result.status === 'waiting_approval') {
     // Approval requests go to the workflow owner, even for webhook-triggered runs.
-    await postApprovalCard(workflow.userId, workflow, run).catch(err =>
+    await postApprovalCard(workflow.userId, workflow, run).catch(async (err) => {
       console.warn('[workflow] Failed to post approval card:', err)
-    )
+      // The run is still approvable from the studio; record that the chat card never arrived.
+      await updateWorkflowRun(workflow.id, run.id, { approvalData: { ...(run.approvalData || {}), cardDeliveryFailed: true } }).catch(() => {})
+    })
   }
 
   return { run, result }

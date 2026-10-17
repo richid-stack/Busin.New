@@ -52,12 +52,12 @@ export const webSearchTool = tool({
 
       const { sources, snippets } = parseSearchResults(await res.text())
       if (sources.length === 0) {
-        return { query, sources: [], summary: '', error: 'The search returned no results. Do not guess; tell the user the search found nothing.' }
+        return { query, status: 'empty' as const, sources: [], summary: '', error: 'The search returned no results. Do not guess; tell the user the search found nothing.' }
       }
-      return { query, sources, summary: snippets.join('\n\n') }
+      return { query, status: 'ok' as const, sources, summary: snippets.join('\n\n') }
     } catch (err: any) {
       console.warn('[web_search] failed:', err?.message)
-      return { query, sources: [], summary: '', error: 'Web search is unavailable right now. Tell the user you could not search and answer only from what you already know, clearly saying so.' }
+      return { query, status: 'failed' as const, sources: [], summary: '', error: 'Web search is unavailable right now. Tell the user you could not search and answer only from what you already know, clearly saying so.' }
     }
   }
 })

@@ -17,5 +17,6 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
   }
 
-  return await getWorkflowRuns(id)
+  // Only this user's runs (legacy runs without an owner belong to the workflow owner).
+  return (await getWorkflowRuns(id)).filter(run => !run.userId || run.userId === user.id)
 })

@@ -179,7 +179,6 @@ export async function createChat(data: {
       chatId,
       role: 'user',
       parts,
-      experimental_attachments: data.attachments || [],
       createdAt: now.toISOString()
     }))
   }
@@ -436,6 +435,66 @@ export async function createWorkflow(data: {
   }))
 
   return workflow
+}
+
+const DEFAULT_WORKFLOW_ALIAS = 'client-onboarding-pipeline'
+const RESERVED_ID_PREFIX = `${DEFAULT_WORKFLOW_ALIAS}__`
+
+/** Client-supplied ids may not target another user's reserved per-user default id. */
+export function isReservedWorkflowId(userId: string, id: string): boolean {
+  return id.startsWith(RESERVED_ID_PREFIX) && id !== `${RESERVED_ID_PREFIX}${userId}`
+}
+
+const isAlreadyExists = (err: any) => err?.code === 6 || /already exists/i.test(err?.message || '')
+
+/**
+ * The caller's own copy of the built-in pipeline, persisted on first use so runs, approvals and
+ * edits always point at a real document. A bare legacy `client-onboarding-pipeline` document the
+ * caller owns is migrated into the per-user id instead of being orphaned.
+ */
+export async function ensureDefaultWorkflow(
+  userId: string,
+  seed: { nodes: any[], edges: any[] }
+): Promise<FirestoreWorkflow> {
+  const id = resolveWorkflowId(userId, DEFAULT_WORKFLOW_ALIAS)
+  const existing = await getWorkflow(id)
+  if (existing) return existing
+
+  const legacy = await getWorkflow(DEFAULT_WORKFLOW_ALIAS)
+  const base = legacy && legacy.userId === userId
+    ? { title: legacy.title, description: legacy.description, nodes: legacy.nodes, edges: legacy.edges, nodeSchemas: legacy.nodeSchemas, status: legacy.status }
+    : {
+        title: 'Client Onboarding Pipeline',
+        description: 'Auto-triages new client inquiries from Gmail, drafts proposals, checks meeting availability, saves to Drive, and alerts Slack.',
+        nodes: seed.nodes,
+        edges: seed.edges,
+        nodeSchemas: undefined,
+        status: 'draft' as const
+      }
+
+  try {
+    return await createWorkflow({ id, userId, ...base })
+  } catch (err: any) {
+    // Only a concurrent create is benign; anything else must surface.
+    if (!isAlreadyExists(err)) throw err
+    const created = await getWorkflow(id)
+    if (!created) throw err
+    return created
+  }
+}
+
+/** Gives a workflow a webhook secret exactly once, even with concurrent first reads. */
+export async function ensureWebhookSecret(workflowId: string): Promise<string> {
+  const db = getFirebaseDb()
+  const ref = db.collection('workflows').doc(workflowId)
+  return await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    const current = snap.data()?.webhookSecret
+    if (current) return current as string
+    const secret = generateWebhookSecret()
+    tx.update(ref, { webhookSecret: secret, updatedAt: new Date().toISOString() })
+    return secret
+  })
 }
 
 export async function updateWorkflow(workflowId: string, data: Partial<FirestoreWorkflow>): Promise<void> {

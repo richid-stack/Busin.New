@@ -1,5 +1,5 @@
 import type { UnifiedIntegrationDefinition, IntegrationCategory } from './types'
-import { getComposioUserConnections, isComposioConfigured, POPULAR_COMPOSIO_TOOLKITS } from '../composio/client'
+import { listComposioUserConnections, isComposioConfigured, POPULAR_COMPOSIO_TOOLKITS } from '../composio/client'
 import { runIntegrationInstruction } from './execute'
 
 /**
@@ -170,7 +170,8 @@ const AUTHENTIC_LINKS: Record<string, { website: string; privacy: string; terms:
 export async function getResolvedUserIntegrations(userId: string): Promise<ResolvedUserIntegration[]> {
   const composioConfigured = isComposioConfigured()
   // The only source of truth for "connected" is the user's own active Composio accounts.
-  const connections = composioConfigured ? await getComposioUserConnections(userId) : []
+  // A failed lookup throws: reporting every app as "not connected" would be a lie.
+  const connections = composioConfigured ? await listComposioUserConnections(userId) : []
 
   return ALL_INTEGRATIONS_CATALOG.map((item) => {
     const conn = connections.find(c => c.toolkitSlug === item.provider && c.status === 'ACTIVE')
@@ -201,7 +202,8 @@ export async function executeIntegratedAction(
   userId: string,
   provider: string,
   actionId: string,
-  parameters: Record<string, any>
+  parameters: Record<string, any>,
+  opts: { abortSignal?: AbortSignal } = {}
 ): Promise<{
   success: boolean
   authRequired?: boolean
@@ -209,7 +211,10 @@ export async function executeIntegratedAction(
   output: any
   message?: string
 }> {
+  // Toolkits missing from our catalog still work through Composio when the slug looks valid;
+  // the connection check and tool lookup below reject anything that does not really exist.
   const definition = ALL_INTEGRATIONS_CATALOG.find(i => i.provider === provider)
+    ?? (/^[a-z0-9][a-z0-9_-]{1,39}$/.test(provider) ? { provider, name: provider.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), supportedActions: undefined } : null)
   if (!definition) {
     return { success: false, output: null, message: `Unknown integration provider: "${provider}"` }
   }
@@ -227,14 +232,15 @@ export async function executeIntegratedAction(
     lines.push(`Perform the action "${actionId}".`)
   }
   if (Object.keys(details).length) lines.push(`Settings: ${JSON.stringify(details)}`)
-  if (inputs && Object.keys(inputs).length) lines.push(`Data from earlier workflow steps: ${JSON.stringify(inputs).slice(0, 6000)}`)
+  if (inputs && Object.keys(inputs).length) lines.push(`<untrusted_workflow_data>\n${JSON.stringify(inputs).slice(0, 6000)}\n</untrusted_workflow_data>`)
 
   try {
     const res = await runIntegrationInstruction({
       userId,
       provider,
       providerName: definition.name,
-      instruction: lines.join('\n')
+      instruction: lines.join('\n'),
+      abortSignal: opts.abortSignal
     })
     return {
       success: res.success,

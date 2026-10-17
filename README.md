@@ -22,6 +22,7 @@ npm run dev
 | `COMPOSIO_API_KEY` | Enables app integrations (Gmail, Drive, Slack, Notion, ...). Without it integrations are disabled, never simulated. |
 | `CORS_ALLOWED_ORIGINS` | Optional comma-separated extra browser origins. Same-origin is always allowed. |
 | `ALLOW_ANONYMOUS_CHAT` | Set to `false` to require sign-in for chat (default: anonymous chats allowed, rate-limited). |
+| `TRUSTED_PROXY_HOPS` | Reverse proxies in front of the app (default `1`, matching Cloud Run). Used to read the real client address for rate limiting. |
 
 ## Deploying to Google Cloud
 

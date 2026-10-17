@@ -15,9 +15,9 @@ import { calculatorTool } from '../../../utils/tools/calculator'
 import { webSearchTool } from '../../../utils/tools/webSearch'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
-import { DEFAULT_MODEL, getLanguageModel, pickAvailableModel } from '../../../utils/models'
+import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
-import { allowAnonymousChat, assertMessageSizes } from '../../../utils/limits'
+import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
 
 const RATE_LIMIT_PATTERN = /quota|RESOURCE_EXHAUSTED|429|rate[ -]?limit|\bI?O?TPM\b/i
 
@@ -37,7 +37,7 @@ const WORKFLOW_PROMPT = `**WORKFLOWS & SERVICE AUTOMATIONS (CRITICAL):**
   * Call the 'workflow_create' tool to construct the pipeline, generate nodes, and register it in the visual Workflow Studio!
   * Outline the steps created (Trigger -> AI Agents -> Actions) and provide a link to the Workflow Studio at /workflows.
 - When the user asks to test or run an automation, call 'workflow_run'.
-- When the user asks to perform tasks using multiple tools (e.g., "Read my emails and save to Drive"), ALWAYS call 'integration_status' FIRST to verify if the tools are connected. If any required tool is not connected, provide the connection links (authUrl) returned by the tool so the user can connect them before proceeding.
+- When the user asks to perform tasks using multiple tools (e.g., "Read my emails and save to Drive"), ALWAYS call 'integration_status' FIRST to verify if the tools are connected. If any required tool is not connected, tell the user to connect it from the Integrations page (use the connectPath returned by the tool as the in-app link, e.g. /integrations/slack) before proceeding.
 - When the user asks about connected accounts or service status, call 'integration_status'.
 - When the user asks to connect, verify, or execute an action on an integration (e.g., GitHub, Slack, Gmail, Notion, Discord via Composio), call 'integration_execute' with the provider and instruction. If unauthenticated, the tool will return a Connect Link. You must then output this tool call so the UI renders the connection card. Do not output raw markdown links for authentication.`
 
@@ -112,8 +112,8 @@ export default defineHandler(async (event) => {
     ;(async () => {
       try {
         let refinedTitle = ''
-        const titleModelId = pickAvailableModel(DEFAULT_MODEL)
-        if (titleModelId) {
+        // Try each configured provider in turn; the provisional title stays if none answers.
+        for (const titleModelId of availableModels(DEFAULT_MODEL)) {
           try {
             const { text } = await generateText({
               abortSignal: AbortSignal.timeout(5000),
@@ -124,9 +124,10 @@ export default defineHandler(async (event) => {
             })
             if (text && text.trim()) {
               refinedTitle = text.trim()
+              break
             }
           } catch {
-            // ignore: the provisional title stays
+            // try the next provider
           }
         }
 
@@ -213,7 +214,7 @@ export default defineHandler(async (event) => {
 - Maintain a friendly, professional tone
 
 ${signedIn ? WORKFLOW_PROMPT : ANON_PROMPT}`,
-          messages: await convertToModelMessages(messages),
+          messages: await convertToModelMessages(trimHistory(messages)),
           tools,
           providerOptions: {
             anthropic: {
