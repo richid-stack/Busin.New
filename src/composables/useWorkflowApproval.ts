@@ -8,6 +8,8 @@ export function useWorkflowApproval(getTarget: () => { workflowId?: string, runI
   const toast = useToast()
   const loading = ref<'approve' | 'reject' | null>(null)
   const result = ref<ApprovalResult>(null)
+  /** The run as it stands after the decision (the workflow resumes immediately). */
+  const updatedRun = ref<any>(null)
 
   async function submit(approved: boolean, comments: string) {
     const { workflowId, runId } = getTarget()
@@ -15,10 +17,11 @@ export function useWorkflowApproval(getTarget: () => { workflowId?: string, runI
 
     loading.value = approved ? 'approve' : 'reject'
     try {
-      await $fetch(`/api/workflows/${workflowId}/approve`, {
+      const response = await $fetch<{ run?: any }>(`/api/workflows/${workflowId}/approve`, {
         method: 'POST',
         body: { runId, approved, comments }
       })
+      updatedRun.value = response?.run ?? null
       result.value = approved ? 'approved' : 'rejected'
     } catch (error: any) {
       // 409: this request was already answered (earlier click, another tab, or the studio).
@@ -37,5 +40,5 @@ export function useWorkflowApproval(getTarget: () => { workflowId?: string, runI
     }
   }
 
-  return { loading, result, submit }
+  return { loading, result, updatedRun, submit }
 }
