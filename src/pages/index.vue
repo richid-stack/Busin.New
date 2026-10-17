@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
 import type { DropdownMenuItem } from '@nuxt/ui'
@@ -10,12 +10,14 @@ import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { usePromptAttachments } from '../composables/usePromptAttachments'
 import Navbar from '../components/Navbar.vue'
 import PromptAttachments from '../components/PromptAttachments.vue'
+import GuestReply from '../components/chat/GuestReply.vue'
+import { savePendingPrompt, takePendingPrompt } from '../utils/guestReply'
 
 const toast = useToast()
 const { fetchChats } = useChats()
 const { csrf, headerName } = useCsrf()
-const { user, loggedIn } = useUserSession()
-const { openAuthModal } = useFirebaseAuth()
+const { user, loggedIn, fetchSession } = useUserSession()
+const { openAuthModal, authReady, isAuthenticated } = useFirebaseAuth()
 const { attachments, processing, onInputChange, remove, clear, toApiAttachments } = usePromptAttachments()
 
 const input = ref('')
@@ -35,8 +37,40 @@ const greeting = computed(() => {
   return name ? `${timeGreeting}, ${name}` : `${timeGreeting}`
 })
 
+/** What a signed-out visitor just typed; shown with OpenLobs' invitation to sign in. */
+const guestMessage = ref<string | null>(null)
+
+/** Signed in for real: Firebase knows the user and the server session agrees. */
+async function ensureSignedIn(): Promise<boolean> {
+  if (!authReady.value) {
+    await new Promise<void>((resolve) => {
+      const stop = watch(authReady, (ready) => {
+        if (ready) {
+          stop()
+          resolve()
+        }
+      }, { immediate: true })
+    })
+  }
+  if (!isAuthenticated.value) return false
+  if (!loggedIn.value) await fetchSession()
+  return loggedIn.value
+}
+
+// Once the visitor signs in, send what they had typed.
+watch(loggedIn, (signedIn) => {
+  if (!signedIn) return
+  const pending = takePendingPrompt()
+  guestMessage.value = null
+  if (pending) createChat(pending)
+})
+
 // Deep links like /?prompt=... (from integration pages) prefill the box without sending it.
 onMounted(() => {
+  if (loggedIn.value) {
+    const pending = takePendingPrompt()
+    if (pending) createChat(pending)
+  }
   const prefill = route.query.prompt
   if (typeof prefill === 'string' && prefill.trim()) {
     input.value = prefill.slice(0, 2000)
@@ -77,7 +111,17 @@ async function createChat(prompt: string) {
   }
 }
 
-function onSubmit() {
+async function onSubmit() {
+  const text = input.value.trim()
+  if (!text && attachments.value.length === 0) return
+
+  if (!await ensureSignedIn()) {
+    // Not signed in: answer as OpenLobs (no model call) and keep the message for after sign-in.
+    guestMessage.value = text || 'I have a file to share.'
+    savePendingPrompt(text)
+    input.value = ''
+    return
+  }
   createChat(input.value)
 }
 
@@ -143,16 +187,11 @@ const proactiveAutomations = [
   }
 ]
 
-function startAutomation(prompt: string) {
+async function startAutomation(prompt: string) {
   // Workflow tools act on an account, so they need a signed-in user.
-  if (!loggedIn.value) {
-    toast.add({
-      title: 'Sign in to build workflows',
-      description: 'Workflows and app integrations are tied to your account.',
-      icon: 'i-lucide-lock',
-      color: 'info'
-    })
-    openAuthModal()
+  if (!await ensureSignedIn()) {
+    guestMessage.value = prompt
+    savePendingPrompt(prompt)
     return
   }
   createChat(prompt)
@@ -171,7 +210,14 @@ function startAutomation(prompt: string) {
 
     <template #body>
       <UContainer class="flex-1 flex flex-col justify-center gap-6 sm:gap-8 py-12 max-w-4xl mx-auto">
-        <div class="text-center space-y-2">
+        <GuestReply
+          v-if="guestMessage"
+          :message="guestMessage"
+          @signup="openAuthModal('signup')"
+          @signin="openAuthModal('signin')"
+        />
+
+        <div v-else class="text-center space-y-2">
           <h1 class="text-3xl sm:text-4xl text-default font-semibold tracking-tight">
             {{ greeting }}
           </h1>
@@ -236,7 +282,7 @@ function startAutomation(prompt: string) {
         </div>
 
         <!-- Proactive Automations -->
-        <div class="mt-8">
+        <div v-if="!guestMessage" class="mt-8">
           <div class="flex items-center gap-2 mb-4 px-2 text-sm font-medium text-default">
             <UIcon name="i-lucide-sparkles" class="size-4 text-primary" />
             Suggested Workflows

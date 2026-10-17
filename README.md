@@ -21,7 +21,7 @@ npm run dev
 | `SESSION_SECRET` | **Required in production.** 32+ random characters for the session cookie. |
 | `COMPOSIO_API_KEY` | Enables app integrations (Gmail, Drive, Slack, Notion, ...). Without it integrations are disabled, never simulated. |
 | `CORS_ALLOWED_ORIGINS` | Optional comma-separated extra browser origins. Same-origin is always allowed. |
-| `ALLOW_ANONYMOUS_CHAT` | Set to `false` to require sign-in for chat (default: anonymous chats allowed, rate-limited). |
+| `ALLOW_ANONYMOUS_CHAT` | Chat requires sign-in by default. Set to `true` to allow anonymous (rate-limited) chats, e.g. local demos. |
 | `TRUSTED_PROXY_HOPS` | Reverse proxies in front of the app (default `1`, matching Cloud Run). Used to read the real client address for rate limiting. |
 
 ## Deploying to Google Cloud

@@ -23,6 +23,8 @@ export const useFirebaseAuth = createSharedComposable(() => {
   const authReady = ref<boolean>(false)
   const error = ref<string | null>(null)
   const isAuthModalOpen = ref<boolean>(false)
+  /** Which tab the auth dialog opens on. */
+  const authModalMode = ref<'signin' | 'signup'>('signin')
   const { csrf, setCsrf, headerName } = useCsrf()
   const userSession = useUserSession()
 
@@ -67,7 +69,9 @@ export const useFirebaseAuth = createSharedComposable(() => {
     await syncServerSession(u)
   })
 
-  const openAuthModal = () => {
+  // Called straight from @click handlers too, so anything but 'signup' (e.g. a MouseEvent) means sign in.
+  const openAuthModal = (mode?: unknown) => {
+    authModalMode.value = mode === 'signup' ? 'signup' : 'signin'
     error.value = null
     isAuthModalOpen.value = true
   }
@@ -215,6 +219,7 @@ export const useFirebaseAuth = createSharedComposable(() => {
     authReady,
     error,
     isAuthModalOpen,
+    authModalMode,
     openAuthModal,
     closeAuthModal,
     signInWithGoogle,
