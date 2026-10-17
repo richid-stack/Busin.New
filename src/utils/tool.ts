@@ -61,3 +61,13 @@ export function sourceToInlineMdc(url: string): string {
 
   return ` :source-link{url="${safeUrl}" favicon="${safeFavicon}" label="${domain}"}`
 }
+
+/** What the page-reading tool did: the page it opened, or why it could not. */
+export function getFetchedPage(part: ToolPart): { source: Source | null, failed: boolean, url?: string } {
+  const output = part.output as { status?: string, url?: string, title?: string } | undefined
+  const requested = (part.input as { url?: string } | undefined)?.url
+  if (!output) return { source: null, failed: false, url: requested }
+  if (output.status === 'failed') return { source: null, failed: true, url: requested }
+  const url = output.url || requested
+  return { source: url ? { url, title: output.title || undefined } : null, failed: false, url }
+}
