@@ -15,7 +15,7 @@ import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
-import { getFetchedPage, getSearchProblem, getSearchQuery, getSources } from '../../../utils/tool'
+import { getFetchedPage, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -102,6 +102,13 @@ const emit = defineEmits<{
       >
         <ChatToolSources :sources="getSources(part)" />
       </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'load_skill'"
+        :text="isToolStreaming(part) ? 'Opening a skill...' : getSkillName(part) ? 'Used the skill' : 'Skill unavailable'"
+        :suffix="getSkillName(part)"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-wand-sparkles"
+      />
       <UChatTool
         v-else-if="getToolName(part) === 'web_fetch'"
         :text="isToolStreaming(part) ? 'Reading the page...' : getFetchedPage(part).failed ? 'Could not read the page' : 'Read the page'"

@@ -26,6 +26,14 @@ npm run dev
 | `FIRECRAWL_API_KEY`, `PARALLEL_API_KEY`, `TAVILY_API_KEY` | Optional web tool keys. Without them, search uses DuckDuckGo and pages are read by the built-in reader. Each key you add switches that provider on. |
 | `SEARCH_PROVIDERS` | Optional comma-separated order for search providers (default `parallel,tavily,firecrawl,duckduckgo`). |
 
+## Skills
+
+A skill is a folder `skills/<name>/SKILL.md`: a short YAML header (`name`, `description`) and plain-language instructions. The chat sees the list of names and descriptions, and when a request matches one it calls `load_skill` and follows the instructions. Skills are text only: they can tell the assistant how to use the tools it already has, but they cannot run code.
+
+To add one, create the folder and file (the folder name must equal `name`), then run `npm test`: it checks the format and that the skill only mentions tools that exist. A broken skill is skipped with a warning, never a crash. Skills are bundled at build time, so a new one needs a rebuild.
+
+Skills from other projects follow the same format ([agentskills.io](https://agentskills.io)). Check the licence before copying one in.
+
 ## Deploying to Google Cloud
 
 - The server uses Application Default Credentials: the attached service account needs Firestore access (and Firebase Auth token verification).

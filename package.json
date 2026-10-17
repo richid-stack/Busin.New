@@ -9,7 +9,7 @@
     "start": "node .output/server/index.mjs",
     "lint": "eslint src server shared tests",
     "typecheck": "vue-tsc -p ./tsconfig.app.json",
-    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts && tsx tests/hardening.test.mts && tsx tests/netSafety.test.mts && tsx tests/webReader.test.mts && tsx tests/webSearch.test.mts",
+    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts && tsx tests/hardening.test.mts && tsx tests/netSafety.test.mts && tsx tests/webReader.test.mts && tsx tests/webSearch.test.mts && tsx tests/skills.test.mts",
     "typecheck:server": "tsc -p tsconfig.server.json",
     "icons": "node scripts/build-icons.mjs"
   },
@@ -51,6 +51,7 @@
     "vue": "^3.5.42",
     "vue-chrts": "^2.2.1",
     "vue-router": "^5.3.1",
+    "yaml": "^2.9.1",
     "zod": "^4.5.4"
   },
   "devDependencies": {

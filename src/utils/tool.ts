@@ -71,3 +71,10 @@ export function getFetchedPage(part: ToolPart): { source: Source | null, failed:
   const url = output.url || requested
   return { source: url ? { url, title: output.title || undefined } : null, failed: false, url }
 }
+
+/** The skill a load_skill call opened, as a readable name; undefined while loading or on failure. */
+export function getSkillName(part: ToolPart): string | undefined {
+  const output = part.output as { status?: string, name?: string } | undefined
+  const name = output?.status === 'ok' ? output.name : undefined
+  return name?.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase())
+}
