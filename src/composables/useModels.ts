@@ -11,6 +11,7 @@ export function useModels() {
 
   return {
     models: MODELS,
+    defaultModel,
     model
   }
 }
