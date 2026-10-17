@@ -1,5 +1,6 @@
 import { conditionFromWmoCode } from '../server/utils/tools/weather'
 import { parseSearchResults } from '../server/utils/tools/webSearch'
+import { pickGuestReply } from '../src/utils/guestReply'
 import { clientAddress, enforceRateLimit, resetRateLimits } from '../server/utils/rateLimit'
 import { MAX_CONTEXT_MESSAGES, assertMessageSizes, assertNewChatMessage, trimHistory } from '../server/utils/limits'
 
@@ -52,3 +53,9 @@ const withHeaders = (xff: string | null, hops?: string): any => {
 assert(clientAddress(withHeaders('6.6.6.6, 203.0.113.9')) === '203.0.113.9', 'spoofed left-hand X-Forwarded-For values are ignored (default one trusted hop)')
 assert(clientAddress(withHeaders('6.6.6.6, 198.51.100.4, 203.0.113.9', '2')) === '198.51.100.4', 'TRUSTED_PROXY_HOPS picks the address from the right')
 delete process.env.TRUSTED_PROXY_HOPS
+
+// Signed-out visitors get a relevant, model-free invitation to sign in.
+assert(/Automations/.test(pickGuestReply('Create a workflow that emails me every Monday').opening), 'automation requests get the automation pitch')
+assert(/inbox|calendar/i.test(pickGuestReply('draft a reply to my latest gmail').opening), 'email requests get the inbox pitch')
+assert(/Research/.test(pickGuestReply('find the latest news about gemini').opening), 'research requests get the research pitch')
+assert(pickGuestReply('hello').highlights.length === 3, 'anything else gets the general introduction')

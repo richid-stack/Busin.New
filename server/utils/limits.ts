@@ -7,7 +7,8 @@ export const MAX_INPUT_CHARS = 20_000
 /** Longer conversations are trimmed to their most recent messages before reaching the model. */
 export const MAX_CONTEXT_MESSAGES = 100
 
-export const allowAnonymousChat = () => process.env.ALLOW_ANONYMOUS_CHAT !== 'false'
+/** Chat requires sign-in. Anonymous chat is an explicit opt-in (ALLOW_ANONYMOUS_CHAT=true), e.g. for local demos. */
+export const allowAnonymousChat = () => process.env.ALLOW_ANONYMOUS_CHAT === 'true'
 
 /** Size as stored: Firestore counts bytes, not UTF-16 code units. */
 function sizeOf(value: unknown): number {
