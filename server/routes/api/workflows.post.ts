@@ -3,6 +3,7 @@ import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../utils/session'
 import { createWorkflow, isReservedWorkflowId, resolveWorkflowId } from '../../utils/firebase'
+import { scheduleFieldsForSave } from '../../utils/workflowSchedule'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
@@ -22,6 +23,8 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 400, statusMessage: 'This workflow id is reserved.' })
   }
 
+  const schedule = await scheduleFieldsForSave(userId, requestedId, null, { status: body.status, nodes: body.nodes })
+
   let workflow
   try {
     workflow = await createWorkflow({
@@ -31,7 +34,8 @@ export default defineHandler(async (event) => {
     status: body.status,
     nodes: body.nodes,
     edges: body.edges,
-    userId
+    userId,
+    scheduleNextRunAt: schedule?.scheduleNextRunAt ?? null
     })
   } catch (err: any) {
     // Firestore ALREADY_EXISTS (gRPC code 6)

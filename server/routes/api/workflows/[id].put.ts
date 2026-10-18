@@ -3,6 +3,7 @@ import { getValidatedRouterParams, readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
 import { getWorkflow, updateWorkflow, createWorkflow, resolveWorkflowId } from '../../../utils/firebase'
+import { scheduleFieldsForSave } from '../../../utils/workflowSchedule'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
@@ -24,6 +25,7 @@ export default defineHandler(async (event) => {
 
   let existing = await getWorkflow(id)
   if (!existing && id !== requestedId) {
+    const schedule = await scheduleFieldsForSave(userId, id, null, { status: body.status || 'active', nodes: body.nodes || [] })
     existing = await createWorkflow({
       id,
       title: body.title || 'Client Onboarding Pipeline',
@@ -32,7 +34,8 @@ export default defineHandler(async (event) => {
       nodes: body.nodes || [],
       edges: body.edges || [],
       nodeSchemas: body.nodeSchemas || {},
-      status: body.status || 'active'
+      status: body.status || 'active',
+      scheduleNextRunAt: schedule?.scheduleNextRunAt ?? null
     })
     return {
       success: true,
@@ -45,11 +48,18 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found or access denied' })
   }
 
-  await updateWorkflow(id, body)
+  // Only a change to the nodes or the status can change the schedule.
+  const touchesSchedule = body.nodes !== undefined || body.status !== undefined
+  const schedule = touchesSchedule
+    ? await scheduleFieldsForSave(userId, id, existing, { status: body.status ?? existing.status, nodes: body.nodes ?? existing.nodes })
+    : null
+
+  await updateWorkflow(id, { ...body, ...(schedule ?? {}) })
 
   return {
     success: true,
     id,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    ...(schedule ? { schedule: { nextRunAt: schedule.scheduleNextRunAt, error: schedule.scheduleError } } : {})
   }
 })

@@ -7,7 +7,7 @@ export const NODE_CATEGORIES: Array<{ id: string, label: string, icon: string, n
     icon: 'i-lucide-zap',
     nodes: [
       { type: 'trigger', subtype: 'webhook', title: 'Webhook', subtitle: 'Catch hook', icon: 'i-lucide-webhook', color: 'text-amber-500' },
-      { type: 'trigger', subtype: 'schedule', title: 'Schedule', subtitle: 'Cron job', icon: 'i-lucide-clock', color: 'text-amber-500', comingSoon: true },
+      { type: 'trigger', subtype: 'schedule', title: 'Schedule', subtitle: 'Runs on a timer', icon: 'i-lucide-clock', color: 'text-amber-500' },
       { type: 'trigger', subtype: 'manual', title: 'Manual', subtitle: 'Button click', icon: 'i-lucide-play-circle', color: 'text-amber-500' },
       { type: 'trigger', subtype: 'gmail', title: 'New Email', subtitle: 'Gmail', icon: 'i-logos-google-gmail', color: 'text-amber-500', comingSoon: true }
     ]

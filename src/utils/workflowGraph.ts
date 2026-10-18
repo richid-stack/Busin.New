@@ -1,4 +1,5 @@
 /** Shared helpers for the workflow canvas. */
+import { defaultSchedule } from './schedulePresets'
 
 export type RunStatus = 'running' | 'completed' | 'failed' | 'auth_required' | 'waiting_approval' | 'skipped' | 'rejected'
 
@@ -74,6 +75,7 @@ export function createNode(def: NodeDefinition, position: { x: number, y: number
     // Library entries for a specific app (Slack, Drive) preselect it; others start empty.
     data.provider = subtype && subtype !== 'api' && subtype !== 'web-fetch' ? subtype : ''
   }
+  if (type === 'trigger' && subtype === 'schedule') data.schedule = defaultSchedule()
   // Each node gets its own copy of the library's starting settings.
   if (extra.config) data.config = structuredClone(extra.config)
 
