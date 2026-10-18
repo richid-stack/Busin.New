@@ -3,6 +3,10 @@ import { computed, ref, watch } from 'vue'
 import { useClipboard } from '@vueuse/core'
 import VariablePicker from './VariablePicker.vue'
 import VariableTextarea from './VariableTextarea.vue'
+import HttpFields from './fields/HttpFields.vue'
+import WebFetchFields from './fields/WebFetchFields.vue'
+import SetFields from './fields/SetFields.vue'
+import ErrorSettings from './fields/ErrorSettings.vue'
 import { STATUS_META, logicKind } from '../../utils/workflowGraph'
 import type { NodeRuntime } from '../../utils/workflowGraph'
 import type { IntegrationItem } from '../../types/integrations'
@@ -58,6 +62,48 @@ function set(key: string, value: any) {
 function setConfig(key: string, value: any) {
   emit('update', { config: { ...config.value, [key]: value } })
 }
+function patchConfig(patch: Record<string, any>) {
+  emit('update', { config: { ...config.value, ...patch } })
+}
+
+// What this action does: call a web address, read a page, or use a connected app.
+const actionKind = computed<'http' | 'web-fetch' | 'app'>(() => (data.value.subtype === 'api' ? 'http' : data.value.subtype === 'web-fetch' ? 'web-fetch' : 'app'))
+
+// Loop: one small step repeated for every item in a list.
+const loopBody = computed<Record<string, any>>(() => config.value.body ?? { kind: 'web-fetch', config: {} })
+const loopBodyConfig = computed<Record<string, any>>(() => loopBody.value.config ?? {})
+const LOOP_KINDS = [
+  { label: 'Read a web page', value: 'web-fetch' },
+  { label: 'Send an HTTP request', value: 'http' },
+  { label: 'Set fields', value: 'set' },
+  { label: 'Ask the AI', value: 'agent' }
+]
+function patchLoopBody(patch: Record<string, any>) {
+  patchConfig({ body: { ...loopBody.value, ...patch } })
+}
+function patchLoopBodyConfig(patch: Record<string, any>) {
+  patchLoopBody({ config: { ...loopBodyConfig.value, ...patch } })
+}
+function changeLoopKind(kind: string) {
+  const defaults: Record<string, Record<string, any>> = {
+    'web-fetch': { url: '{{item}}' },
+    'http': { method: 'GET', url: '{{item}}' },
+    'set': { fields: [{ key: 'value', value: '{{item}}', mode: 'text' }] },
+    'agent': {}
+  }
+  patchLoopBody({ kind, config: defaults[kind] ?? {} })
+}
+const loopCap = computed(() => (loopBody.value.kind === 'agent' ? 10 : 50))
+// Inside a loop's step, {{item}} and {{index}} are available as well.
+const loopVariables = computed(() => [
+  { group: 'This loop', label: 'Current item', value: '{{item}}', icon: 'i-lucide-repeat' },
+  { group: 'This loop', label: 'Item number (from 0)', value: '{{index}}', icon: 'i-lucide-hash' },
+  ...props.variables
+])
+
+// Steps where "if this fails" settings make sense; retries only where repeating can help.
+const showFailureSettings = computed(() => props.node?.type === 'agent' || props.node?.type === 'action' || (props.node?.type === 'logic' && (kind.value === 'set' || kind.value === 'loop')))
+const canRetry = computed(() => props.node?.type === 'agent' || props.node?.type === 'action')
 
 const providerItems = computed(() => {
   const items = props.integrations
@@ -281,13 +327,78 @@ function pretty(value: unknown) {
               @update:model-value="set('code', $event)"
             />
           </UFormField>
+          <SetFields
+            v-else-if="kind === 'set'"
+            :config="config"
+            :variables="variables"
+            @update="patchConfig"
+          />
+          <template v-else-if="kind === 'loop'">
+            <UFormField label="List to go over" size="sm" help="Must be a list, such as the urls in a webhook payload.">
+              <VariablePicker
+                :model-value="config.items || ''"
+                :variables="variables"
+                placeholder="{{trigger.payload.urls}}"
+                @update:model-value="setConfig('items', $event)"
+              />
+            </UFormField>
+            <div class="grid grid-cols-2 gap-3">
+              <UFormField label="Most items" size="sm" :help="`Up to ${loopCap}. Extra items are left out and reported.`">
+                <UInput
+                  :model-value="config.maxItems ?? 20"
+                  type="number"
+                  :min="1"
+                  :max="loopCap"
+                  size="sm"
+                  class="w-full"
+                  @update:model-value="setConfig('maxItems', Math.min(loopCap, Math.max(1, Number($event) || 20)))"
+                />
+              </UFormField>
+              <UFormField label="Stop on first error" size="sm" help="Off: failed items are reported and the rest continue.">
+                <USwitch
+                  :model-value="Boolean(config.stopOnError)"
+                  aria-label="Fail the step when any item fails"
+                  @update:model-value="setConfig('stopOnError', $event)"
+                />
+              </UFormField>
+            </div>
+            <UFormField label="For each item" size="sm" help="Use {{item}} and {{index}} in the fields below.">
+              <USelect
+                :model-value="loopBody.kind || 'web-fetch'"
+                :items="LOOP_KINDS"
+                size="md"
+                class="w-full"
+                @update:model-value="changeLoopKind($event as string)"
+              />
+            </UFormField>
+            <WebFetchFields v-if="(loopBody.kind || 'web-fetch') === 'web-fetch'" :config="loopBodyConfig" :variables="loopVariables" @update="patchLoopBodyConfig" />
+            <HttpFields v-else-if="loopBody.kind === 'http'" :config="loopBodyConfig" :variables="loopVariables" @update="patchLoopBodyConfig" />
+            <SetFields v-else-if="loopBody.kind === 'set'" :config="loopBodyConfig" :variables="loopVariables" @update="patchLoopBodyConfig" />
+            <template v-else-if="loopBody.kind === 'agent'">
+              <UFormField label="AI model" size="sm">
+                <USelect :model-value="loopBody.model" :items="MODELS" size="md" class="w-full" @update:model-value="patchLoopBody({ model: $event })" />
+              </UFormField>
+              <UFormField label="Instructions" size="sm" help="Runs once per item, so keep the list short. The AI sees the item as {{item}}.">
+                <VariableTextarea
+                  :model-value="loopBody.prompt || ''"
+                  :variables="loopVariables"
+                  placeholder="Summarise {{item}} in one sentence."
+                  :rows="4"
+                  @update:model-value="patchLoopBody({ prompt: $event })"
+                />
+              </UFormField>
+            </template>
+            <p class="text-xs text-muted">
+              Output: <code class="font-mono">results</code> (one entry per item, in order), <code class="font-mono">outputs</code> (only the ones that worked), <code class="font-mono">succeeded</code>, <code class="font-mono">failed</code>.
+            </p>
+          </template>
           <UAlert
             v-else
             color="warning"
             variant="subtle"
             icon="i-lucide-construction"
             title="Not available yet"
-            description="This kind of logic step cannot run yet. Use If / Else, Switch or JavaScript."
+            description="This kind of logic step cannot run yet. Use If / Else, Switch, JavaScript, Set or Loop."
           />
         </template>
 
@@ -321,6 +432,12 @@ function pretty(value: unknown) {
         </template>
 
         <!-- Action -->
+        <template v-else-if="node.type === 'action' && actionKind === 'http'">
+          <HttpFields :config="config" :variables="variables" @update="patchConfig" />
+        </template>
+        <template v-else-if="node.type === 'action' && actionKind === 'web-fetch'">
+          <WebFetchFields :config="config" :variables="variables" @update="patchConfig" />
+        </template>
         <template v-else-if="node.type === 'action'">
           <UFormField label="App" size="sm">
             <USelect
@@ -387,6 +504,14 @@ function pretty(value: unknown) {
             />
           </UFormField>
         </template>
+
+        <ErrorSettings
+          v-if="showFailureSettings"
+          :settings="data.settings"
+          :can-retry="canRetry"
+          :retry-note="kind === 'loop' ? 'A loop is never retried as a whole, because that could repeat items that already worked.' : undefined"
+          @update="set('settings', $event)"
+        />
       </div>
 
       <!-- Test step -->

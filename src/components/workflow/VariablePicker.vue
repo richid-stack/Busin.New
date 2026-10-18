@@ -4,8 +4,10 @@ import { ref, computed } from 'vue'
 const props = withDefaults(defineProps<{
   modelValue: string
   variables?: Array<{ group: string; label: string; value: string; icon?: string }>
+  placeholder?: string
 }>(), {
-  variables: () => []
+  variables: () => [],
+  placeholder: 'Type or select a variable...'
 })
 
 const emit = defineEmits<{
@@ -29,7 +31,7 @@ const insertVariable = (value: string) => {
     <UInput
       :model-value="modelValue"
       @update:model-value="emit('update:modelValue', $event)"
-      placeholder="Type or select a variable..."
+      :placeholder="placeholder"
       size="sm"
       class="w-full font-mono text-xs pr-8"
       autocomplete="off"

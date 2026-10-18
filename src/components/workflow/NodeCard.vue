@@ -28,6 +28,7 @@ const KINDS = {
 
 const kindMeta = computed(() => KINDS[props.kind])
 const hasInput = computed(() => props.kind !== 'trigger')
+const routesErrors = computed(() => props.data.settings?.onError === 'route')
 const isBranching = computed(() => props.kind === 'logic' && logicKind({ id: props.id, data: props.data }) === 'if-else')
 
 const borderClass = computed(() => {
@@ -121,5 +122,15 @@ const statusTextClass = computed(() => {
       :position="Position.Right"
       class="!bg-primary !w-2.5 !h-2.5"
     />
+
+    <template v-if="routesErrors">
+      <Handle
+        id="error"
+        type="source"
+        :position="Position.Bottom"
+        class="!bg-error !w-2.5 !h-2.5"
+      />
+      <div class="absolute left-1/2 -bottom-5 -translate-x-1/2 text-[9px] font-bold text-error pointer-events-none">ERROR</div>
+    </template>
   </div>
 </template>

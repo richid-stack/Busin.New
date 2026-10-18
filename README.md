@@ -44,6 +44,17 @@ Signed-in users can ask chat for finished files: Word or PDF (`create_document`)
 
 Files are stored in the Firestore collection `generated_files` (each at most 700 KB, readable only by the user who created it through `GET /api/files/:id`) and expire after 30 days. Expired files are refused and deleted when someone asks for them. To also clean them up automatically, add a free Firestore TTL policy on the `expiresAt` field of `generated_files` (Firebase console, Firestore, TTL).
 
+## Workflow steps
+
+Besides AI agents, approvals and connected apps, workflows have these steps:
+
+- **HTTP Request**: GET, POST, PUT, PATCH or DELETE to a public web address, with headers and a body. Local and private addresses, non-standard ports and redirects are refused. Headers are stored with the workflow.
+- **Read Web Page**: a page as text (uses Firecrawl when `FIRECRAWL_API_KEY` is set).
+- **Set Fields**: build new values from earlier steps (text with placeholders, a formula, or JSON).
+- **Loop**: runs one small step (read a page, send a request, set fields or ask the AI) for each item of a list, three at a time, with `{{item}}` and `{{index}}`. At most 50 items (10 for AI steps). Failed items are reported without stopping the rest, unless "stop on first error" is on.
+
+Every connected-app, AI, HTTP, page, Set and Loop step also has **If this step fails** settings: retry up to 3 times (waits double each time; setup mistakes are never retried, and a loop is never retried as a whole), then either stop the run, carry on with the error as the step's output, or follow the red **ERROR** connector to a different step. Each user can send 300 workflow web requests per 10 minutes.
+
 ## Deploying to Google Cloud
 
 - The server uses Application Default Credentials: the attached service account needs Firestore access (and Firebase Auth token verification).

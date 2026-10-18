@@ -26,7 +26,7 @@ import { useCsrf } from '../../composables/useCsrf'
 import { useIntegrations } from '../../composables/useIntegrations'
 import { useIntegrationConnect } from '../../composables/useIntegrationConnect'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
-import { EDGE_STYLE, createNode, serializeGraph } from '../../utils/workflowGraph'
+import { EDGE_STYLE, createNode, knownOutputKeys, serializeGraph } from '../../utils/workflowGraph'
 import type { NodeDefinition, NodeRuntime } from '../../utils/workflowGraph'
 
 const route = useRoute()
@@ -382,10 +382,21 @@ const dynamicVariables = computed(() => {
       }
       continue
     }
+    const known = knownOutputKeys(node)
+    if (known) {
+      for (const key of known) variables.push({ group, label: key, value: `{{${node.id}.${key}}}`, icon })
+      if (node.data?.settings?.onError && node.data.settings.onError !== 'stop') {
+        variables.push({ group, label: 'error (if it failed)', value: `{{${node.id}.error}}`, icon })
+      }
+      continue
+    }
     switch (node.type) {
       case 'agent':
       case 'logic':
         variables.push({ group, label: 'Result', value: `{{${node.id}.result}}`, icon })
+        if (node.data?.settings?.onError && node.data.settings.onError !== 'stop') {
+          variables.push({ group, label: 'error (if it failed)', value: `{{${node.id}.error}}`, icon })
+        }
         break
       case 'approval':
         variables.push({ group, label: 'Approved', value: `{{${node.id}.approved}}`, icon })

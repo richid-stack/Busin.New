@@ -91,12 +91,19 @@ export interface SafeFetchOptions {
   maxRedirects?: number
   headers?: Record<string, string>
   signal?: AbortSignal
+  /** Defaults to GET. */
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD'
+  body?: string
+  /** 'manual' returns a redirect response as it is instead of following it. */
+  redirect?: 'follow' | 'manual'
 }
 
 export interface SafeFetchResult {
   status: number
   url: string
   contentType: string
+  /** Response headers, lower-cased. Cookies are left out. */
+  headers: Record<string, string>
   body: Buffer
   /** True when the page was larger than maxBytes and was cut off. */
   truncated: boolean
@@ -133,21 +140,23 @@ function decoded(res: IncomingMessage): Readable {
 function once(url: URL, opts: Required<Pick<SafeFetchOptions, 'timeoutMs' | 'maxBytes'>> & SafeFetchOptions): Promise<{ res: IncomingMessage, close: () => void }> {
   return new Promise((resolve, reject) => {
     const send = url.protocol === 'https:' ? httpsRequest : httpRequest
+    const payload = opts.body === undefined ? undefined : Buffer.from(opts.body, 'utf8')
     const req = send(url, {
-      method: 'GET',
+      method: opts.method ?? 'GET',
       lookup: safeLookup,
       timeout: opts.timeoutMs,
       headers: {
         'User-Agent': 'OpenLobsBot/1.0 (+https://openlobs.app)',
         'Accept': 'text/html,application/xhtml+xml,application/json,text/plain;q=0.9,*/*;q=0.5',
         'Accept-Encoding': 'gzip, br, deflate',
-        ...opts.headers
+        ...opts.headers,
+        ...(payload ? { 'Content-Length': String(payload.length) } : {})
       },
       signal: opts.signal
     }, res => resolve({ res, close: () => req.destroy() }))
     req.on('timeout', () => req.destroy(new Error('The website took too long to respond.')))
     req.on('error', reject)
-    req.end()
+    req.end(payload)
   })
 }
 
@@ -158,16 +167,23 @@ function once(url: URL, opts: Required<Pick<SafeFetchOptions, 'timeoutMs' | 'max
 export async function safeFetch(rawUrl: string, options: SafeFetchOptions = {}): Promise<SafeFetchResult> {
   const opts = { timeoutMs: 10_000, maxBytes: 2_000_000, maxRedirects: 4, ...options }
   let url = parseSafeUrl(rawUrl)
+  const firstOrigin = url.origin
+  let current: typeof opts = opts
 
   for (let hop = 0; hop <= opts.maxRedirects; hop++) {
-    const { res, close } = await once(url, opts)
+    const { res, close } = await once(url, current)
     const status = res.statusCode ?? 0
     const location = res.headers.location
 
-    if (status >= 300 && status < 400 && location) {
+    if (status >= 300 && status < 400 && location && opts.redirect !== 'manual') {
       res.resume()
       close()
       url = parseSafeUrl(new URL(location, url).href)
+      // Credentials and custom headers never follow a redirect to another site, and a redirect that
+      // turns a POST into a GET drops the body.
+      current = { ...current }
+      if (url.origin !== firstOrigin) current.headers = undefined
+      if (status === 301 || status === 302 || status === 303) { current.method = 'GET'; current.body = undefined }
       continue
     }
 
@@ -175,7 +191,11 @@ export async function safeFetch(rawUrl: string, options: SafeFetchOptions = {}):
     const timer = setTimeout(() => res.destroy(new Error('The website took too long to respond.')), opts.timeoutMs)
     try {
       const { body, truncated } = await readCapped(stream, opts.maxBytes)
-      return { status, url: url.href, contentType: String(res.headers['content-type'] || ''), body, truncated }
+      const headers: Record<string, string> = {}
+      for (const [name, value] of Object.entries(res.headers)) {
+        if (name !== 'set-cookie' && value !== undefined) headers[name] = Array.isArray(value) ? value.join(', ') : String(value)
+      }
+      return { status, url: url.href, contentType: String(res.headers['content-type'] || ''), headers, body, truncated }
     } finally {
       clearTimeout(timer)
       close()
