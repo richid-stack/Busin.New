@@ -34,6 +34,10 @@ To add one, create the folder and file (the folder name must equal `name`), then
 
 Skills from other projects follow the same format ([agentskills.io](https://agentskills.io)). Check the licence before copying one in.
 
+## Attached files
+
+Chat accepts images, PDFs, Word (`.docx`), CSV, Markdown, JSON and text files. Images (and PDFs, for Google, Anthropic and OpenAI models) go to the model directly; everything else is read on demand by the `read_document` tool, in parts for long files. Scanned PDFs, legacy `.doc` and Excel files are not read yet. Only uploaded files are accepted: an attachment that points at a web address is dropped rather than fetched, and Word files are checked for oversized contents before they are opened.
+
 ## Deploying to Google Cloud
 
 - The server uses Application Default Credentials: the attached service account needs Firestore access (and Firebase Auth token verification).

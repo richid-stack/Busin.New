@@ -15,7 +15,8 @@ import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
-import { getFetchedPage, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
+import { attachmentIcon } from '../../../utils/attachmentTypes'
+import { getDocumentRead, getFetchedPage, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -52,7 +53,7 @@ const emit = defineEmits<{
         class="flex items-center gap-2 bg-elevated border border-default rounded-md p-1.5 text-xs max-w-xs overflow-hidden"
       >
         <UIcon
-          :name="part.mediaType === 'application/pdf' ? 'i-lucide-file-text' : 'i-lucide-file'"
+          :name="attachmentIcon(part.mediaType)"
           class="size-4 shrink-0 text-muted"
         />
         <span class="truncate">{{ part.filename || 'Attachment' }}</span>
@@ -102,6 +103,13 @@ const emit = defineEmits<{
       >
         <ChatToolSources :sources="getSources(part)" />
       </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'read_document'"
+        :text="isToolStreaming(part) ? 'Reading the file...' : getDocumentRead(part).failed ? 'Could not read the file' : 'Read the file'"
+        :suffix="getDocumentRead(part).file"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-file-text"
+      />
       <UChatTool
         v-else-if="getToolName(part) === 'load_skill'"
         :text="isToolStreaming(part) ? 'Opening a skill...' : getSkillName(part) ? 'Used the skill' : 'Skill unavailable'"

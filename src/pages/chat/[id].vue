@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ATTACH_ACCEPT } from '../../utils/attachmentTypes'
 import { ref, computed, watch, onMounted } from 'vue'
 import { $fetch } from 'ofetch'
 import { useChat } from '@ai-sdk/vue'
@@ -461,7 +462,7 @@ function handleTextAction(action: string, selectedText: string) {
                 type="file"
                 multiple
                 class="hidden"
-                accept="image/*,application/pdf,text/plain"
+                :accept="ATTACH_ACCEPT"
                 @change="onInputChange"
               >
               <ModelSelect v-model="model" />

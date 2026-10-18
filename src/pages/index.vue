@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ATTACH_ACCEPT } from '../utils/attachmentTypes'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
@@ -265,7 +266,7 @@ async function startAutomation(prompt: string) {
                 type="file"
                 multiple
                 class="hidden"
-                accept="image/*,application/pdf,text/plain"
+                :accept="ATTACH_ACCEPT"
                 @change="onInputChange"
               >
               <ModelSelect />

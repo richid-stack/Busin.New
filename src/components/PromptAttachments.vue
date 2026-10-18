@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PromptAttachment } from '../composables/usePromptAttachments'
+import { attachmentIcon } from '../utils/attachmentTypes'
 
 defineProps<{
   attachments: PromptAttachment[]
@@ -44,7 +45,7 @@ const emit = defineEmits<{
         class="relative group flex items-center gap-2 bg-elevated border border-default rounded-md p-1.5 text-xs max-w-[12rem] pr-8 shadow-sm"
       >
         <UIcon
-          :name="attachment.file.type.includes('pdf') ? 'i-lucide-file-text' : 'i-lucide-file'"
+          :name="attachmentIcon(attachment.file.type)"
           class="size-4 shrink-0 text-muted"
         />
         <span class="truncate">{{ attachment.file.name }}</span>

@@ -78,3 +78,10 @@ export function getSkillName(part: ToolPart): string | undefined {
   const name = output?.status === 'ok' ? output.name : undefined
   return name?.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase())
 }
+
+/** What a read_document call opened: the file name, and whether it failed. */
+export function getDocumentRead(part: ToolPart): { file?: string, failed: boolean } {
+  const output = part.output as { status?: string, file?: string } | undefined
+  const input = part.input as { file?: string } | undefined
+  return { file: output?.file ?? input?.file, failed: output?.status === 'failed' }
+}
