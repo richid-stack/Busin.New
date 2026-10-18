@@ -11,6 +11,7 @@ import ChatToolCalculator from '../tool/Calculator.vue'
 import ChatToolGeneric from '../tool/Generic.vue'
 import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
+import ChatToolFile from '../tool/File.vue'
 import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatMessageEdit from './MessageEdit.vue'
@@ -126,6 +127,10 @@ const emit = defineEmits<{
       >
         <ChatToolSources :sources="getFetchedPage(part).source ? [getFetchedPage(part).source!] : []" />
       </UChatTool>
+      <ChatToolFile
+        v-else-if="['create_document', 'create_spreadsheet', 'create_presentation'].includes(getToolName(part))"
+        :invocation="part"
+      />
       <ChatToolWorkflowCreate
         v-else-if="getToolName(part) === 'workflow_create'"
         :invocation="part"

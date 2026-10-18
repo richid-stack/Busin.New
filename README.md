@@ -38,6 +38,12 @@ Skills from other projects follow the same format ([agentskills.io](https://agen
 
 Chat accepts images, PDFs, Word (`.docx`), CSV, Markdown, JSON and text files. Images (and PDFs, for Google, Anthropic and OpenAI models) go to the model directly; everything else is read on demand by the `read_document` tool, in parts for long files. Scanned PDFs, legacy `.doc` and Excel files are not read yet. Only uploaded files are accepted: an attachment that points at a web address is dropped rather than fetched, and Word files are checked for oversized contents before they are opened.
 
+## Creating files
+
+Signed-in users can ask chat for finished files: Word or PDF (`create_document`), Excel (`create_spreadsheet`) and PowerPoint (`create_presentation`). The content is plain text, lists, tables and numbers only: no images, links or macros, and spreadsheet formulas are limited to ordinary calculation functions. PDFs use the bundled Noto Sans font (Latin and Latin Extended, so the cedi sign and Twi letters work); run `npm run fonts` to rebuild `fonts.generated.ts`.
+
+Files are stored in the Firestore collection `generated_files` (each at most 700 KB, readable only by the user who created it through `GET /api/files/:id`) and expire after 30 days. Expired files are refused and deleted when someone asks for them. To also clean them up automatically, add a free Firestore TTL policy on the `expiresAt` field of `generated_files` (Firebase console, Firestore, TTL).
+
 ## Deploying to Google Cloud
 
 - The server uses Application Default Credentials: the attached service account needs Firestore access (and Firebase Auth token verification).
