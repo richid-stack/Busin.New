@@ -57,6 +57,12 @@ Besides AI agents, approvals and connected apps, workflows have these steps:
 
 Every connected-app, AI, HTTP, page, Set and Loop step also has **If this step fails** settings: retry up to 3 times (waits double each time; setup mistakes are never retried, and a loop is never retried as a whole), then either stop the run, carry on with the error as the step's output, or follow the red **ERROR** connector to a different step. Each user can send 300 workflow web requests per 10 minutes.
 
+## Workflow templates
+
+The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.
+
+Templates live in `src/utils/workflowTemplates.ts`. To add one, add an entry there (step ids are letters and numbers only, because formulas like `check.ok` cannot read ids with hyphens); `npm test` checks that every template is wired correctly and runs each one through the workflow engine with the AI steps stubbed.
+
 ## Scheduled workflows
 
 Add a **Schedule** trigger and pick when it runs (every 15 minutes, hourly, daily, weekdays, weekly, monthly, or a custom five-field cron such as `0 9 * * 1-5`) and the time zone. The form shows the next five run times. It runs only while the workflow is **active** (Deploy).
