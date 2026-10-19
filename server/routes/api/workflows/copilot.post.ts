@@ -5,6 +5,8 @@ import { generateObject } from 'ai'
 import { requireUser } from '../../../utils/session'
 import { getLanguageModel, pickAvailableModel } from '../../../utils/models'
 import { enforceRateLimit } from '../../../utils/rateLimit'
+import { UsageLimitError, chargeUsage } from '../../../services/usage/usage'
+import { modelCost } from '../../../services/usage/plans'
 
 const nodeSchema = z.object({
   id: z.string().min(1).max(100),
@@ -37,6 +39,12 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 503, statusMessage: 'No AI provider is configured on the server.' })
   }
 
+  // The workflow assistant is a model call, so it uses credits like chat does.
+  const charge = await chargeUsage(user.id, modelCost(modelId)).catch((err) => {
+    if (err instanceof UsageLimitError) throw new HTTPError({ statusCode: 429, statusMessage: err.message })
+    throw err
+  })
+
   const systemPrompt = `You are a Workflow Assistant. You modify a DAG (Directed Acyclic Graph) of workflow nodes based on user instructions.
 Current Nodes: ${JSON.stringify(body.nodes, null, 2)}
 Current Edges: ${JSON.stringify(body.edges, null, 2)}
@@ -61,6 +69,9 @@ Every edge must connect existing node ids and the graph must stay acyclic.`
     system: systemPrompt,
     prompt: body.prompt,
     abortSignal: AbortSignal.timeout(60_000)
+  }).catch(async (err) => {
+    await charge.refund()
+    throw err
   })
 
   // Never hand the editor a graph with dangling edges.

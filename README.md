@@ -92,6 +92,24 @@ People can add tools from their own MCP servers on **Integrations → MCP server
 - **Agents** only see memory when the "Remember things about you" group is on for them (off by default).
 - Stored in the `memories` and `memory_settings` collections, private to each person (the server enforces ownership; client access is denied by `firestore.rules`).
 
+## Usage limits
+
+Every model call costs **credits**, counted per person per day and per month (UTC, which is Ghana time).
+
+| Plan | Daily | Monthly |
+| --- | --- | --- |
+| Guest (not signed in) | 5 | 5 |
+| Free | 30 | 400 |
+| Pro | 300 | 5000 |
+
+- **What costs credits:** a chat message, an AI step in a workflow (including scheduled runs), a workflow integration action, and the workflow assistant. A model can cost more than 1 (`MODEL_COST` in `server/services/usage/plans.ts`).
+- **Friendly stops.** Over the limit, the request is refused with a plain message that says which limit and when it resets; the chat shows it as a toast. A request that fails before any work is refunded.
+- **No double spending.** The check and the count are one Firestore transaction, so requests sent at the same moment cannot slip past the limit.
+- **Never locks people out by accident.** If usage counting itself is unavailable the request is allowed (and logged); a real limit always applies.
+- **Plans.** `user_plans/{userId}` holds `{plan, endsAt}`; an ended Pro plan counts as Free. Billing (Paystack) will write it.
+- `GET /api/usage` returns the signed-in person's plan, use and reset times. Tune limits with `USAGE_<GUEST|FREE|PRO>_<DAILY|MONTHLY>`; list owners and testers in `USAGE_UNLIMITED_USER_IDS`.
+- Stored in `usage` (one document per person per month) and `user_plans`, server-only like the rest.
+
 ## Workflow templates
 
 The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.
