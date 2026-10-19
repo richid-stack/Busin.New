@@ -39,7 +39,15 @@ export function getAdminApp(): App {
   }, 'openlobs-admin')
 }
 
+let dbOverride: ReturnType<typeof getFirestore> | null = null
+
+/** Tests hand in an in-memory stand-in so store code can run without a real project. Pass null to undo. */
+export function useFirebaseDbForTests(db: unknown) {
+  dbOverride = db as ReturnType<typeof getFirestore> | null
+}
+
 export function getFirebaseDb() {
+  if (dbOverride) return dbOverride
   return getFirestore(getAdminApp(), config.firestoreDatabaseId || '(default)')
 }
 
