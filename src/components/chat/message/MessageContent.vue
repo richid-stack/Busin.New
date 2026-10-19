@@ -10,6 +10,7 @@ import ChatToolPlan from '../tool/Plan.vue'
 import ChatToolCalculator from '../tool/Calculator.vue'
 import ChatToolGeneric from '../tool/Generic.vue'
 import ChatToolMemory from '../tool/Memory.vue'
+import ChatToolAgentProposal from '../tool/AgentProposal.vue'
 import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
 import ChatToolFile from '../tool/File.vue'
@@ -128,6 +129,10 @@ const emit = defineEmits<{
       >
         <ChatToolSources :sources="getFetchedPage(part).source ? [getFetchedPage(part).source!] : []" />
       </UChatTool>
+      <ChatToolAgentProposal
+        v-else-if="getToolName(part) === 'propose_agent'"
+        :invocation="part"
+      />
       <ChatToolMemory
         v-else-if="['remember', 'forget_memory'].includes(getToolName(part))"
         :part="part"
