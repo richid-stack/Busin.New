@@ -87,6 +87,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/memory': RouteRecordInfo<
+      '/memory',
+      '/memory',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/workflows/': RouteRecordInfo<
       '/workflows/',
       '/workflows',
@@ -173,6 +180,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/integrations/mcp.vue': {
       routes:
         | '/integrations/mcp'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/memory.vue': {
+      routes:
+        | '/memory'
       views:
         | never
       pathParamNames:

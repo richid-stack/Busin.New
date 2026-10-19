@@ -114,6 +114,10 @@ defineShortcuts({
             to: '/agents',
             icon: 'i-lucide-bot'
           }, {
+            label: 'Memory',
+            to: '/memory',
+            icon: 'i-lucide-brain'
+          }, {
             label: 'Workflow Studio',
             to: '/workflows',
             icon: 'i-lucide-workflow'

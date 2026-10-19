@@ -19,6 +19,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { id: 'read_files', label: 'Read attached files', detail: 'Opens PDFs, Word files, spreadsheets and text you attach.', tools: ['read_document'] },
   { id: 'create_files', label: 'Create files', detail: 'Makes Word, PDF, Excel and PowerPoint files you can download.', tools: ['create_document', 'create_spreadsheet', 'create_presentation'] },
   { id: 'utilities', label: 'Charts, plans, weather and maths', detail: 'Small helpers: draw a chart, outline a plan, check the weather, calculate.', tools: ['chart', 'plan', 'weather', 'calculator'] },
+  { id: 'memory', label: 'Remember things about you', detail: 'Sees what you saved on the Memory page, and can save or forget things when you ask it to in chat.', tools: ['remember', 'forget_memory'] },
   { id: 'apps', label: 'Use your connected apps', detail: 'Reads and acts in apps you connected, such as Gmail, Slack and Drive. It can send and change things there.', tools: ['integration_status', 'integration_execute'], sensitive: true },
   { id: 'workflows', label: 'Build and run workflows', detail: 'Creates workflows in the Workflow Studio and runs them.', tools: ['workflow_create', 'workflow_run'], sensitive: true },
   // The tools in this group are the ones you approved on the MCP page. They are built per person, so none are named here.
