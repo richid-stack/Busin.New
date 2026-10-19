@@ -20,8 +20,13 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { id: 'create_files', label: 'Create files', detail: 'Makes Word, PDF, Excel and PowerPoint files you can download.', tools: ['create_document', 'create_spreadsheet', 'create_presentation'] },
   { id: 'utilities', label: 'Charts, plans, weather and maths', detail: 'Small helpers: draw a chart, outline a plan, check the weather, calculate.', tools: ['chart', 'plan', 'weather', 'calculator'] },
   { id: 'apps', label: 'Use your connected apps', detail: 'Reads and acts in apps you connected, such as Gmail, Slack and Drive. It can send and change things there.', tools: ['integration_status', 'integration_execute'], sensitive: true },
-  { id: 'workflows', label: 'Build and run workflows', detail: 'Creates workflows in the Workflow Studio and runs them.', tools: ['workflow_create', 'workflow_run'], sensitive: true }
+  { id: 'workflows', label: 'Build and run workflows', detail: 'Creates workflows in the Workflow Studio and runs them.', tools: ['workflow_create', 'workflow_run'], sensitive: true },
+  // The tools in this group are the ones you approved on the MCP page. They are built per person, so none are named here.
+  { id: 'mcp', label: 'Use your MCP servers', detail: 'The tools you approved on outside MCP servers. They can reach services we do not control.', tools: [], sensitive: true }
 ]
+
+/** Prefix of every tool that comes from an MCP server (see services/mcp/chatTools). */
+export const MCP_TOOL_PREFIX = 'mcp_'
 
 const GROUP_IDS = TOOL_GROUPS.map(g => g.id)
 
@@ -62,7 +67,8 @@ export function allowedToolNames(agent: Pick<Agent, 'tools'>): Set<string> {
  */
 export function filterTools<T extends Record<string, unknown>>(all: T, agent: Pick<Agent, 'tools'>): Partial<T> {
   const allowed = allowedToolNames(agent)
-  return Object.fromEntries(Object.entries(all).filter(([name]) => name === 'load_skill' || allowed.has(name))) as Partial<T>
+  const mcp = agent.tools.includes('mcp')
+  return Object.fromEntries(Object.entries(all).filter(([name]) => name === 'load_skill' || allowed.has(name) || (mcp && name.startsWith(MCP_TOOL_PREFIX)))) as Partial<T>
 }
 
 /** Keeps only the skills this agent has switched on; unknown names are ignored. */

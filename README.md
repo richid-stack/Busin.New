@@ -66,6 +66,17 @@ An agent is a saved assistant: a name, instructions, an optional fixed model, th
 - Each person can keep 10 agents. Steps per reply: 1 to 15. Agents are stored in the Firestore collection `agents` and are private to their owner.
 - Each reply already has an **Agent Activity & Timeline** view (message menu) that lists the steps, tools and sources it used.
 
+## MCP servers
+
+People can add tools from their own MCP servers on **Integrations → MCP servers**. It is built so a server can never quietly gain power:
+
+- **Public https only.** Addresses go through the same checks as web fetching (public IPs only, checked when connecting, no redirects, no query strings). Set `MCP_ALLOWED_HOSTS` (comma-separated, a leading `.` allows subdomains) to restrict a deployment to a list.
+- **Approval per tool.** Connecting adds nothing. The person reads each tool's description and inputs and ticks the ones to allow (at most 5 servers, 15 tools per server, 25 in total). The model is shown the stored, approved description, never what the server says today.
+- **Changes switch a tool off.** A tool is fingerprinted (name + description + input schema). Before each call the server is asked again; if it no longer matches, the call is refused and the server is flagged for review. The address cannot be edited after adding.
+- **Tokens are encrypted.** Access tokens are sealed with AES-256-GCM using `SECRETS_KEY` (or `SESSION_SECRET` if that is all that is set) and never sent back to the browser.
+- **Results are untrusted data.** Each result is labelled so, size-capped, rate-limited per person and cut off after a timeout. Images and other non-text content are not passed to the model.
+- **Agents.** The "Use your MCP servers" group switches an agent's approved MCP tools on. It is not on by default and does not include connected apps.
+
 ## Workflow templates
 
 The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.

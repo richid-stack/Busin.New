@@ -80,6 +80,13 @@ declare module 'vue-router/auto-routes' {
       { provider: ParamValue<false> },
       | never
     >,
+    '/integrations/mcp': RouteRecordInfo<
+      '/integrations/mcp',
+      '/integrations/mcp',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/workflows/': RouteRecordInfo<
       '/workflows/',
       '/workflows',
@@ -162,6 +169,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'provider'
+    }
+    'src/pages/integrations/mcp.vue': {
+      routes:
+        | '/integrations/mcp'
+      views:
+        | never
+      pathParamNames:
+        | never
     }
     'src/pages/workflows/index.vue': {
       routes:

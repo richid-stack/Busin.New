@@ -104,6 +104,23 @@ function clearFilters() {
         </div>
       </div>
 
+      <!-- Your own tool servers -->
+      <RouterLink
+        to="/integrations/mcp"
+        class="group flex items-center justify-between gap-4 rounded-2xl border border-default bg-default p-4 sm:p-5 mb-10 hover:bg-elevated/60 hover:shadow-md hover:-translate-y-0.5 transition-all focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        <div class="flex items-center gap-4 min-w-0">
+          <div class="shrink-0 p-2.5 rounded-xl border border-default shadow-sm bg-default">
+            <UIcon name="i-lucide-plug" class="size-6 text-primary" />
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-sm font-semibold text-highlighted">MCP servers</h3>
+            <p class="text-xs text-muted leading-snug">Add tools from your own servers. You approve every tool before it can be used.</p>
+          </div>
+        </div>
+        <UIcon name="i-lucide-arrow-right" class="size-5 shrink-0 text-muted group-hover:text-default transition-colors" />
+      </RouterLink>
+
       <!-- Not signed in -->
       <div
         v-if="loaded && unauthorized"
