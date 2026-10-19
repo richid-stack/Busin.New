@@ -45,6 +45,13 @@ declare module 'vue-router/auto-routes' {
       { path: ParamValue<false> },
       | never
     >,
+    '/agents/': RouteRecordInfo<
+      '/agents/',
+      '/agents',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/chat/[id]': RouteRecordInfo<
       '/chat/[id]',
       '/chat/:id',
@@ -115,6 +122,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'path'
+    }
+    'src/pages/agents/index.vue': {
+      routes:
+        | '/agents/'
+      views:
+        | never
+      pathParamNames:
+        | never
     }
     'src/pages/chat/[id].vue': {
       routes:

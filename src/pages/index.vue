@@ -11,6 +11,8 @@ import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { usePromptAttachments } from '../composables/usePromptAttachments'
 import Navbar from '../components/Navbar.vue'
 import PromptAttachments from '../components/PromptAttachments.vue'
+import AgentSelect from '../components/agents/AgentSelect.vue'
+import { useAgents } from '../composables/useAgents'
 import GuestReply from '../components/chat/GuestReply.vue'
 import { savePendingPrompt, takePendingPrompt } from '../utils/guestReply'
 
@@ -23,8 +25,18 @@ const { attachments, processing, onInputChange, remove, clear, toApiAttachments 
 
 const input = ref('')
 const loading = ref(false)
+
 const router = useRouter()
 const route = useRoute()
+/** The saved agent the new chat starts with; null is the standard assistant. */
+const agentId = ref<string | null>(null)
+const { agents, loaded: agentsLoaded } = useAgents()
+const selectedAgent = computed(() => agents.value.find(a => a.id === agentId.value))
+// A link from the Agents page (?agent=...) preselects it, but only if it is one of the user's agents.
+watch([agentsLoaded, () => route.query.agent], () => {
+  const wanted = route.query.agent
+  if (typeof wanted === 'string' && agentsLoaded.value && agents.value.some(a => a.id === wanted)) agentId.value = wanted
+}, { immediate: true })
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const greeting = computed(() => {
@@ -91,6 +103,7 @@ async function createChat(prompt: string) {
       headers: { [headerName]: csrf() },
       body: {
         input: prompt,
+        agentId: agentId.value ?? undefined,
         attachments: attachments.value.length > 0 ? await toApiAttachments() : undefined
       }
     })
@@ -269,7 +282,8 @@ async function startAutomation(prompt: string) {
                 :accept="ATTACH_ACCEPT"
                 @change="onInputChange"
               >
-              <ModelSelect />
+              <ModelSelect v-if="!selectedAgent?.model" />
+              <AgentSelect v-model="agentId" />
             </div>
 
             <UChatPromptSubmit

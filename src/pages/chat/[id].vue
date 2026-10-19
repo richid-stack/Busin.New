@@ -7,6 +7,7 @@ import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, ge
 import type { UIMessage } from 'ai'
 import { getSearchQuery } from '../../utils/tool'
 import { useModels } from '../../composables/useModels'
+import { useAgents } from '../../composables/useAgents'
 import { useChats } from '../../composables/useChats'
 import { useCsrf } from '../../composables/useCsrf'
 import { useUserSession } from '../../composables/useUserSession'
@@ -31,6 +32,7 @@ export interface Vote {
 const route = useRoute<'/chat/[id]'>()
 const toast = useToast()
 const { model } = useModels()
+const { getAgent, loaded: agentsLoaded, fetchAgents } = useAgents()
 const DEFAULT_MODEL = 'google/gemini-3.5-flash'
 const { fetchChats, chats, updateChat } = useChats()
 const { csrf, headerName } = useCsrf()
@@ -41,6 +43,9 @@ const { attachments, processing, onInputChange, remove: removeAttachment, clear:
 const data = await $fetch(`/api/chats/${route.params.id}`).catch(() => null)
 
 const isOwner = computed(() => data?.isOwner ?? false)
+// The saved agent this chat talks to (only the owner sees it; it may have been deleted since).
+const agent = computed(() => (isOwner.value ? getAgent(data?.agentId) : undefined))
+onMounted(() => { if (data?.agentId && isOwner.value && !agentsLoaded.value) fetchAgents() })
 const visibility = ref<'public' | 'private'>(data?.visibility ?? 'private')
 const title = ref<string | null>(data?.title ?? null)
 
@@ -465,7 +470,17 @@ function handleTextAction(action: string, selectedText: string) {
                 :accept="ATTACH_ACCEPT"
                 @change="onInputChange"
               >
-              <ModelSelect v-model="model" />
+              <UBadge
+                v-if="agent"
+                :label="agent.name"
+                icon="i-lucide-bot"
+                color="neutral"
+                variant="subtle"
+                size="md"
+                class="max-w-40 truncate"
+                :title="`This chat is with your agent ${agent.name}`"
+              />
+              <ModelSelect v-if="!agent?.model" v-model="model" />
             </div>
 
             <UChatPromptSubmit

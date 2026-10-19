@@ -15,6 +15,8 @@ export interface FirestoreChat {
   title: string
   userId: string
   visibility: 'public' | 'private'
+  /** The saved agent this chat talks to, if the user picked one. */
+  agentId?: string
   createdAt: Date
   updatedAt?: Date
 }
@@ -136,6 +138,7 @@ export async function getChat(chatId: string): Promise<(FirestoreChat & { messag
     title: data.title || '',
     userId: data.userId || '',
     visibility: data.visibility || 'private',
+    ...(data.agentId ? { agentId: String(data.agentId) } : {}),
     createdAt: toDate(data.createdAt, new Date())!,
     messages
   }
@@ -146,6 +149,7 @@ export async function createChat(data: {
   title?: string
   userId: string
   visibility?: 'public' | 'private'
+  agentId?: string
   initialMessage?: string
   attachments?: Array<{ name?: string; contentType?: string; url: string }>
 }): Promise<FirestoreChat> {
@@ -159,6 +163,7 @@ export async function createChat(data: {
     title: data.title || '',
     userId: data.userId,
     visibility: 'private',
+    ...(data.agentId ? { agentId: data.agentId } : {}),
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   })

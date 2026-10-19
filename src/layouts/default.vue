@@ -110,6 +110,10 @@ defineShortcuts({
               searchOpen = true
             }
           }, {
+            label: 'Agents',
+            to: '/agents',
+            icon: 'i-lucide-bot'
+          }, {
             label: 'Workflow Studio',
             to: '/workflows',
             icon: 'i-lucide-workflow'
