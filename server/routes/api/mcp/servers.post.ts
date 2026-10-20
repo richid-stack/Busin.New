@@ -3,9 +3,9 @@ import { readValidatedBody } from 'nitro/h3'
 import { requireUser } from '../../../utils/session'
 import { enforceRateLimit } from '../../../utils/rateLimit'
 import { seal, SecretBoxError } from '../../../utils/secretBox'
-import { createServer, listServers } from '../../../services/mcp/store'
+import { createServer } from '../../../services/mcp/store'
 import { checkServerUrl, serverInputSchema, viewServer } from '../../../services/mcp/server'
-import { MCP_LIMITS, McpError } from '../../../services/mcp/tools'
+import { McpConflict, McpError } from '../../../services/mcp/tools'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
@@ -14,11 +14,6 @@ export default defineHandler(async (event) => {
 
   try {
     const url = checkServerUrl(input.url)
-    const existing = await listServers(user.id)
-    if (existing.length >= MCP_LIMITS.maxServersPerUser) {
-      throw new HTTPError({ statusCode: 409, statusMessage: `You can connect up to ${MCP_LIMITS.maxServersPerUser} MCP servers. Remove one to add another.` })
-    }
-    if (existing.some(s => s.url === url)) throw new HTTPError({ statusCode: 409, statusMessage: 'That server is already connected.' })
     const created = await createServer(user.id, {
       name: input.name,
       url,
@@ -27,6 +22,7 @@ export default defineHandler(async (event) => {
     })
     return viewServer(created)
   } catch (err) {
+    if (err instanceof McpConflict) throw new HTTPError({ statusCode: 409, statusMessage: err.message })
     if (err instanceof McpError) throw new HTTPError({ statusCode: 400, statusMessage: err.message })
     if (err instanceof SecretBoxError) throw new HTTPError({ statusCode: 500, statusMessage: 'Saving tokens is not set up on this server yet.' })
     throw err

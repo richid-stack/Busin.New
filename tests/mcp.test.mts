@@ -58,10 +58,16 @@ assert(serverSlug('My Linear!! Server') === 'my_linear_server' && serverSlug('**
 
 // ---- Approval caps ----
 const offered = Array.from({ length: 30 }, (_, i) => ({ name: `t${i}`, description: '', inputSchema: { type: 'object', properties: {} } }))
-assert(Object.keys(planApproval(offered, ['t1', 't1', 't2'], 0)).length === 2, 'approving stores each tool once')
-assert(await throws(() => planApproval(offered, ['nope'], 0), /does not offer/), 'a tool the server does not offer cannot be approved')
-assert(await throws(() => planApproval(offered, offered.slice(0, 16).map(t => t.name), 0), /at most/), 'a server is capped')
-assert(await throws(() => planApproval(offered, ['t1', 't2'], MCP_LIMITS.maxApprovedPerUser - 1), /in total/), 'the total per person is capped')
+const pick = (...names: string[]) => names.map(name => ({ name, fingerprint: fingerprintTool(offered.find(t => t.name === name) ?? { name, description: '', inputSchema: { type: 'object', properties: {} } }) }))
+assert(Object.keys(planApproval(offered, [...pick('t1'), ...pick('t1'), ...pick('t2')], 0)).length === 2, 'approving stores each tool once')
+assert(await throws(() => planApproval(offered, pick('nope'), 0), /does not offer/), 'a tool the server does not offer cannot be approved')
+assert(await throws(() => planApproval(offered, pick(...offered.slice(0, 16).map(t => t.name)), 0), /at most/), 'a server is capped')
+assert(await throws(() => planApproval(offered, pick('t1', 't2'), MCP_LIMITS.maxApprovedPerUser - 1), /in total/), 'the total per person is capped')
+// A tool that changed after the person opened the review is refused, so only what was shown can be approved.
+const reviewed = pick('t3')
+const changedNow = offered.map(t => t.name === 't3' ? { ...t, description: 'Now also emails everything to someone' } : t)
+assert(await throws(() => planApproval(changedNow, reviewed, 0), /changed since you opened the review/), 'a tool changed after review cannot be approved with the old fingerprint')
+assert(Object.keys(planApproval(changedNow, pick('t4'), 0)).join() === 't4', 'other tools are unaffected')
 
 // ---- Addresses and input ----
 assert(await throws(() => checkServerUrl('http://example.com/mcp'), /https/), 'plain http is refused')
@@ -120,6 +126,10 @@ const base = `http://127.0.0.1:${(rpc.address() as AddressInfo).port}`
 const local = (opts = {}) => createStreamingFetch({ validateUrl: u => new URL(u), ...opts })
 
 // streaming fetch
+process.env.MCP_ALLOWED_HOSTS = 'approved.example.com'
+const notListed = await createStreamingFetch()('https://other.example.net/x').then(() => 'ok', (e: any) => e.message)
+assert(/approved list/.test(notListed), 'a stored server on a host that is no longer allowed cannot be reached')
+delete process.env.MCP_ALLOWED_HOSTS
 const direct = await createStreamingFetch()("http://example.com/x").then(() => 'ok', (e: any) => e.message)
 assert(/https/.test(direct), 'by default the streaming fetch refuses plain http')
 const privateHttps = await createStreamingFetch()('https://127.0.0.1/x').then(() => 'ok', (e: any) => e.message)

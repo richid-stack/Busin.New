@@ -2,17 +2,19 @@
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { useMemory } from '../composables/useMemory'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
+import { useUserSession } from '../composables/useUserSession'
 import type { MemoryItem } from '../types/memory'
 
 const ModalConfirm = defineAsyncComponent(() => import('../components/ModalConfirm.vue'))
 
 const toast = useToast()
 const overlay = useOverlay()
-const { openAuthModal, isAuthenticated } = useFirebaseAuth()
+const { openAuthModal } = useFirebaseAuth()
+const { loggedIn } = useUserSession()
 const { items, enabled, limits, loading, loaded, unauthorized, loadError, fetchMemory, addItem, editItem, removeItem, clearAll, setEnabled } = useMemory()
 
 onMounted(fetchMemory)
-watch(isAuthenticated, fetchMemory)
+watch(loggedIn, fetchMemory)
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 

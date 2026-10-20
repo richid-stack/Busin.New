@@ -10,10 +10,10 @@ import { createFakeFirestore } from './fakeFirestore'
 import { seal } from '../server/utils/secretBox'
 import { createStreamingFetch } from '../server/services/mcp/streamFetch'
 import { listMcpTools, callMcpToolChecked } from '../server/services/mcp/client'
-import { buildMcpTools } from '../server/services/mcp/chatTools'
-import { createServer as createStoredServer, getServer, listServers, updateServer, deleteServer, approvedCount } from '../server/services/mcp/store'
-import { endpointFor } from '../server/services/mcp/server'
-import { planApproval } from '../server/services/mcp/tools'
+import { boundStructured, buildMcpTools } from '../server/services/mcp/chatTools'
+import { createServer as createStoredServer, getServer, listServers, updateServer, deleteServer, approvedCount, setApprovals } from '../server/services/mcp/store'
+import { endpointFor, revokeOnSignInChange } from '../server/services/mcp/server'
+import { MCP_LIMITS, McpConflict, fingerprintTool, planApproval } from '../server/services/mcp/tools'
 import { createAgent, getAgent, listAgents, updateAgent, deleteAgent } from '../server/services/agents/store'
 import { agentInputSchema } from '../server/services/agents/profile'
 
@@ -64,12 +64,61 @@ assert((await listServers('alice')).length === 1 && (await listServers('bob')).l
 assert(!JSON.stringify(fake.raw('mcp_servers').get(created.id)).includes('official-token'), 'the stored document never holds the plain token')
 assert(endpointFor((await getServer(created.id))!).headers.Authorization === 'Bearer official-token', 'a stored token decrypts back for a call')
 
-const approved = planApproval(tools, ['lookup'], approvedCount(await listServers('alice'), created.id))
-await updateServer(created.id, { approved, driftNote: 'x' })
+const approvedStored = await setApprovals('alice', created.id, others => planApproval(tools, [{ name: 'lookup', fingerprint: fingerprintTool(tools.find(t => t.name === 'lookup')!) }], others))
+assert(Object.keys(approvedStored.approved).join() === 'lookup', 'approvals are stored through the transaction')
+await updateServer(created.id, { driftNote: 'x' })
 const reloaded = (await getServer(created.id))!
 assert(Object.keys(reloaded.approved).join() === 'lookup' && reloaded.approved.lookup!.fingerprint.length === 64 && reloaded.url === base, 'approvals are saved and read back; the address is untouched')
 assert(approvedCount(await listServers('alice')) === 1 && approvedCount(await listServers('alice'), created.id) === 0, 'approved tools are counted per person')
 assert((await getServer('missing')) === null, 'a missing server reads as null')
+
+// ---- Review fixes: limits under concurrency, sign-in change, paging at call time ----
+const mkTool = (name: string) => ({ name, description: '', inputSchema: { type: 'object', properties: {} } })
+const fp = (name: string) => ({ name, fingerprint: fingerprintTool(mkTool(name)) })
+const many = await Promise.allSettled(Array.from({ length: 8 }, (_, i) => createStoredServer('carol', { name: `S${i}`, url: `https://mcp.c${i}.dev/mcp`, headerName: 'Authorization', sealedToken: '' })))
+assert(many.filter(r => r.status === 'fulfilled').length === MCP_LIMITS.maxServersPerUser && (await listServers('carol')).length === MCP_LIMITS.maxServersPerUser, 'simultaneous adds cannot go over the server limit')
+assert(many.filter(r => r.status === 'rejected').every(r => (r as any).reason instanceof McpConflict), 'the refusal is a conflict')
+const dup = await Promise.allSettled([1, 2].map(() => createStoredServer('dave', { name: 'D', url: 'https://mcp.dave.dev/mcp', headerName: 'Authorization', sealedToken: '' })))
+assert(dup.filter(r => r.status === 'fulfilled').length === 1, 'simultaneous adds of the same address make one server')
+const ds = await listServers('carol')
+const offeredMany = Array.from({ length: 30 }, (_, i) => mkTool(`x${i}`))
+const batches = await Promise.allSettled(ds.slice(0, 3).map((s, i) => setApprovals('carol', s.id, others => planApproval(offeredMany, Array.from({ length: 10 }, (_, k) => fp(`x${i * 10 + k}`)), others))))
+const totalApproved = approvedCount(await listServers('carol'))
+assert(totalApproved <= MCP_LIMITS.maxApprovedPerUser && batches.filter(r => r.status === 'fulfilled').length === 2, `simultaneous approvals cannot go over the total (${totalApproved} approved)`)
+let notYours: any = null
+try { await setApprovals('alice', ds[0]!.id, () => ({})) } catch (e) { notYours = e }
+assert(notYours?.message === 'Server not found', "approvals cannot be written to someone else's server")
+const rev = revokeOnSignInChange({ headerName: 'Authorization', approved: approvedStored.approved }, { sealedToken: 'new' })
+assert(Object.keys(rev.approved ?? { x: 1 }).length === 0 && /switched off/.test(rev.driftNote ?? ''), 'a new token switches the approvals off and says why')
+assert(Object.keys(revokeOnSignInChange({ headerName: 'Authorization', approved: approvedStored.approved }, { headerName: 'X-Api-Key' })).length === 2, 'a different header does too')
+assert(Object.keys(revokeOnSignInChange({ headerName: 'Authorization', approved: approvedStored.approved }, { headerName: 'Authorization' })).length === 0, 'the same header changes nothing')
+assert(Object.keys(revokeOnSignInChange({ headerName: 'Authorization', approved: {} }, { sealedToken: 'new' })).length === 0, 'nothing to revoke when nothing was approved')
+assert(JSON.stringify(boundStructured(Array.from({ length: 50000 }, (_, i) => i))).length < 3000 && (boundStructured({ a: 1 }) as any).a === 1, 'big structured results are replaced by a short notice, small ones pass')
+
+// A server that lists its tools over two pages: an approved tool on page two must still be runnable.
+const pagedCalls: string[] = []
+const paged = createServer(async (req, res) => {
+  let body = ''
+  for await (const chunk of req) body += chunk
+  const msg = body ? JSON.parse(body) : {}
+  const reply = (result: unknown) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result })) }
+  if (msg.method === 'initialize') return reply({ protocolVersion: msg.params?.protocolVersion ?? '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'paged', version: '1' } })
+  if (msg.method === 'tools/list') {
+    const page2 = msg.params?.cursor === 'p2'
+    return reply(page2 ? { tools: [{ name: 'late_tool', description: 'On the second page', inputSchema: { type: 'object', properties: {} } }] } : { tools: [{ name: 'early_tool', description: 'First page', inputSchema: { type: 'object', properties: {} } }], nextCursor: 'p2' })
+  }
+  if (msg.method === 'tools/call') { pagedCalls.push(msg.params.name); return reply({ content: [{ type: 'text', text: 'ran ' + msg.params.name }] }) }
+  res.writeHead(202); res.end()
+})
+await new Promise<void>(r => paged.listen(0, '127.0.0.1', r))
+const pagedEndpoint = { url: `http://127.0.0.1:${(paged.address() as AddressInfo).port}/mcp`, headers: {} }
+const pagedTools = await listMcpTools(pagedEndpoint, { fetchImpl: local })
+assert(pagedTools.map(t => t.name).join() === 'early_tool,late_tool', 'the approval list follows pages')
+const lateOk = await callMcpToolChecked(pagedEndpoint, 'late_tool', {}, live => live ? null : 'This tool is no longer offered by the server.', { fetchImpl: local })
+assert(lateOk.text === 'ran late_tool' && pagedCalls.includes('late_tool'), 'a tool on a later page is found and run at call time, with no false drift')
+const gone = await callMcpToolChecked(pagedEndpoint, 'nope', {}, live => live ? null : 'This tool is no longer offered by the server.', { fetchImpl: local }).then(() => 'ran', (e: any) => e.message)
+assert(/no longer offered/.test(gone), 'a tool that really is missing is still refused')
+paged.close()
 
 // ---- The real AI SDK tool loop with a scripted model ----
 const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }

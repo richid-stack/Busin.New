@@ -53,22 +53,31 @@ async function withClient<T>(endpoint: McpEndpoint, options: McpCallOptions, run
   }
 }
 
+type Client = Awaited<ReturnType<typeof createMCPClient>>
+
+/**
+ * Reads the server's tool list page by page (acceptable tools only), up to a cap. With `stopAt`, it stops as soon as that
+ * tool is found, which is all a call-time check needs.
+ */
+async function listAllTools(client: Client, stopAt?: string): Promise<McpToolDef[]> {
+  const tools: McpToolDef[] = []
+  let cursor: string | undefined
+  for (let page = 0; page < 10 && tools.length < MCP_LIMITS.maxToolsListed; page++) {
+    const res = await client.listTools(cursor ? { params: { cursor } } : undefined)
+    for (const raw of res.tools) {
+      const tool = normalizeTool(raw)
+      if (tool && !tools.some(t => t.name === tool.name)) tools.push(tool)
+    }
+    if (stopAt && tools.some(t => t.name === stopAt)) break
+    cursor = res.nextCursor
+    if (!cursor) break
+  }
+  return tools.slice(0, MCP_LIMITS.maxToolsListed)
+}
+
 /** Everything the server offers (acceptable tools only), following pagination up to a cap. */
 export async function listMcpTools(endpoint: McpEndpoint, options: McpCallOptions = {}): Promise<McpToolDef[]> {
-  return await withClient(endpoint, options, async (client) => {
-    const tools: McpToolDef[] = []
-    let cursor: string | undefined
-    for (let page = 0; page < 10 && tools.length < MCP_LIMITS.maxToolsListed; page++) {
-      const res = await client.listTools(cursor ? { params: { cursor } } : undefined)
-      for (const raw of res.tools) {
-        const tool = normalizeTool(raw)
-        if (tool && !tools.some(t => t.name === tool.name)) tools.push(tool)
-      }
-      cursor = res.nextCursor
-      if (!cursor) break
-    }
-    return tools.slice(0, MCP_LIMITS.maxToolsListed)
-  })
+  return await withClient(endpoint, options, client => listAllTools(client))
 }
 
 /** Lists the tools and runs one of them over a single connection, so the check and the call see the same server. */
@@ -81,8 +90,8 @@ export async function callMcpToolChecked(
   options: McpCallOptions = {}
 ): Promise<McpCallResult> {
   return await withClient(endpoint, { timeoutMs: 30_000, ...options }, async (client) => {
-    const listed = await client.listTools()
-    const live = listed.tools.map(normalizeTool).find(t => t?.name === name) ?? undefined
+    // The same paging as the approval list, so a tool on a later page is found here too.
+    const live = (await listAllTools(client, name)).find(t => t.name === name)
     const refusal = allow(live)
     if (refusal) throw new McpError(refusal)
 

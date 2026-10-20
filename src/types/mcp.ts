@@ -12,12 +12,16 @@ export interface McpServerView {
 
 export interface McpToolListing {
   name: string
+  /** Identifies the version the person is reading; approval must present it back. */
+  fingerprint: string
   description: string
   inputSchema: { properties?: Record<string, { type?: string, description?: string }>, required?: string[] }
   annotations: { readOnlyHint?: boolean, destructiveHint?: boolean } | null
   status: 'approved' | 'changed' | 'new'
   approved: boolean
 }
+
+export interface McpApproval { name: string, fingerprint: string }
 
 export interface McpLimits { servers: number, approvedTotal: number, approvedPerServer: number }
 

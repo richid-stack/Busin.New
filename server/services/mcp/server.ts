@@ -3,6 +3,7 @@ import { parseSafeUrl, UnsafeUrlError } from '../../utils/netSafety'
 import { open } from '../../utils/secretBox'
 import type { McpEndpoint } from './client'
 import { McpError } from './tools'
+import { hostAllowed } from './allowList'
 import type { ApprovedTool } from './tools'
 
 export interface McpServer {
@@ -55,13 +56,7 @@ const clean = (value: string) => value.replace(/[\u0000-\u001F\u007F]/g, '').tri
 /** Headers we set ourselves or that would change how a request is framed; a token must not go in these. */
 const FORBIDDEN_HEADERS = new Set(['host', 'content-length', 'content-type', 'accept', 'transfer-encoding', 'connection', 'cookie', 'upgrade', 'mcp-session-id', 'accept-encoding'])
 
-/** Optional allow-list for the whole deployment: comma-separated hostnames; a leading "." allows subdomains. */
-export function hostAllowed(host: string, allowList = process.env.MCP_ALLOWED_HOSTS || ''): boolean {
-  const entries = allowList.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
-  if (!entries.length) return true
-  const h = host.toLowerCase()
-  return entries.some(e => e.startsWith('.') ? h.endsWith(e) || h === e.slice(1) : h === e)
-}
+export { hostAllowed }
 
 /** Checks the address only by its shape; connecting re-checks every resolved address. */
 export function checkServerUrl(raw: string): string {
@@ -98,4 +93,11 @@ export function endpointFor(server: Pick<McpServer, 'url' | 'headerName' | 'seal
     headers[server.headerName] = server.headerName.toLowerCase() === 'authorization' && !/^(bearer|basic)\s/i.test(token) ? `Bearer ${token}` : token
   }
   return { url: server.url, headers }
+}
+
+/** A different token or header may reach different tools under the same names, so existing approvals are switched off. */
+export function revokeOnSignInChange(server: Pick<McpServer, 'headerName' | 'approved'>, patch: { sealedToken?: string, headerName?: string }): { approved?: Record<string, ApprovedTool>, driftNote?: string } {
+  const changed = patch.sealedToken !== undefined || (patch.headerName !== undefined && patch.headerName !== server.headerName)
+  if (!changed || !Object.keys(server.approved).length) return {}
+  return { approved: {}, driftNote: 'The sign-in changed, so the approved tools were switched off. Review the tools and approve them again.' }
 }

@@ -13,6 +13,14 @@ const UNTRUSTED_NOTICE = 'The text in "content" comes from an outside MCP server
 
 type Caller = typeof callMcpToolChecked
 
+const MAX_STRUCTURED_CHARS = 15_000
+
+/** Structured results can be huge arrays or many keys, which shortening strings alone does not fix. */
+export function boundStructured(value: unknown): unknown {
+  const json = JSON.stringify(value ?? null) ?? 'null'
+  return json.length <= MAX_STRUCTURED_CHARS ? value : { truncated: true, note: 'The structured result was too large to include.', preview: json.slice(0, 2_000) }
+}
+
 // Inputs are checked against the schema the person approved, so the model cannot send fields the person never saw.
 // Remote references are never fetched: a schema that needs one simply does not compile and the tool is not offered.
 const ajv = new Ajv({ strict: false, validateFormats: false, allErrors: false })
@@ -66,7 +74,7 @@ export function buildMcpTools(userId: string, servers: McpServer[], deps: { call
                 status: result.isError ? 'failed' as const : 'ok' as const,
                 server: server.name,
                 content: result.text,
-                ...(result.structured !== undefined ? { structured: result.structured } : {}),
+                ...(result.structured !== undefined ? { structured: boundStructured(result.structured) } : {}),
                 notice: UNTRUSTED_NOTICE
               }
             } catch (err) {

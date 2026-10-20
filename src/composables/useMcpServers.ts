@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
 import { createSharedComposable } from '@vueuse/core'
 import { $fetch } from 'ofetch'
-import type { McpLimits, McpNewServer, McpServerView, McpToolListing } from '../types/mcp'
+import type { McpApproval, McpLimits, McpNewServer, McpServerView, McpToolListing } from '../types/mcp'
 import { useCsrf } from './useCsrf'
 import { useFirebaseAuth } from './useFirebaseAuth'
 
@@ -83,7 +83,7 @@ export const useMcpServers = createSharedComposable(() => {
     }
   }
 
-  async function approveTools(id: string, tools: string[]): Promise<McpServerView> {
+  async function approveTools(id: string, tools: McpApproval[]): Promise<McpServerView> {
     const server = await $fetch<McpServerView>(`/api/mcp/servers/${id}/approvals`, { method: 'PUT', headers: headers(), body: { tools } })
     replace(server)
     return server

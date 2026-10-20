@@ -5,7 +5,7 @@ import { requireUser } from '../../../../utils/session'
 import { enforceRateLimit } from '../../../../utils/rateLimit'
 import { seal, SecretBoxError } from '../../../../utils/secretBox'
 import { getServer, updateServer } from '../../../../services/mcp/store'
-import { serverInputSchema, viewServer } from '../../../../services/mcp/server'
+import { revokeOnSignInChange, serverInputSchema, viewServer } from '../../../../services/mcp/server'
 
 // The address cannot be changed: an approved server must not be quietly pointed somewhere else.
 const updateSchema = serverInputSchema.pick({ name: true, headerName: true, token: true }).partial().extend({
@@ -33,8 +33,9 @@ export default defineHandler(async (event) => {
     if (err instanceof SecretBoxError) throw new HTTPError({ statusCode: 500, statusMessage: 'Saving tokens is not set up on this server yet.' })
     throw err
   }
-  // A new token or header is a different sign-in: the person should look at the tools again.
-  if (patch.sealedToken !== undefined || patch.headerName !== undefined) patch.driftNote = ''
+  // A new token or header is a different sign-in, and may reach different tools under the same names. The approvals
+  // are switched off until the person reads the tools again, and the note on the card says why.
+  Object.assign(patch, revokeOnSignInChange(server, patch))
 
   await updateServer(id, patch)
   return viewServer({ ...server, ...patch })

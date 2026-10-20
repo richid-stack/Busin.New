@@ -4,9 +4,11 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useIntegrations } from '../../composables/useIntegrations'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import { useUserSession } from '../../composables/useUserSession'
 
 const router = useRouter()
-const { openAuthModal, isAuthenticated, authReady } = useFirebaseAuth()
+const { openAuthModal, authReady } = useFirebaseAuth()
+const { loggedIn } = useUserSession()
 const {
   integrations,
   loading,
@@ -36,7 +38,7 @@ onMounted(() => {
 })
 
 // Reload once sign-in completes (or after sign-out) so the list always matches the account.
-watch(isAuthenticated, () => {
+watch(loggedIn, () => {
   fetchIntegrations()
 })
 

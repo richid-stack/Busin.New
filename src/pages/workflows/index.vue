@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
 import { useCsrf } from '../../composables/useCsrf'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import { useUserSession } from '../../composables/useUserSession'
 import { useModels } from '../../composables/useModels'
 import WorkflowTemplates from '../../components/workflow/WorkflowTemplates.vue'
 import { instantiateTemplate } from '../../utils/workflowTemplates'
@@ -27,6 +28,7 @@ const toast = useToast()
 const overlay = useOverlay()
 const { csrf, headerName } = useCsrf()
 const { openAuthModal, isAuthenticated } = useFirebaseAuth()
+const { loggedIn } = useUserSession()
 const { defaultModel } = useModels()
 
 // Links from before the studio had its own page: /workflows?id=...
@@ -65,7 +67,7 @@ async function fetchWorkflows() {
 }
 
 onMounted(fetchWorkflows)
-watch(isAuthenticated, fetchWorkflows)
+watch(loggedIn, fetchWorkflows)
 
 const STATUS = {
   active: { label: 'Active', color: 'success' as const },

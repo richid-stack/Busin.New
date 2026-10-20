@@ -28,6 +28,11 @@ export function clampResult<T>(value: T, maxChars: number): T {
     cap = Math.floor(cap * 0.6)
     out = shrink(value, cap)
   }
+  // Shortening strings cannot fix a huge list or an object with many keys: give a bounded notice instead.
+  if (size(out) > maxChars) {
+    const status = value && typeof value === 'object' && 'status' in (value as object) ? { status: (value as any).status } : {}
+    return { ...status, truncated: true, note: 'The result was too large to return in full.', preview: (JSON.stringify(value ?? null) ?? '').slice(0, Math.floor(maxChars / 3)) } as unknown as T
+  }
   if (out && typeof out === 'object' && !Array.isArray(out)) out.truncated = true
   return out
 }
