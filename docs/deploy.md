@@ -1,0 +1,118 @@
+# Deploying OpenLobs to Google Cloud (Cloud Run)
+
+This is the checklist for going live. Commands were written from the Google Cloud documentation and **have not been run against your project from here**: run them one at a time and read what they print.
+
+Set these once in your terminal:
+
+```bash
+PROJECT=your-gcp-project-id
+REGION=europe-west1            # pick the region closest to your users
+SERVICE=openlobs
+# The Firestore database this app uses (see firestoreDatabaseId in firebase-applet-config.json):
+DB=ai-studio-chatvue-56a0dec3-90ee-47ed-8252-32967e796bf7
+gcloud config set project $PROJECT
+```
+
+## 1. Switch on the services
+
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
+  secretmanager.googleapis.com cloudscheduler.googleapis.com firestore.googleapis.com
+```
+
+## 2. A service account for the app
+
+The app uses Application Default Credentials, so give it its own identity with only what it needs:
+
+```bash
+gcloud iam service-accounts create openlobs-run --display-name="OpenLobs server"
+SA=openlobs-run@$PROJECT.iam.gserviceaccount.com
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/datastore.user
+# Needed for "Delete account" to remove the sign-in account itself:
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/firebaseauth.admin
+# Needed to read secrets:
+gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:$SA --role=roles/secretmanager.secretAccessor
+```
+
+## 3. Secrets
+
+Create each one in Secret Manager (never in the repository):
+
+```bash
+printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create SESSION_SECRET --data-file=-
+printf '%s' "$(openssl rand -hex 32)" | gcloud secrets create SECRETS_KEY --data-file=-
+printf '%s' "$(openssl rand -hex 24)" | gcloud secrets create CRON_SECRET --data-file=-
+printf '%s' "your-key" | gcloud secrets create GEMINI_API_KEY --data-file=-
+# Repeat for GROQ_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, COMPOSIO_API_KEY, FIRECRAWL_API_KEY, ... as you use them.
+```
+
+`SECRETS_KEY` encrypts people's MCP tokens. **Back it up somewhere safe**: if it is lost or changed, stored MCP tokens become unreadable and people must add them again.
+
+## 4. Build and deploy
+
+The `Dockerfile` builds the app and runs `node .output/server/index.mjs` on port 8080. The contact email shown on the Terms and Privacy pages is set at build time, so build with Cloud Build and pass it:
+
+```bash
+gcloud artifacts repositories create openlobs --repository-format=docker --location=$REGION
+IMAGE=$REGION-docker.pkg.dev/$PROJECT/openlobs/app:$(git rev-parse --short HEAD)
+gcloud builds submit --config cloudbuild.yaml --substitutions=_IMAGE=$IMAGE,_CONTACT_EMAIL=hello@yourdomain.com
+
+gcloud run deploy $SERVICE --image $IMAGE --region $REGION \
+  --service-account $SA --allow-unauthenticated \
+  --min-instances 0 --max-instances 3 --memory 512Mi --concurrency 40 --timeout 300 \
+  --set-secrets SESSION_SECRET=SESSION_SECRET:latest,SECRETS_KEY=SECRETS_KEY:latest,CRON_SECRET=CRON_SECRET:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest \
+  --set-env-vars NODE_ENV=production
+```
+
+Notes:
+
+- `--min-instances 0` keeps you inside the free tier (the first request after a quiet period is slower). `--max-instances 3` caps cost and bounds how much a traffic spike can spend.
+- Rate limits are held in each instance's memory, so with several instances the effective limit is per instance. That is fine at this size.
+- Chat answers stream for up to a few minutes, so keep `--timeout` at 300 or more.
+- Add the usage tuning variables if you want to change plans: `USAGE_FREE_DAILY`, `USAGE_FREE_MONTHLY`, and so on (see `.env.example`), and `USAGE_UNLIMITED_USER_IDS` for yourself.
+- Check it started: `curl https://YOUR-SERVICE-URL/api/health` should print `{"ok":true,...}`.
+- Add your service URL's host to Firebase → Authentication → Settings → **Authorized domains**, or sign-in will be refused.
+
+## 5. The scheduler for workflows
+
+Scheduled workflows only run when something calls the timer endpoint:
+
+```bash
+URL=$(gcloud run services describe $SERVICE --region $REGION --format='value(status.url)')
+gcloud scheduler jobs create http openlobs-cron --location $REGION --schedule="*/5 * * * *" \
+  --uri="$URL/api/cron/workflows" --http-method=POST \
+  --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=CRON_SECRET)"
+```
+
+## 6. Created files expire on their own
+
+Files OpenLobs creates are kept for 30 days (`expiresAt`). The app hides expired files, but Firestore only deletes them if a TTL policy is on:
+
+```bash
+gcloud firestore fields ttls update expiresAt --collection-group=generated_files --database=$DB --enable-ttl
+```
+
+## 7. Backups
+
+Daily backups, kept for a week, plus the ability to undo a bad change within the last 7 days:
+
+```bash
+gcloud firestore backups schedules create --database=$DB --recurrence=daily --retention=7d
+gcloud firestore databases update --database=$DB --enable-pitr
+```
+
+Both cost a little for storage; raise the retention only when you need it. To restore, use `gcloud firestore databases restore --source-backup=... --destination-database=NEW_DB`, then point `firestoreDatabaseId` at the new database. Practise this once on a copy before you need it.
+
+## 8. Know when something breaks
+
+- **Errors:** unexpected server errors are written to the logs in the format Cloud Error Reporting groups. Open *Error Reporting* in the console and switch on email notifications for new errors. Browser errors arrive as warnings in Cloud Logging (filter `jsonPayload.source="browser"`).
+- **Uptime:** create an uptime check on `https://YOUR-SERVICE-URL/api/health` (Monitoring → Uptime checks) with an email alert.
+- **Spend:** set a budget alert (Billing → Budgets) at an amount you are comfortable with.
+- Logs hold only error text and the page path. Request bodies, headers and people's content are never logged.
+
+## 9. Before you tell people about it
+
+- Set the contact email (step 4) and have a Ghanaian lawyer read `src/pages/terms.vue` and `src/pages/privacy.vue`. They are written in plain English from what the app does, but they are not legal advice.
+- Register with Ghana's Data Protection Commission if the law requires it for your business.
+- Deploy the Firestore rules: `firebase deploy --only firestore:rules`.
+- In the Composio dashboard, set your own branding and OAuth apps so people see "OpenLobs", not a third party, when connecting.

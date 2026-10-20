@@ -94,9 +94,23 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/privacy': RouteRecordInfo<
+      '/privacy',
+      '/privacy',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/terms': RouteRecordInfo<
+      '/terms',
+      '/terms',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -200,9 +214,25 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
+    'src/pages/privacy.vue': {
+      routes:
+        | '/privacy'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
     'src/pages/settings.vue': {
       routes:
         | '/settings'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/terms.vue': {
+      routes:
+        | '/terms'
       views:
         | never
       pathParamNames:
