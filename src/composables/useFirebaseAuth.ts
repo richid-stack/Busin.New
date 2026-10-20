@@ -9,6 +9,9 @@ import {
   updateProfile,
   signOut,
   sendPasswordResetEmail,
+  reauthenticateWithPopup,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   onAuthStateChanged,
   type User
 } from 'firebase/auth'
@@ -201,6 +204,53 @@ export const useFirebaseAuth = createSharedComposable(() => {
     }
   }
 
+  /** How this person signs in, for the settings page and for choosing how to confirm it is them. */
+  const signInMethod = computed<'google' | 'github' | 'password' | 'other'>(() => {
+    const id = firebaseUser.value?.providerData?.[0]?.providerId
+    return id === 'google.com' ? 'google' : id === 'github.com' ? 'github' : id === 'password' ? 'password' : 'other'
+  })
+
+  /**
+   * Confirms it is really them (a fresh sign-in), for actions that cannot be undone. Email accounts
+   * give their password; Google and GitHub open their sign-in window again.
+   */
+  const reauthenticate = async (password?: string) => {
+    const user = auth.currentUser
+    if (!user) throw new Error('You are signed out. Sign in again first.')
+    try {
+      if (signInMethod.value === 'password') {
+        if (!password) throw Object.assign(new Error('Enter your password to continue.'), { code: 'app/password-needed' })
+        await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email || '', password))
+      } else if (signInMethod.value === 'google') {
+        await reauthenticateWithPopup(user, new GoogleAuthProvider())
+      } else if (signInMethod.value === 'github') {
+        await reauthenticateWithPopup(user, new GithubAuthProvider())
+      } else {
+        throw new Error('Please sign out and sign in again, then retry.')
+      }
+      // The next request must carry a token that proves the new sign-in.
+      await user.getIdToken(true)
+    } catch (err: unknown) {
+      const e = err as { message?: string, code?: string }
+      if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') throw new Error('That password is not right.')
+      if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') throw new Error('Sign-in was cancelled.')
+      if (e.code === 'auth/too-many-requests') throw new Error('Too many attempts. Wait a moment and try again.')
+      throw err
+    }
+  }
+
+  /** Changes the display name and refreshes what the server sees. */
+  const updateDisplayName = async (name: string) => {
+    const user = auth.currentUser
+    if (!user) throw new Error('You are signed out.')
+    const clean = name.replace(/\s+/g, ' ').trim().slice(0, 60)
+    if (!clean) throw new Error('A name cannot be empty.')
+    await updateProfile(user, { displayName: clean })
+    await user.getIdToken(true)
+    firebaseUser.value = auth.currentUser
+    await syncServerSession(auth.currentUser)
+  }
+
   const signOutUser = async () => {
     loading.value = true
     try {
@@ -227,6 +277,9 @@ export const useFirebaseAuth = createSharedComposable(() => {
     signInWithEmail,
     signUpWithEmail,
     sendPasswordReset,
+    signInMethod,
+    reauthenticate,
+    updateDisplayName,
     signOutUser,
     isAuthenticated: computed(() => Boolean(firebaseUser.value))
   }
