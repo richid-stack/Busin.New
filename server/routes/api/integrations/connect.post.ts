@@ -20,6 +20,10 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 400, statusMessage: `Unsupported integration provider: ${body.provider}` })
   }
 
+  if (definition.type === 'custom') {
+    throw new HTTPError({ statusCode: 400, statusMessage: `${definition.name} connects with your own key. Paste it on the ${definition.name} page.` })
+  }
+
   if (!isComposioConfigured()) {
     throw new HTTPError({
       statusCode: 503,

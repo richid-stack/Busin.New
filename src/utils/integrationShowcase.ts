@@ -553,6 +553,120 @@ export const SHOWCASE: Record<string, Showcase> = {
       { title: 'Payment summary', detail: 'Send a weekly revenue summary to Slack.', prompt: 'Create a workflow that summarises recent Stripe payments and posts it to Slack.' },
       { title: 'Unpaid invoice list', detail: 'Collect unpaid invoices for follow-up.', prompt: 'Create a workflow that lists unpaid Stripe invoices and drafts follow-up emails.' }
     ]
+  },
+  paystack: {
+    tagline: 'See what has been paid and ask customers to pay, by card or mobile money.',
+    overview: 'OpenLobs reads your Paystack account with the key you paste in: balance, payments and customers. It can also create a payment request that gives you a link to send. It cannot send money, refund, or change any settings, so nothing leaves your account because of OpenLobs.',
+    abilities: [
+      read('Check your balance', 'See what is on your Paystack account right now.'),
+      read('Review payments', 'List recent payments, or only the ones that succeeded, failed or were never completed.'),
+      track('Check one payment', 'Look up a payment by its reference and see what happened to it.'),
+      send('Request a payment', 'Create a payment link in cedis for card or mobile money, up to 50 a day. No money moves until the customer pays.')
+    ],
+    prompts: [
+      'What came in on Paystack this week, and which payments failed?',
+      'Create a payment link for GHS 250 for ama@example.com and give me the link to send.',
+      'Check whether the payment with reference T123456 went through.'
+    ],
+    ideas: [
+      { title: 'Weekly money summary', detail: 'Summarise the week\'s payments and post them to Slack or email them to you.', prompt: 'Create a workflow that lists this week\'s successful Paystack payments, summarises the total and the biggest ones, and posts it to Slack.' },
+      { title: 'Invoice to payment link', detail: 'Turn an approved invoice into a payment link ready to send.', prompt: 'Create a workflow that takes an invoice amount and a customer email, asks for my approval, then creates a Paystack payment link and drafts an email with it in Gmail.' }
+    ]
+  },
+  arkesel: {
+    tagline: 'Send text messages to customers in Ghana.',
+    overview: 'OpenLobs sends SMS through your own Arkesel account and sender name, so reminders and updates reach people who are not on email. Each send is limited to 20 numbers, and a day is limited to 200 messages, so a mistake cannot text your whole contact list.',
+    abilities: [
+      send('Send a text', 'Write and send a short message to one number or up to 20 at a time.'),
+      write('Draft the wording', 'Turn a few notes into a clear message under the length limit.'),
+      track('Use it in workflows', 'Add a text step after a payment, a booking or an approval.'),
+      organize('Stay within limits', 'A daily cap and a record of what was sent protect your credit and your customers.')
+    ],
+    prompts: [
+      'Text 0241234567 to say their order is ready for pickup, from the sender name MyShop.',
+      'Write a friendly 160-character reminder about tomorrow\'s appointment and send it to these three numbers.',
+      'Send a payment reminder to this customer with the amount and the link.'
+    ],
+    ideas: [
+      { title: 'Payment reminder', detail: 'Text customers a Paystack payment link.', prompt: 'Create a workflow that creates a Paystack payment link and texts it to the customer with Arkesel, asking for my approval before it is sent.' },
+      { title: 'Appointment reminder', detail: 'Send a reminder the day before.', prompt: 'Create a workflow that reads tomorrow\'s appointments from Google Calendar and texts each client a reminder with Arkesel, with an approval step first.' }
+    ]
+  },
+  google_slides: {
+    tagline: 'Build presentations from your notes.',
+    overview: 'OpenLobs creates Google Slides decks and adds slides with titles and text, so a pitch, a client update or a training session starts from a real draft in your Drive.',
+    abilities: [
+      write('Create a deck', 'Start a presentation with the title and structure you describe.'),
+      write('Add slides', 'Add slides with headings and body text.'),
+      write('Edit text', 'Update wording on slides that already exist.'),
+      organize('Turn notes into slides', 'Give it a document or meeting notes and get an outline as slides.')
+    ],
+    prompts: [
+      'Create a 6-slide pitch deck for my bakery from these notes.',
+      'Add a slide summarising this month\'s results to my Q4 deck.',
+      'Turn my Google Doc proposal into a short client presentation.'
+    ],
+    ideas: [
+      { title: 'Proposal to deck', detail: 'Turn a proposal document into slides for the client meeting.', prompt: 'Create a workflow that reads a Google Doc proposal and turns it into a Google Slides deck, then saves it in Drive.' },
+      { title: 'Weekly update deck', detail: 'Compile the week\'s numbers into a short deck.', prompt: 'Create a workflow that reads my Google Sheet of weekly numbers and builds a short Google Slides update from it.' }
+    ]
+  },
+  google_meet: {
+    tagline: 'Create meeting links and keep track of calls.',
+    overview: 'OpenLobs creates Google Meet links for calls with clients and your team, so you can drop one into an invite or a message without opening Meet.',
+    abilities: [
+      write('Create a meeting link', 'Get a fresh Meet link for a call.'),
+      read('Look up meetings', 'Find details about a meeting space or a past call.'),
+      send('Share the link', 'Put the link in an email or a calendar invite with your other connected apps.'),
+      track('Follow up', 'Turn a call into notes and tasks afterwards.')
+    ],
+    prompts: [
+      'Create a Google Meet link for tomorrow\'s client call and give it to me.',
+      'Schedule a call with Kofi on Thursday and email him the Meet link.',
+      'List my recent Meet calls.'
+    ],
+    ideas: [
+      { title: 'Book a call', detail: 'Find a time, create the link and send the invite.', prompt: 'Create a workflow that finds a free slot in Google Calendar, creates a Google Meet link and emails the invite, asking for my approval first.' },
+      { title: 'Call follow-up', detail: 'After a call, draft a recap and add tasks.', prompt: 'Create a workflow that takes my call notes, drafts a recap email in Gmail and adds the action items to Google Tasks.' }
+    ]
+  },
+  share_point: {
+    tagline: 'Work with your company\'s SharePoint sites and files.',
+    overview: 'OpenLobs searches your SharePoint sites, creates folders and uploads files into the libraries your team shares. A company administrator may need to approve the connection the first time.',
+    abilities: [
+      read('Search a site', 'Find files and pages across a SharePoint site.'),
+      organize('Create folders', 'Set up folders in a document library.'),
+      write('Upload files', 'Save a report or document into a shared folder.'),
+      send('Share with the team', 'Put finished work where everyone already looks.')
+    ],
+    prompts: [
+      'Search our SharePoint site for the latest safety policy.',
+      'Create a folder for the new project in the Projects library.',
+      'Upload this report to the Finance folder.'
+    ],
+    ideas: [
+      { title: 'File the weekly report', detail: 'Save the weekly report in the right folder.', prompt: 'Create a workflow that writes a weekly status report and uploads it to a SharePoint folder.' },
+      { title: 'New project folder', detail: 'Create the folder structure for a new project.', prompt: 'Create a workflow that creates a SharePoint folder for a new project and posts a link to it in Microsoft Teams.' }
+    ]
+  },
+  onenote: {
+    tagline: 'Keep notes and checklists in OneNote.',
+    overview: 'OpenLobs adds pages to your OneNote notebooks and can look up your notebooks and sections, so meeting notes and plans end up where you keep them. A company administrator may need to approve the connection the first time.',
+    abilities: [
+      write('Create pages', 'Add a new page to a notebook section.'),
+      read('Find notebooks', 'See your notebooks and sections.'),
+      organize('File meeting notes', 'Save a summary of a call in the right section.'),
+      track('Keep checklists', 'Write action items as a checklist page.')
+    ],
+    prompts: [
+      'Create a OneNote page called Weekly review with this week\'s highlights.',
+      'List my OneNote notebooks and their sections.',
+      'Save these meeting notes to my Clients notebook.'
+    ],
+    ideas: [
+      { title: 'Meeting notes page', detail: 'Turn a transcript or notes into a tidy page.', prompt: 'Create a workflow that takes meeting notes, summarises them with action items, and saves a page in OneNote.' },
+      { title: 'Daily plan', detail: 'Write the day\'s plan into OneNote each morning.', prompt: 'Create a workflow that reads today\'s Google Calendar events and writes a daily plan page in OneNote.' }
+    ]
   }
 }
 

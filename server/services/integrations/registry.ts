@@ -1,6 +1,9 @@
 import type { UnifiedIntegrationDefinition, IntegrationCategory } from './types'
 import { listComposioUserConnections, isComposioConfigured, POPULAR_COMPOSIO_TOOLKITS } from '../composio/client'
 import { runIntegrationInstruction } from './execute'
+import { CONNECTORS, getConnector } from '../connectors/definitions'
+import { runConnectorAction, runConnectorInstruction } from '../connectors/execute'
+import { connectionViews, defaultDb } from '../connectors/store'
 
 /**
  * Google Workspace integrations. Shown as 'native' in the UI, but connected and executed through
@@ -80,6 +83,31 @@ export const NATIVE_GOOGLE_INTEGRATIONS: UnifiedIntegrationDefinition[] = [
     ]
   },
   {
+    provider: 'google_slides',
+    name: 'Google Slides',
+    type: 'native',
+    icon: 'i-simple-icons:googleslides',
+    category: 'google',
+    description: 'Build pitch decks, client presentations and training slides, and fill them with your own content.',
+    capabilities: ['create_presentation', 'add_slide', 'edit_slide_text'],
+    supportedActions: [
+      { id: 'slides_create_presentation', name: 'Create Presentation', description: 'Create a new Google Slides deck' },
+      { id: 'slides_add_slide', name: 'Add Slide', description: 'Add a slide with a title and body text' }
+    ]
+  },
+  {
+    provider: 'google_meet',
+    name: 'Google Meet',
+    type: 'native',
+    icon: 'i-simple-icons:googlemeet',
+    category: 'google',
+    description: 'Create meeting links for calls with clients and your team, and look up past meetings.',
+    capabilities: ['create_meeting', 'get_meeting', 'list_conference_records'],
+    supportedActions: [
+      { id: 'meet_create_meeting', name: 'Create Meeting', description: 'Create a Google Meet link' }
+    ]
+  },
+  {
     provider: 'google_tasks',
     name: 'Google Tasks',
     type: 'native',
@@ -110,9 +138,24 @@ export const COMPOSIO_INTEGRATIONS: UnifiedIntegrationDefinition[] = POPULAR_COM
   }))
 }))
 
+/** Services connected with the person's own key (no OAuth). Executed by the connector runtime. */
+export const CUSTOM_CONNECTOR_INTEGRATIONS: UnifiedIntegrationDefinition[] = CONNECTORS.map(c => ({
+  provider: c.provider,
+  name: c.name,
+  type: 'custom' as const,
+  icon: c.icon,
+  category: c.category,
+  description: c.description,
+  capabilities: c.actions.map(a => a.id),
+  supportedActions: c.actions.map(a => ({ id: a.id, name: a.name, description: a.description })),
+  credentialFields: c.fields.map(f => ({ id: f.id, label: f.label, placeholder: f.placeholder, help: f.help, secret: f.secret })),
+  keyAdvice: c.keyAdvice
+}))
+
 export const ALL_INTEGRATIONS_CATALOG: UnifiedIntegrationDefinition[] = [
   ...NATIVE_GOOGLE_INTEGRATIONS,
-  ...COMPOSIO_INTEGRATIONS
+  ...COMPOSIO_INTEGRATIONS,
+  ...CUSTOM_CONNECTOR_INTEGRATIONS
 ]
 
 export interface ResolvedUserIntegration {
@@ -130,6 +173,12 @@ export interface ResolvedUserIntegration {
   supportedEventsCount?: number
   supportedActionsCount?: number
   externalLinks?: { website?: string; privacy?: string; terms?: string }
+  /** custom connectors only */
+  credentialFields?: Array<{ id: string, label: string, placeholder?: string, help?: string, secret: boolean }>
+  keyAdvice?: string
+  getKeyUrl?: string
+  /** custom connectors only: the end of the saved key, never the key itself */
+  keyHint?: string
 }
 
 /**
@@ -148,6 +197,10 @@ const AUTHENTIC_LINKS: Record<string, { website: string; privacy: string; terms:
   'google_calendar': { website: 'https://workspace.google.com/products/calendar/', privacy: 'https://policies.google.com/privacy', terms: 'https://policies.google.com/terms' },
   'google_docs': { website: 'https://workspace.google.com/products/docs/', privacy: 'https://policies.google.com/privacy', terms: 'https://policies.google.com/terms' },
   'google_sheets': { website: 'https://workspace.google.com/products/sheets/', privacy: 'https://policies.google.com/privacy', terms: 'https://policies.google.com/terms' },
+  'google_slides': { website: 'https://workspace.google.com/products/slides/', privacy: 'https://policies.google.com/privacy', terms: 'https://policies.google.com/terms' },
+  'google_meet': { website: 'https://workspace.google.com/products/meet/', privacy: 'https://policies.google.com/privacy', terms: 'https://policies.google.com/terms' },
+  'share_point': { website: 'https://www.microsoft.com/en-us/microsoft-365/sharepoint/collaboration', privacy: 'https://privacy.microsoft.com/en-us/privacystatement', terms: 'https://www.microsoft.com/en-us/legal/terms-of-use' },
+  'onenote': { website: 'https://www.microsoft.com/en-us/microsoft-365/onenote/digital-note-taking-app', privacy: 'https://privacy.microsoft.com/en-us/privacystatement', terms: 'https://www.microsoft.com/en-us/legal/terms-of-use' },
   'google_tasks': { website: 'https://workspace.google.com/', privacy: 'https://policies.google.com/privacy', terms: 'https://policies.google.com/terms' },
   'notion': { website: 'https://notion.so', privacy: 'https://www.notion.so/privacy', terms: 'https://www.notion.so/terms' },
   'linear': { website: 'https://linear.app', privacy: 'https://linear.app/privacy', terms: 'https://linear.app/terms' },
@@ -172,8 +225,31 @@ export async function getResolvedUserIntegrations(userId: string): Promise<Resol
   // The only source of truth for "connected" is the user's own active Composio accounts.
   // A failed lookup throws: reporting every app as "not connected" would be a lie.
   const connections = composioConfigured ? await listComposioUserConnections(userId) : []
+  // Connectors keep the person's own key in our store (sealed); only whether it exists is read here.
+  const keys = await connectionViews(defaultDb(), userId)
 
   return ALL_INTEGRATIONS_CATALOG.map((item) => {
+    if (item.type === 'custom') {
+      const key = keys.get(item.provider)
+      return {
+        provider: item.provider,
+        name: item.name,
+        type: item.type,
+        icon: item.icon,
+        category: item.category,
+        status: key ? 'connected' : 'disconnected',
+        account: key ? `Key ending ${key.hint}` : 'Not connected',
+        capabilities: item.capabilities,
+        description: item.description,
+        supportedActionsCount: item.supportedActions?.length || 0,
+        externalLinks: getConnector(item.provider) ? { website: getConnector(item.provider)!.links.website } : undefined,
+        credentialFields: item.credentialFields,
+        keyAdvice: item.keyAdvice,
+        getKeyUrl: getConnector(item.provider)?.links.getKey,
+        keyHint: key?.hint,
+        canConnect: true
+      } satisfies ResolvedUserIntegration
+    }
     const conn = connections.find(c => c.toolkitSlug === item.provider && c.status === 'ACTIVE')
     return {
       provider: item.provider,
@@ -217,6 +293,26 @@ export async function executeIntegratedAction(
     ?? (/^[a-z0-9][a-z0-9_-]{1,39}$/.test(provider) ? { provider, name: provider.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), supportedActions: undefined } : null)
   if (!definition) {
     return { success: false, output: null, message: `Unknown integration provider: "${provider}"` }
+  }
+
+  // Services connected with the person's own key run through the connector runtime.
+  const connector = getConnector(provider)
+  if (connector) {
+    try {
+      const { action: named, params, instruction: said, inputs } = parameters ?? {}
+      // An exact action with its settings is carried out as given, with no model in between.
+      const exact = typeof named === 'string' ? named : connector.actions.some(a => a.id === actionId) ? actionId : null
+      if (exact) {
+        const res = await runConnectorAction(userId, connector, exact, params ?? Object.fromEntries(Object.entries(parameters ?? {}).filter(([k]) => !['action', 'params', 'inputs', 'instruction', 'channel', 'folder'].includes(k))))
+        return { success: res.success, authRequired: res.authRequired, authUrl: res.authUrl, output: res.output, message: res.message }
+      }
+      const text = [typeof said === 'string' ? said.trim() : '', inputs && Object.keys(inputs).length ? `<untrusted_workflow_data>\n${JSON.stringify(inputs).slice(0, 6000)}\n</untrusted_workflow_data>` : ''].filter(Boolean).join('\n')
+      if (!text) return { success: false, output: null, message: `Say what to do in ${connector.name}, or choose one of its actions: ${connector.actions.map(a => a.id).join(', ')}.` }
+      const res = await runConnectorInstruction(userId, connector, text, { abortSignal: opts.abortSignal })
+      return { success: res.success, authRequired: res.authRequired, authUrl: res.authUrl, output: res.output, message: res.message }
+    } catch (err: any) {
+      return { success: false, output: null, message: `${connector.name} action failed: ${err?.message || 'unknown error'}` }
+    }
   }
 
   const action = definition.supportedActions?.find(a => a.id === actionId)

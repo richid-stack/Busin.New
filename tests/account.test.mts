@@ -23,6 +23,9 @@ const seed = async (uid: string) => {
   await db.collection('user_plans').doc(uid).set({ userId: uid, plan: 'pro', endsAt: '2099-01-01T00:00:00.000Z' })
   await db.collection('generated_files').doc(`f-${uid}`).set({ userId: uid, name: 'report.xlsx', mime: 'x', size: 3, data: Buffer.from('abc') })
   await db.collection('integrations').doc(`${uid}_slack`).set({ userId: uid, provider: 'slack' })
+  await db.collection('connector_credentials').doc(`${uid}__paystack`).set({ userId: uid, provider: 'paystack', sealed: 'v1.SEALED-KEY.x.y', hint: '…abcd', connectedAt: '2026-10-01T00:00:00.000Z' })
+  await db.collection('connector_usage').doc(`${uid}__arkesel__arkesel_send_sms__2026-10-19`).set({ userId: uid, count: 3 })
+  await db.collection('connector_audit').doc(`au-${uid}`).set({ userId: uid, provider: 'arkesel', actionId: 'arkesel_send_sms', ok: true, units: 2 })
 }
 await seed('alice'); await seed('bob')
 
@@ -51,6 +54,7 @@ assert(out.connectedApps.sort().join() === 'notion,slack', 'connected apps are l
 const text = JSON.stringify(out)
 assert(!text.includes('SEALED-SECRET') && !text.includes('sealedToken'), 'MCP tokens never leave in an export')
 assert((out.mcpServers[0] as any).approvedTools[0] === 'mcp_linear_search', 'MCP servers are listed with their approved tools')
+assert(!text.includes('SEALED-KEY') && (out.connectedKeys[0] as any).hint === '…abcd' && out.connectorActivity.length === 1, 'saved service keys are listed by their last four characters only, with what was done')
 assert(!text.includes('bob') && !text.includes('hello from bob'), 'nothing of another person is exported')
 assert(!('data' in (out.files[0] as any)) && (out.files[0] as any).name === 'report.xlsx', 'files are listed, not embedded')
 const empty = await collectUserData(deps({ listConnections: async () => { throw new Error('down') } }), { id: 'nobody', name: 'N' })
@@ -66,7 +70,7 @@ assert(e instanceof AccountDeletionError && db.raw('agents').has('a-alice'), 'if
 // ---- Erasure ----
 const res = await eraseUserData(deps(), 'alice')
 assert(calls.includes('disconnect:conn1') && calls.includes('disconnect:conn2') && calls.includes('auth:alice'), 'apps are disconnected and the sign-in account removed')
-for (const c of ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'generated_files', 'integrations']) {
+for (const c of ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit']) {
   assert([...db.raw(c).values()].every(d => d.userId !== 'alice'), `${c}: all of Alice's documents are gone`)
 }
 assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice'), 'usage, plan and memory settings are gone')

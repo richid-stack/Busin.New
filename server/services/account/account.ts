@@ -10,7 +10,7 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings'] as const
 /** Nested data that goes with its parent document. */
@@ -64,6 +64,8 @@ export interface UserExport {
   payments: unknown[]
   notifications: unknown
   connectedApps: string[]
+  connectedKeys: unknown[]
+  connectorActivity: unknown[]
 }
 
 /**
@@ -93,7 +95,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, ...data }
     })
 
-  const [chats, workflows, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections] = await Promise.all([
+  const [chats, workflows, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit] = await Promise.all([
     withNested('chats'),
     withNested('workflows'),
     simple('agents'),
@@ -108,7 +110,10 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     db.collection('user_plans').doc(id).get(),
     db.collection('memory_settings').doc(id).get(),
     db.collection('user_settings').doc(id).get(),
-    deps.listConnections(id).catch(() => [])
+    deps.listConnections(id).catch(() => []),
+    // Which services have a key saved: when, and the last four characters. The key itself is never exported.
+    simple('connector_credentials', ['sealed']),
+    simple('connector_audit')
   ])
 
   return {
@@ -125,6 +130,8 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     files,
     payments,
     notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true },
+    connectedKeys: keyDocs,
+    connectorActivity: connectorAudit,
     connectedApps: [...new Set((connections as any[]).map(c => c.toolkitSlug).filter(Boolean))]
   }
 }

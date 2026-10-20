@@ -5,6 +5,7 @@ export type IntegrationCategory =
   | 'project_management'
   | 'crm'
   | 'developer'
+  | 'ghana'
 
 export interface IntegrationAction {
   id: string
@@ -23,4 +24,7 @@ export interface UnifiedIntegrationDefinition {
   capabilities: string[]
   supportedEvents?: string[]
   supportedActions?: IntegrationAction[]
+  /** custom connectors: what a person pastes to connect (never a secret value) */
+  credentialFields?: Array<{ id: string, label: string, placeholder?: string, help?: string, secret: boolean }>
+  keyAdvice?: string
 }

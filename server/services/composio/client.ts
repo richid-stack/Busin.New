@@ -271,6 +271,30 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
       { slug: 'POWERBI_EXPORT_REPORT', name: 'Export Report', description: 'Export a PowerBI report to PDF or Image' }
     ]
   },
+  // SharePoint and OneNote connect through a Microsoft Entra app that belongs to you (set up once in Composio).
+  {
+    slug: 'share_point',
+    name: 'Microsoft SharePoint',
+    icon: 'i-simple-icons:microsoftsharepoint',
+    description: 'Search team sites, create folders, and upload files to the document libraries your company shares in.',
+    category: 'productivity',
+    popularActions: [
+      { slug: 'SHARE_POINT_SEARCH_SITE', name: 'Search Site', description: 'Search a SharePoint site for files and pages' },
+      { slug: 'SHARE_POINT_CREATE_FOLDER', name: 'Create Folder', description: 'Create a folder in a document library' },
+      { slug: 'SHARE_POINT_UPLOAD_FILE', name: 'Upload File', description: 'Upload a file into a SharePoint folder' }
+    ]
+  },
+  {
+    slug: 'onenote',
+    name: 'Microsoft OneNote',
+    icon: 'i-simple-icons:microsoftonenote',
+    description: 'Keep meeting notes, checklists and project pages in your OneNote notebooks.',
+    category: 'productivity',
+    popularActions: [
+      { slug: 'ONENOTE_CREATE_PAGE', name: 'Create Page', description: 'Add a new page to a notebook section' },
+      { slug: 'ONENOTE_LIST_NOTEBOOKS', name: 'List Notebooks', description: 'See your notebooks and sections' }
+    ]
+  },
 
   // --- Popular Productivity & Marketing Tools ---
   {

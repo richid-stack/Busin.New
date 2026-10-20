@@ -65,7 +65,7 @@ export const useIntegrations = createSharedComposable(() => {
 
   /** False when the server has no Composio key; every connect would fail. */
   const canConnect = computed(() =>
-    integrations.value.length === 0 || integrations.value.some(i => i.canConnect)
+    integrations.value.length === 0 || integrations.value.some(i => i.canConnect && i.type !== 'custom')
   )
 
   const getIntegrationByProvider = (provider: string) => {

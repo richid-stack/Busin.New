@@ -17,6 +17,7 @@ useHead({ title: `Privacy policy · ${LEGAL.product}` })
       <li><strong>Your account:</strong> name, email address and profile picture from the way you sign in (Google, GitHub, or email and password). We never see your Google or GitHub password. Email passwords are held by our sign-in provider, not by us.</li>
       <li><strong>What you give us:</strong> chat messages, files you attach, memory notes, agents, workflows and the files {{ LEGAL.product }} creates for you.</li>
       <li><strong>Connected apps:</strong> when you connect an app or an MCP server, we hold the connection so it can act for you. We read from or write to it only when you ask, or when a workflow you made runs.</li>
+      <li><strong>Keys you paste in:</strong> for services such as Paystack and Arkesel we keep the key you give us, encrypted, only to act for you in that service. We also record when a payment request or text message was sent (not its content) to apply daily limits.</li>
       <li><strong>Usage:</strong> how many credits and tokens you use, and when, to apply plan limits.</li>
       <li><strong>Payments:</strong> when you buy Pro, we keep the reference, amount, date and how long it covers. Card and mobile money details go to our payment provider, not to us.</li>
       <li><strong>Technical logs:</strong> when something breaks we log the error, the page address (without anything after a “?”) and your browser type. We do not log your messages, files or sign-in details in these logs.</li>
@@ -64,7 +65,7 @@ useHead({ title: `Privacy policy · ${LEGAL.product}` })
     </ul>
 
     <h2>7. Keeping it safe</h2>
-    <p>Data is encrypted in transit. Tokens for MCP servers are encrypted before they are stored. The database can only be reached through our server, which checks that you own what you ask for. No system is perfectly safe, so we also limit what we collect and let you delete it.</p>
+    <p>Data is encrypted in transit. Tokens for MCP servers and keys for services you connect are encrypted before they are stored. The database can only be reached through our server, which checks that you own what you ask for. No system is perfectly safe, so we also limit what we collect and let you delete it.</p>
 
     <h2>8. Children</h2>
     <p>{{ LEGAL.product }} is not meant for people under 18, and we do not knowingly collect their data. If you think a child has an account, tell us and we will remove it.</p>

@@ -167,5 +167,37 @@ export function useIntegrationConnect() {
     }
   }
 
-  return { busyProvider, connect, disconnect }
+  /** Saves a person's own key for a service that connects that way (Paystack, Arkesel). */
+  async function saveKey(provider: string, credentials: Record<string, string>): Promise<boolean> {
+    if (busyProvider.value) return false
+    const name = getIntegrationByProvider(provider)?.name || provider
+    busyProvider.value = provider
+    try {
+      const res = await $fetch<{ verified?: boolean }>(`/api/connectors/${provider}`, {
+        method: 'PUT',
+        headers: { [headerName]: csrf() },
+        body: { credentials }
+      })
+      await fetchIntegrations()
+      toast.add({
+        title: `${name} connected`,
+        description: res?.verified ? 'The key was checked and saved.' : 'The key was saved. It is checked the first time you use it.',
+        icon: 'i-lucide-circle-check',
+        color: 'success'
+      })
+      return true
+    } catch (err: any) {
+      toast.add({
+        title: `Could not connect ${name}`,
+        description: errorMessage(err, 'Something went wrong. Try again.'),
+        icon: 'i-lucide-circle-alert',
+        color: 'error'
+      })
+      return false
+    } finally {
+      busyProvider.value = null
+    }
+  }
+
+  return { busyProvider, connect, disconnect, saveKey }
 }

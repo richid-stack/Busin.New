@@ -130,6 +130,18 @@ Every model call costs **credits**, counted per person per day and per month (UT
 - Payment records are kept for the books but anonymised when an account is deleted (see Settings and your data).
 - Collections: `payments`, `user_plans`, `user_settings`, `notification_log`.
 
+## Connectors for Ghana (your own key)
+
+Some services are connected with a key the person pastes in, not through Composio. Today that is **Paystack** (balance, payments, customers, payment links in cedis) and **Arkesel** (SMS). Each is a short declarative definition in `server/services/connectors/definitions.ts`: a fixed https host, how the key is sent, and the few actions allowed, with their parameters. There is no per-service code.
+
+- **Keys** are stored sealed (`SECRETS_KEY`), tied to the person, never sent back to the browser, never put in a result or a log, and only sent to the connector's own host (redirects are not followed).
+- **Parameters** are checked against what each action declares. Nothing undeclared goes through, amounts are in cedis with at most two decimals, and a model can only choose from the declared actions.
+- **Limits**: actions that cost money or reach other people have a daily limit per person (payment links 50, SMS 200 recipients), taken in a transaction and given back if the call fails. Every such send is recorded in `connector_audit` (no message text), which is part of the account export and is erased with the account.
+- Paystack here **cannot** send money, refund or change settings. Use a test key (`sk_test_…`) first.
+- Works in chat (`integration_execute`), as a workflow action node, and for agents. In a workflow, set `action` and `params` in the node config to run one exact action with no model involved.
+
+To add a service (Hubtel, mNotify, MTN MoMo…), add a definition from its API reference, add it to `CONNECTORS`, a showcase entry in `src/utils/integrationShowcase.ts`, and a test. Also new in the catalogue: Google Slides, Google Meet, Microsoft SharePoint and OneNote (the two Microsoft ones need your own Microsoft Entra app set up once in Composio).
+
 ## Workflow templates
 
 The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.
