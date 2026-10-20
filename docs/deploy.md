@@ -84,6 +84,39 @@ gcloud scheduler jobs create http openlobs-cron --location $REGION --schedule="*
   --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=CRON_SECRET)"
 ```
 
+## 5b. Paid plans and email (when you are ready to charge)
+
+1. In the Paystack dashboard (Settings → API Keys & Webhooks) copy the **secret key** and set the **Webhook URL** to `https://YOUR-SERVICE-URL/api/webhooks/paystack`. Use the test key first and make a test payment end to end.
+2. Store the key and set the prices and public address:
+
+```bash
+printf '%s' "sk_live_..." | gcloud secrets create PAYSTACK_SECRET_KEY --data-file=-
+gcloud run services update $SERVICE --region $REGION \
+  --update-secrets PAYSTACK_SECRET_KEY=PAYSTACK_SECRET_KEY:latest \
+  --update-env-vars APP_URL=https://YOUR-DOMAIN,PRO_PRICE_MONTH=60,PRO_PRICE_YEAR=600
+```
+
+(The prices above are examples. Set your own, in whole cedis.)
+
+3. In Resend, verify your sending domain, create an API key, then:
+
+```bash
+printf '%s' "re_..." | gcloud secrets create RESEND_API_KEY --data-file=-
+gcloud run services update $SERVICE --region $REGION \
+  --update-secrets RESEND_API_KEY=RESEND_API_KEY:latest \
+  --update-env-vars EMAIL_FROM="OpenLobs <hello@yourdomain.com>"
+```
+
+4. A daily job for the "Pro is ending" reminders:
+
+```bash
+gcloud scheduler jobs create http openlobs-billing --location $REGION --schedule="0 8 * * *" \
+  --uri="$URL/api/cron/billing" --http-method=POST \
+  --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=CRON_SECRET)"
+```
+
+5. Do a real test: pay a small amount by card and by mobile money, check Pro starts, the receipt arrives and the payment shows in Settings. Refunds and disputes are handled in the Paystack dashboard (the app does not take Pro away by itself when a payment is reversed).
+
 ## 6. Created files expire on their own
 
 Files OpenLobs creates are kept for 30 days (`expiresAt`). The app hides expired files, but Firestore only deletes them if a TTL policy is on:

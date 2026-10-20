@@ -40,7 +40,7 @@ useHead({ title: `Terms of use · ${LEGAL.product}` })
     <p>What you put in (messages, files, notes, workflows) stays yours. You give us permission to store it and to process it, including by sending it to the AI and other service providers named in the Privacy policy, only as needed to run the service for you. You promise you have the right to use what you upload.</p>
 
     <h2>7. Usage limits, plans and payment</h2>
-    <p>Use is counted in credits, per day and per month, and each plan has its own limits. We may change limits, and we show your current usage in Settings. When paid plans are offered, the price, period and payment method are shown before you pay, and payments are handled by our payment provider. Taxes may apply.</p>
+    <p>Use is counted in credits, per day and per month, and each plan has its own limits. We may change limits, and we show your current usage in Settings. Pro is bought in advance for 1 or 12 months, by card or mobile money, through our payment provider. The price is shown before you pay. Time you buy is added to any Pro time you have left, and nothing renews automatically. When Pro ends you return to the Free plan and keep your data. Taxes may apply. If a payment went through but Pro did not start, contact us with your payment reference and we will fix it.</p>
 
     <h2>8. Created files</h2>
     <p>Files {{ LEGAL.product }} creates for you are kept for {{ LEGAL.fileRetentionDays }} days so you can download them. Download what you want to keep.</p>

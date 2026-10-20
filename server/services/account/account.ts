@@ -6,10 +6,13 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * removes. Keeping both in one list means a new collection is added in one place.
  */
 
+/**
+ * `payments` is handled separately on erase: records are anonymised rather than deleted.
+ */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log'] as const
 /** Collections with one document per person, named by their id. */
-const PER_PERSON = ['memory_settings', 'user_plans'] as const
+const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings'] as const
 /** Nested data that goes with its parent document. */
 const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflows: ['runs'] }
 
@@ -58,6 +61,8 @@ export interface UserExport {
   memory: { enabled: boolean, items: unknown[] }
   mcpServers: unknown[]
   files: unknown[]
+  payments: unknown[]
+  notifications: unknown
   connectedApps: string[]
 }
 
@@ -88,7 +93,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, ...data }
     })
 
-  const [chats, workflows, agents, memories, servers, usage, files, planDoc, memSettings, connections] = await Promise.all([
+  const [chats, workflows, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections] = await Promise.all([
     withNested('chats'),
     withNested('workflows'),
     simple('agents'),
@@ -99,8 +104,10 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     })),
     simple('usage'),
     simple('generated_files', ['data']),
+    simple('payments'),
     db.collection('user_plans').doc(id).get(),
     db.collection('memory_settings').doc(id).get(),
+    db.collection('user_settings').doc(id).get(),
     deps.listConnections(id).catch(() => [])
   ])
 
@@ -116,6 +123,8 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     memory: { enabled: memSettings.exists ? memSettings.data()?.enabled !== false : true, items: memories },
     mcpServers: servers,
     files,
+    payments,
+    notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true },
     connectedApps: [...new Set((connections as any[]).map(c => c.toolkitSlug).filter(Boolean))]
   }
 }
@@ -152,6 +161,12 @@ export async function eraseUserData(deps: AccountDeps, userId: string): Promise<
     removed[collection] = docs.length
   }
   for (const collection of PER_PERSON) await db.collection(collection).doc(userId).delete()
+
+  // Payment records are kept for the books (tax and disputes), but stop being about a person: the
+  // name, email and account link go, the reference, amount and date stay.
+  const payments = await ownedDocs(db, 'payments', userId)
+  for (const doc of payments) await doc.ref.update({ userId: null, email: null, name: null, anonymisedAt: new Date().toISOString() })
+  removed.payments = payments.length
 
   await deps.deleteAuthUser(userId).catch((err: any) => {
     // Already gone counts as done, which keeps a retry after a partial failure working.

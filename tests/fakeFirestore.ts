@@ -31,13 +31,20 @@ export function createFakeFirestore() {
     delete: async () => { col(path).delete(id) },
     collection: (sub: string) => collectionRef(`${path}/${id}/${sub}`)
   })
-  const query = (path: string, filters: Array<[string, any]>): any => ({
+  const OPS: Record<string, (a: any, b: any) => boolean> = {
+    '==': (a, b) => a === b,
+    '<=': (a, b) => a !== undefined && a !== null && a <= b,
+    '>=': (a, b) => a !== undefined && a !== null && a >= b,
+    '<': (a, b) => a !== undefined && a !== null && a < b,
+    '>': (a, b) => a !== undefined && a !== null && a > b
+  }
+  const query = (path: string, filters: Array<[string, string, any]>): any => ({
     where(field: string, op: string, value: any) {
-      if (op !== '==') throw new Error(`fake firestore: operator ${op} not supported`)
-      return query(path, [...filters, [field, value]])
+      if (!OPS[op]) throw new Error(`fake firestore: operator ${op} not supported`)
+      return query(path, [...filters, [field, op, value]])
     },
     get: async () => {
-      const docs = [...col(path)].filter(([, d]) => filters.every(([f, v]) => d[f] === v)).map(([id, d]) => snap(path, id, d))
+      const docs = [...col(path)].filter(([, d]) => filters.every(([f, op, v]) => OPS[op]!(d[f], v))).map(([id, d]) => snap(path, id, d))
       return { docs, empty: docs.length === 0, size: docs.length, forEach: (fn: (d: any) => void) => docs.forEach(fn) }
     }
   })

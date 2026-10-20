@@ -119,6 +119,17 @@ Every model call costs **credits**, counted per person per day and per month (UT
 - The list of what is exported and deleted lives in one place, `server/services/account/account.ts`; a new collection that holds personal data must be added there.
 - Email notifications are not in Settings yet; they arrive with email sending.
 
+## Payments and email
+
+**Pro** is sold as prepaid periods (1 or 12 months) through Paystack, by card or mobile money. Mobile money in Ghana needs the person to approve each payment on their phone, so nothing renews by itself; a reminder email goes out before Pro ends instead.
+
+- **Off until configured.** Without `PAYSTACK_SECRET_KEY` and at least one price (`PRO_PRICE_MONTH`, `PRO_PRICE_YEAR`) Settings says "Pro plans are coming soon" and checkout refuses.
+- **The server decides.** Checkout records the expected amount first; Pro is granted only when Paystack confirms (`transaction/verify`) a successful payment of exactly that amount and currency. A browser or a webhook alone never grants anything. A wrong amount or currency grants nothing and is flagged `mismatch`.
+- **Two ways in, applied once.** The person's return page (`/billing/callback`) and Paystack's webhook (`POST /api/webhooks/paystack`, HMAC-SHA512 signature checked) both call the same function; a transaction makes sure only the first one counts. Paying while on Pro adds time to what is left.
+- **Receipts and reminders** go through Resend (`RESEND_API_KEY`, `EMAIL_FROM`); without them nothing is sent and nothing breaks. `POST /api/cron/billing` (same `CRON_SECRET` as the workflow timer) sends one reminder 3 days before Pro ends. Scheduled workflow failures can email the owner, at most once a day per workflow. People switch these off in Settings → Notifications.
+- Payment records are kept for the books but anonymised when an account is deleted (see Settings and your data).
+- Collections: `payments`, `user_plans`, `user_settings`, `notification_log`.
+
 ## Workflow templates
 
 The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.

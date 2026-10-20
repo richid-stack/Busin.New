@@ -9,3 +9,9 @@ export interface UsageSnapshot {
   planEndsAt: string | null
   tokens: { input: number, output: number }
 }
+
+export interface BillingOption { period: 'month' | 'year', months: number, label: string, price: number }
+export interface PaymentSummary { reference: string, amount: number, currency: string, months: number, paidAt: string }
+export interface BillingInfo { enabled: boolean, currency: string, options: BillingOption[], payments: PaymentSummary[] }
+export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean, emailAvailable?: boolean, email?: string | null }
+export type VerifyResult = { status: 'applied' | 'already', endsAt: string } | { status: 'pending' | 'failed' }
