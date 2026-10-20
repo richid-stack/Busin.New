@@ -1,6 +1,7 @@
 import type { UnifiedIntegrationDefinition, IntegrationCategory } from './types'
 import { listComposioUserConnections, isComposioConfigured, POPULAR_COMPOSIO_TOOLKITS } from '../composio/client'
 import { runIntegrationInstruction } from './execute'
+import { untrustedBlock } from './untrusted'
 import { CONNECTORS, getConnector } from '../connectors/definitions'
 import { runConnectorAction, runConnectorInstruction } from '../connectors/execute'
 import { connectionViews, defaultDb } from '../connectors/store'
@@ -306,8 +307,11 @@ export async function executeIntegratedAction(
         const res = await runConnectorAction(userId, connector, exact, params ?? Object.fromEntries(Object.entries(parameters ?? {}).filter(([k]) => !['action', 'params', 'inputs', 'instruction', 'channel', 'folder'].includes(k))))
         return { success: res.success, authRequired: res.authRequired, authUrl: res.authUrl, output: res.output, message: res.message }
       }
-      const text = [typeof said === 'string' ? said.trim() : '', inputs && Object.keys(inputs).length ? `<untrusted_workflow_data>\n${JSON.stringify(inputs).slice(0, 6000)}\n</untrusted_workflow_data>` : ''].filter(Boolean).join('\n')
-      if (!text) return { success: false, output: null, message: `Say what to do in ${connector.name}, or choose one of its actions: ${connector.actions.map(a => a.id).join(', ')}.` }
+      // These services can send texts and create payment requests, so a model only runs on a task the
+      // owner wrote. Data from earlier steps or a webhook can inform the task but never be the task.
+      const task = typeof said === 'string' ? said.trim() : ''
+      if (!task) return { success: false, output: null, message: `Choose one of ${connector.name}'s actions, or write what to do. Data from a trigger on its own cannot start a ${connector.name} action.` }
+      const text = [task, inputs && Object.keys(inputs).length ? untrustedBlock(inputs) : ''].filter(Boolean).join('\n')
       const res = await runConnectorInstruction(userId, connector, text, { abortSignal: opts.abortSignal })
       return { success: res.success, authRequired: res.authRequired, authUrl: res.authUrl, output: res.output, message: res.message }
     } catch (err: any) {
@@ -328,7 +332,7 @@ export async function executeIntegratedAction(
     lines.push(`Perform the action "${actionId}".`)
   }
   if (Object.keys(details).length) lines.push(`Settings: ${JSON.stringify(details)}`)
-  if (inputs && Object.keys(inputs).length) lines.push(`<untrusted_workflow_data>\n${JSON.stringify(inputs).slice(0, 6000)}\n</untrusted_workflow_data>`)
+  if (inputs && Object.keys(inputs).length) lines.push(untrustedBlock(inputs))
 
   try {
     const res = await runIntegrationInstruction({

@@ -1,5 +1,5 @@
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
-import { open, seal } from '../../utils/secretBox'
+import { SecretBoxError, open, seal } from '../../utils/secretBox'
 import { ConnectorError, unitsOf } from './runtime'
 import type { ActionDef, ConnectorDef } from './types'
 
@@ -48,7 +48,10 @@ export async function getCredentials(db: Db, userId: string, provider: string): 
   if (d.userId !== userId) return null
   try {
     return JSON.parse(open(String(d.sealed), purpose(userId, provider)))
-  } catch {
+  } catch (err) {
+    // Usually a missing or changed SECRETS_KEY. Say so in the logs (never the key), and let the caller tell the person.
+    console.warn(`[connectors] could not read the saved ${provider} key: ${(err as Error)?.constructor?.name}: ${(err as Error)?.message}`)
+    if (err instanceof SecretBoxError) throw err
     return null
   }
 }
@@ -91,9 +94,15 @@ export async function takeDailyAllowance(db: Db, userId: string, def: ConnectorD
 }
 
 /** A short record of what was done with a connected service, for the person's own export. */
-export async function audit(db: Db, userId: string, def: ConnectorDef, action: ActionDef, ok: boolean, units: number, note: string, now = new Date()) {
-  await db.collection(AUDIT).doc().set({ userId, provider: def.provider, actionId: action.id, effect: action.effect, ok, units, note: note.slice(0, 200), at: now.toISOString() })
-    .catch((err: any) => console.warn('[connectors] audit not written:', err?.message))
+export async function audit(db: Db, userId: string, def: ConnectorDef, action: ActionDef, ok: boolean, units: number, note: string, now = new Date()): Promise<boolean> {
+  try {
+    await db.collection(AUDIT).doc().set({ userId, provider: def.provider, actionId: action.id, effect: action.effect, ok, units, note: note.slice(0, 200), at: now.toISOString() })
+    return true
+  } catch (err: any) {
+    // The send itself already happened, so this is reported, not retried. The daily counter still holds the count.
+    console.error('[connectors] audit not written:', def.provider, action.id, err?.message)
+    return false
+  }
 }
 
 export const defaultDb = () => getFirebaseDb()

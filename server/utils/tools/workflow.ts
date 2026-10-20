@@ -189,7 +189,9 @@ export const createIntegrationStatusTool = (userId: string) => tool({
       return {
         connectedServices: services,
         readyForAutomation: services.some(i => i.status === 'connected'),
-        integrationsAvailable: integrations.some(i => i.canConnect)
+        // Apps connected by authorizing (Google, Slack...) need the integration provider key; services that take a pasted key (Paystack, Arkesel) do not.
+        integrationsAvailable: integrations.some(i => i.canConnect && i.type !== 'custom'),
+        keyConnectorsAvailable: integrations.some(i => i.type === 'custom')
       }
     } catch (err: any) {
       return {

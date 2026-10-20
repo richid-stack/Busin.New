@@ -180,8 +180,8 @@ function clearFilters() {
           color="warning"
           variant="subtle"
           icon="i-lucide-plug-zap"
-          title="Connections are not set up yet"
-          description="This server has no integration provider key, so apps cannot be connected right now."
+          title="App connections are not set up yet"
+          description="This server has no integration provider key, so apps like Google and Slack cannot be connected right now. Services that use your own key still work."
         />
 
         <div class="mb-6">

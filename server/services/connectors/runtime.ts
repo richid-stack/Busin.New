@@ -1,7 +1,11 @@
 import type { ActionDef, ConnectorDef, ParamDef } from './types'
 
 export class ConnectorError extends Error {
-  constructor(message: string, readonly kind: 'invalid' | 'auth' | 'limit' | 'upstream' | 'network' = 'invalid') { super(message) }
+  /**
+   * `maybeSent` is true when the call may have reached the service even though we have no answer (a timeout,
+   * a dropped connection, a server error, a reply we could not read). The person must check before trying again.
+   */
+  constructor(message: string, readonly kind: 'invalid' | 'auth' | 'limit' | 'upstream' | 'network' = 'invalid', readonly maybeSent = false) { super(message) }
 }
 
 // eslint-disable-next-line no-control-regex
@@ -85,11 +89,15 @@ export function buildRequest(def: ConnectorDef, action: ActionDef, values: Recor
   const path = action.path.replace(/\{(\w+)\}/g, (_, name: string) => {
     const v = values[name]
     if (typeof v !== 'string' && typeof v !== 'number') throw new ConnectorError(`"${name}" is required.`)
+    // A value that is only dots would be read as a path step (".." goes up) and point at another endpoint.
+    if (/^\.+$/.test(String(v))) throw new ConnectorError(`"${name}" is not in the expected format.`)
     return encodeURIComponent(String(v))
   })
   const url = new URL(path, base)
   // The key is only ever sent to the connector's own host, whatever was asked.
   if (url.origin !== base.origin) throw new ConnectorError('That request does not stay on the service.')
+  // The address must still be exactly the endpoint that was asked for, with nothing normalised away.
+  if (url.pathname !== base.pathname.replace(/\/$/, '') + path) throw new ConnectorError('That request does not stay on the service.')
 
   const headers: Record<string, string> = { Accept: 'application/json' }
   const secret = creds[def.auth.field]
@@ -110,19 +118,20 @@ export function buildRequest(def: ConnectorDef, action: ActionDef, values: Recor
 
 const MAX_BYTES = 300_000
 
-async function readCapped(res: Response): Promise<string> {
-  if (!res.body) return ''
+async function readCapped(res: Response): Promise<{ text: string, truncated: boolean }> {
+  if (!res.body) return { text: '', truncated: false }
   const reader = res.body.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
+  let truncated = false
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
     total += value.length
-    if (total > MAX_BYTES) { await reader.cancel().catch(() => {}); break }
+    if (total > MAX_BYTES) { truncated = true; await reader.cancel().catch(() => {}); break }
     chunks.push(value)
   }
-  return Buffer.concat(chunks).toString('utf8')
+  return { text: Buffer.concat(chunks).toString('utf8'), truncated }
 }
 
 /** Removes the person's own credentials from any text that is about to be shown or logged. */
@@ -146,22 +155,38 @@ export interface CallDeps { fetch?: typeof fetch }
 /** One call to the service. Throws ConnectorError with a message that is safe to show. */
 export async function callConnector(def: ConnectorDef, action: ActionDef, values: Record<string, unknown>, creds: Record<string, string>, deps: CallDeps = {}): Promise<unknown> {
   const { url, init } = buildRequest(def, action, values, creds)
+  const sent = action.effect === 'write'
   let res: Response
   try {
     res = await (deps.fetch ?? fetch)(url, { ...init, redirect: 'manual', signal: AbortSignal.timeout(20_000) })
   } catch {
-    throw new ConnectorError(`Could not reach ${def.name}. Try again in a moment.`, 'network')
+    throw new ConnectorError(`Could not reach ${def.name}.${sent ? ' It may have gone through, so check before trying again.' : ' Try again in a moment.'}`, 'network', sent)
   }
-  const text = await readCapped(res)
+  let read: { text: string, truncated: boolean }
+  try {
+    read = await readCapped(res)
+  } catch {
+    throw new ConnectorError(`The answer from ${def.name} could not be read.${sent ? ' It may have gone through, so check before trying again.' : ''}`, 'upstream', sent)
+  }
+  const { text } = read
   let body: any = null
-  try { body = text ? JSON.parse(text) : null } catch { /* not JSON */ }
+  let unreadable = read.truncated
+  if (!read.truncated && text) { try { body = JSON.parse(text) } catch { unreadable = true } }
 
-  if (res.status >= 300 && res.status < 400) throw new ConnectorError(`${def.name} sent the request somewhere else, so it was stopped.`, 'upstream')
+  if (res.status >= 300 && res.status < 400) throw new ConnectorError(`${def.name} sent the request somewhere else, so it was stopped.`, 'upstream', sent)
   if (res.status === 401 || res.status === 403) throw new ConnectorError(`${def.name} refused the key. Check it on the ${def.name} page and connect again.`, 'auth')
   if (res.status === 429) throw new ConnectorError(`${def.name} is limiting requests right now. Try again in a minute.`, 'upstream')
   if (!res.ok) {
     const said = scrubCreds(String(body?.message ?? body?.error ?? '').replace(/\s+/g, ' ').slice(0, 200), creds)
-    throw new ConnectorError(res.status >= 500 ? `${def.name} had a problem (${res.status}). Try again later.` : `${def.name} said: ${said || `error ${res.status}`}`, 'upstream')
+    // A server error leaves the outcome unknown; a 4xx is a clear refusal.
+    if (res.status >= 500) throw new ConnectorError(`${def.name} had a problem (${res.status}).${sent ? ' It may have gone through, so check before trying again.' : ' Try again later.'}`, 'upstream', sent)
+    throw new ConnectorError(`${def.name} said: ${said || `error ${res.status}`}`, 'upstream')
+  }
+  // A success we cannot read in full is not reported as a success with nothing in it.
+  if (unreadable) {
+    throw new ConnectorError(read.truncated
+      ? `The answer from ${def.name} was too large to read. Ask for less, for example a smaller page.${sent ? ' It may have gone through, so check before trying again.' : ''}`
+      : `The answer from ${def.name} was not in the expected format.${sent ? ' It may have gone through, so check before trying again.' : ''}`, 'upstream', sent)
   }
   // Some services answer 200 with a failure inside the body.
   if (body && typeof body === 'object' && (body.status === false || body.success === false)) {

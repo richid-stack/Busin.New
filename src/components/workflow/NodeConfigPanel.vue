@@ -121,6 +121,9 @@ const providerItems = computed(() => {
 
 const integration = computed(() => props.integrations.find(i => i.provider === data.value.provider))
 const isConnected = computed(() => integration.value?.status === 'connected')
+/** Key-based services (Paystack, Arkesel) connect on their own page, not through the authorization popup. */
+const usesKey = computed(() => integration.value?.type === 'custom')
+const providerCanConnect = computed(() => integration.value ? integration.value.canConnect : props.canConnect)
 
 function changeProvider(provider: string) {
   const match = props.integrations.find(i => i.provider === provider)
@@ -470,15 +473,23 @@ function pretty(value: unknown) {
                 <span class="text-xs font-medium text-default">{{ isConnected ? 'Connected' : 'Not connected' }}</span>
               </div>
               <p class="text-[11px] text-muted truncate mt-0.5">
-                {{ isConnected ? integration?.account : canConnect ? 'Authorize this app to run the step.' : 'Connections are not set up on this server.' }}
+                {{ isConnected ? integration?.account : usesKey ? 'Paste your key on the app page to run the step.' : providerCanConnect ? 'Authorize this app to run the step.' : 'Connections are not set up on this server.' }}
               </p>
             </div>
             <UButton
-              v-if="!isConnected"
+              v-if="!isConnected && usesKey"
+              label="Add key"
+              color="primary"
+              size="xs"
+              :to="`/integrations/${data.provider}`"
+              target="_blank"
+            />
+            <UButton
+              v-else-if="!isConnected"
               label="Connect"
               color="primary"
               size="xs"
-              :disabled="!canConnect"
+              :disabled="!providerCanConnect"
               :loading="connectingProvider === data.provider"
               @click="emit('connect', data.provider)"
             />
