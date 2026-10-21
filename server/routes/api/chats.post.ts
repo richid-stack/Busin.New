@@ -14,7 +14,7 @@ export default defineHandler(async (event) => {
     attachments: z.array(z.object({
       name: z.string().max(255).optional(),
       contentType: z.string().max(255).optional(),
-      url: z.string()
+      url: z.string().refine(url => /^data:/i.test(url), 'Attachments must be uploaded files')
     })).optional()
   }).parse)
 

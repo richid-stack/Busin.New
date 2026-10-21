@@ -1,12 +1,12 @@
 import { ref, computed, onBeforeUnmount } from 'vue'
 import { fitImage, encodedSize } from '../utils/image'
 import { fileToDataUrl } from '../utils/files'
+import { ATTACH_HELP, resolveAttachment } from '../utils/attachmentTypes'
 
 // Chat messages are stored one document each (1 MiB limit server side), so everything attached to one
 // message has to fit in roughly 800 KB once base64-encoded.
 const MAX_FILES = 5
 const MAX_TOTAL_ENCODED = 800_000
-const ACCEPTED = /^(image\/(png|jpe?g|webp|gif)|application\/pdf|text\/plain)$/
 
 export interface PromptAttachment {
   file: File
@@ -30,13 +30,14 @@ export function usePromptAttachments() {
     processing.value = true
 
     try {
-      for (const original of Array.from(files)) {
+      for (const picked of Array.from(files)) {
         if (attachments.value.length >= MAX_FILES) {
           reject(`You can attach up to ${MAX_FILES} files per message.`)
           break
         }
-        if (!ACCEPTED.test(original.type)) {
-          reject(`${original.name} isn't supported. Attach images, PDFs or plain text files.`)
+        const original = resolveAttachment(picked)
+        if (!original) {
+          reject(`${picked.name} isn't supported. Attach ${ATTACH_HELP}.`)
           continue
         }
 
