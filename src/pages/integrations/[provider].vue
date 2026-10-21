@@ -22,6 +22,7 @@ const {
   loading,
   loaded,
   unauthorized,
+  loadError,
   canConnect,
   fetchIntegrations,
   getIntegrationByProvider
@@ -167,6 +168,17 @@ const links = computed(() => {
         <h2 class="text-lg font-medium text-highlighted">Sign in to continue</h2>
         <p class="text-sm text-muted mt-1 mb-5">Integrations are tied to your account.</p>
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
+      </div>
+    </div>
+
+    <div v-else-if="loadError && !integration" class="flex-1 flex justify-center items-center px-6">
+      <div class="text-center max-w-sm">
+        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-elevated/50 shadow-sm flex items-center justify-center">
+          <UIcon name="i-lucide-cloud-off" class="size-5 text-muted" />
+        </div>
+        <h2 class="text-lg font-medium text-highlighted">Could not load this app</h2>
+        <p class="text-sm text-muted mt-1 mb-5">{{ loadError }}</p>
+        <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" @click="fetchIntegrations" />
       </div>
     </div>
 

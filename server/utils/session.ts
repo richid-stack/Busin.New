@@ -73,6 +73,10 @@ export async function useUserSession(event: H3Event) {
   const verified = await getVerifiedUser(event)
   if (verified) {
     session.data.user = verified
+  } else if (session.data.user) {
+    // A user stored in an old cookie is not proof of identity: without a verified token the
+    // caller is anonymous (this request only; the cookie itself is left alone).
+    delete session.data.user
   }
 
   return session

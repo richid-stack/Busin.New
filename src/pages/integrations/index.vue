@@ -131,6 +131,16 @@ function clearFilters() {
 
       <template v-else>
         <UAlert
+          v-if="loaded && loadError"
+          class="mb-6"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-cloud-off"
+          title="Could not refresh your apps"
+          :description="`${loadError} What you see may be out of date.`"
+          :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', color: 'neutral', variant: 'subtle', loading, onClick: () => fetchIntegrations() }]"
+        />
+        <UAlert
           v-if="loaded && !canConnect"
           class="mb-8"
           color="warning"

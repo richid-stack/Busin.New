@@ -3,7 +3,7 @@ import { getValidatedRouterParams, readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../../utils/session'
 import { getFirebaseDb } from '../../../../utils/firebaseAdmin'
-import { getWorkflow, getWorkflowRun, updateWorkflowRun, resolveWorkflowId } from '../../../../utils/firebase'
+import { getWorkflow, ensureDefaultWorkflow, getWorkflowRun, updateWorkflowRun, resolveWorkflowId } from '../../../../utils/firebase'
 import { executeWorkflowDAG, DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../../../../utils/workflowEngine'
 import { postApprovalCard } from '../../../../utils/workflowRuns'
 
@@ -31,20 +31,9 @@ export default defineHandler(async (event) => {
   }
 
   // 2. Fetch workflow definition
-  let workflow = await getWorkflow(id)
-  if (!workflow && id !== requestedId) {
-    workflow = {
-      id,
-      title: 'Client Onboarding Pipeline',
-      description: 'Default onboarding pipeline',
-      userId,
-      status: 'active',
-      nodes: DEFAULT_WORKFLOW_NODES,
-      edges: DEFAULT_WORKFLOW_EDGES,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  }
+  const workflow = id !== requestedId
+    ? await ensureDefaultWorkflow(userId, { nodes: DEFAULT_WORKFLOW_NODES, edges: DEFAULT_WORKFLOW_EDGES })
+    : await getWorkflow(id)
   if (!workflow || workflow.userId !== userId) {
     throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found' })
   }
@@ -65,9 +54,12 @@ export default defineHandler(async (event) => {
 
   const approvalNodeId = run.approvalNodeId || 'approval'
   const approver = user.name || userId
+  // Once the engine has run, side effects (emails, messages) may have happened: never reopen the approval.
+  let started = false
 
   try {
     // 4. Resume DAG execution
+    started = true
     const resume = await executeWorkflowDAG(workflow, run.input, userId, {
       resumeNodeId: approvalNodeId,
       existingOutputs: run.output || {},
@@ -103,8 +95,11 @@ export default defineHandler(async (event) => {
 
     return { success: true, run: updatedRun }
   } catch (err) {
-    // Release the claim so the approval can be retried.
-    await updateWorkflowRun(id, body.runId, { status: 'waiting_approval' }).catch(() => {})
+    // Before execution began nothing happened, so the approval can be retried. After that, actions
+    // may already have run, so the run is closed as failed rather than offered for a second go.
+    await updateWorkflowRun(id, body.runId, started
+      ? { status: 'failed', approvalPrompt: null }
+      : { status: 'waiting_approval' }).catch(() => {})
     throw err
   }
 })

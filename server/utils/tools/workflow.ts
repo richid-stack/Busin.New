@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { createWorkflow, getWorkflow, resolveWorkflowId } from '../firebase'
+import { createWorkflow, ensureDefaultWorkflow, getWorkflow, resolveWorkflowId } from '../firebase'
 import { DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../workflowEngine'
 import { executeAndRecordRun } from '../workflowRuns'
 import { getResolvedUserIntegrations, ALL_INTEGRATIONS_CATALOG, executeIntegratedAction } from '../../services/integrations/registry'
@@ -129,24 +129,12 @@ export const createWorkflowRunTool = (userId: string) => tool({
   execute: async ({ workflowId, inputSummary }) => {
     try {
       const id = resolveWorkflowId(userId, workflowId)
-      let workflow = await getWorkflow(id)
-      if (workflow && workflow.userId !== userId) {
-        return { success: false, error: 'Workflow not found' }
-      }
-      if (!workflow) {
-        if (id === workflowId) {
-          return { success: false, error: `Workflow "${workflowId}" was not found` }
-        }
-        workflow = {
-          id,
-          title: 'Client Onboarding Pipeline',
-          description: 'Client Onboarding Pipeline',
-          userId,
-          status: 'active',
-          nodes: DEFAULT_WORKFLOW_NODES,
-          edges: DEFAULT_WORKFLOW_EDGES,
-          createdAt: new Date()
-        }
+      const workflow = id !== workflowId
+        ? await ensureDefaultWorkflow(userId, { nodes: DEFAULT_WORKFLOW_NODES, edges: DEFAULT_WORKFLOW_EDGES })
+        : await getWorkflow(id)
+      // Unknown ids and other users' workflows look identical, and nothing is recorded for them.
+      if (!workflow || workflow.userId !== userId) {
+        return { success: false, error: `Workflow "${workflowId}" was not found` }
       }
 
       const inputPayload = inputSummary
@@ -241,13 +229,18 @@ Provide the provider slug (e.g. 'github', 'slack', 'gmail') and a clear natural 
       provider: z.string().describe('The service provider slug, e.g. "github", "slack", "gmail", "linear", "notion"'),
       instruction: z.string().describe('What to do, in detail (e.g. "Create a high priority issue titled User Login Bug with description...")')
     }),
-    execute: async ({ provider, instruction }) => {
+    execute: async ({ provider, instruction }, { abortSignal }) => {
+      // Catalogued apps use their definition; any other slug is tried as a Composio toolkit.
+      const norm = provider.toLowerCase().trim().replace(/[- ]/g, '_')
       const definition = resolveIntegrationDefinition(provider)
+        ?? (/^[a-z0-9][a-z0-9_-]{1,39}$/.test(norm)
+          ? { provider: norm, name: norm.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), icon: 'i-lucide-plug', category: 'Other' }
+          : null)
       if (!definition) {
         return { success: false, provider, instruction, error: `Unknown integration "${provider}". Use the integration status tool to see what is available.` }
       }
 
-      const result = await executeIntegratedAction(userId, definition.provider, `${definition.provider}_action`, { instruction })
+      const result = await executeIntegratedAction(userId, definition.provider, `${definition.provider}_action`, { instruction }, { abortSignal })
       return {
         success: result.success,
         authRequired: result.authRequired ?? false,
