@@ -23,6 +23,7 @@ const show = computed(() => {
 const position = computed(() => {
   if (!show.value || rects.value.length === 0) return { top: '0px', left: '0px' }
   const rect = rects.value[0]
+  if (!rect) return { top: '0px', left: '0px' }
   return {
     top: `${rect.top}px`,
     left: `${rect.left + (rect.width / 2)}px`
@@ -50,11 +51,11 @@ function handleAction(action: string) {
       class="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
       :style="{ top: position.top, left: position.left }"
     >
-      <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg p-1 flex gap-1">
+      <div class="bg-default border border-default rounded-lg shadow-lg p-1 flex gap-1">
         <UButton
           v-for="a in actions"
           :key="a.label"
-          size="2xs"
+          size="xs"
           color="neutral"
           variant="ghost"
           :icon="a.icon"

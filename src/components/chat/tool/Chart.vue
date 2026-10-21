@@ -12,7 +12,7 @@ const props = defineProps<{
 const color = computed(() => {
   return ({
     'output-error': 'bg-muted text-error'
-  })[props.invocation.state as string] || 'bg-muted text-white'
+  })[props.invocation.state as string] || 'bg-muted text-muted'
 })
 
 const icon = computed(() => {

@@ -1,5 +1,5 @@
 {
-  "name": "Vue AI Chatbot",
+  "name": "OpenLobs",
   "description": "An AI chatbot and workflow automation system powered by Google Gemini, Groq, Claude, and OpenAI with native Google workspace integrations, third-party service connections, visual Workflow Studio, and Firebase persistence.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

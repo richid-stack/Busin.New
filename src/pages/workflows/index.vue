@@ -553,14 +553,14 @@ onPaneReady(() => {
 </script>
 
 <template>
-  <UDashboardPanel id="workflow-studio" class="relative min-h-0 flex-1 h-full w-full bg-background" :ui="{ body: 'p-0 sm:p-0 overscroll-none' }">
+  <UDashboardPanel id="workflow-studio" class="relative min-h-0 flex-1 h-full w-full" :ui="{ body: 'p-0 sm:p-0 overscroll-none' }">
     <template #header>
       <Navbar>
         <template #title>
           <div class="flex items-center gap-3">
             <UIcon name="i-lucide-workflow" class="size-5 text-primary" />
             <div>
-              <h1 class="font-semibold text-foreground leading-tight">Workflow Studio</h1>
+              <h1 class="font-semibold text-default leading-tight">Workflow Studio</h1>
               <p class="text-xs text-muted">Client Onboarding & Automation Pipeline</p>
             </div>
           </div>
@@ -604,7 +604,7 @@ onPaneReady(() => {
             <span class="hidden lg:inline">{{ saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Error saving' }}</span>
           </div>
           <UButton
-            :color="workflowStatus === 'active' ? 'emerald' : 'primary'"
+            :color="workflowStatus === 'active' ? 'success' : 'primary'"
             :icon="workflowStatus === 'active' ? 'i-lucide-check-circle' : 'i-lucide-rocket'"
             :label="workflowStatus === 'active' ? 'Active' : 'Deploy'"
             size="sm"
@@ -735,9 +735,9 @@ onPaneReady(() => {
               </div>
               <Handle type="target" :position="Position.Left" class="!bg-default !w-2.5 !h-2.5" />
               <div class="flex items-center gap-2.5">
-                <UIcon :name="data.icon || 'i-lucide-split'" class="size-4 text-foreground opacity-80 shrink-0" />
+                <UIcon :name="data.icon || 'i-lucide-split'" class="size-4 text-default opacity-80 shrink-0" />
                 <div class="min-w-0">
-                  <h4 class="font-medium text-xs text-foreground truncate">{{ data.title }}</h4>
+                  <h4 class="font-medium text-xs text-default truncate">{{ data.title }}</h4>
                   <p class="text-[10px] text-muted truncate">{{ data.subtitle }}</p>
                 </div>
               </div>
@@ -771,9 +771,9 @@ onPaneReady(() => {
                 </div>
               </div>
               <div class="flex items-center gap-2.5">
-                <UIcon :name="data.icon || 'i-lucide-mail'" class="size-4 text-foreground opacity-80 shrink-0" />
+                <UIcon :name="data.icon || 'i-lucide-mail'" class="size-4 text-default opacity-80 shrink-0" />
                 <div class="min-w-0">
-                  <h4 class="font-medium text-xs text-foreground truncate">{{ data.title }}</h4>
+                  <h4 class="font-medium text-xs text-default truncate">{{ data.title }}</h4>
                   <p class="text-[10px] text-muted truncate">{{ data.subtitle }}</p>
                 </div>
               </div>
@@ -800,7 +800,7 @@ onPaneReady(() => {
               <div class="flex items-center gap-2.5">
                 <UIcon :name="data.icon || 'i-lucide-brain'" class="size-4 shrink-0 transition-colors" :class="[data.color, 'opacity-80']" />
                 <div class="min-w-0">
-                  <h4 class="font-medium text-xs text-foreground truncate">{{ data.title }}</h4>
+                  <h4 class="font-medium text-xs text-default truncate">{{ data.title }}</h4>
                   <p class="text-[10px] text-muted truncate">{{ data.subtitle }}</p>
                 </div>
               </div>
@@ -826,9 +826,9 @@ onPaneReady(() => {
               </div>
               <Handle type="target" :position="Position.Left" class="!bg-default !w-2.5 !h-2.5" />
               <div class="flex items-center gap-2.5">
-                <UIcon :name="data.icon || 'i-lucide-zap'" class="size-4 text-foreground opacity-80 shrink-0" />
+                <UIcon :name="data.icon || 'i-lucide-zap'" class="size-4 text-default opacity-80 shrink-0" />
                 <div class="min-w-0">
-                  <h4 class="font-medium text-xs text-foreground truncate">{{ data.title }}</h4>
+                  <h4 class="font-medium text-xs text-default truncate">{{ data.title }}</h4>
                   <p class="text-[10px] text-muted truncate">{{ data.subtitle }}</p>
                 </div>
               </div>
@@ -914,19 +914,19 @@ onPaneReady(() => {
           <div v-for="(msg, i) in copilotChat" :key="i" class="flex flex-col gap-1" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
             <div 
               class="px-3 py-2 rounded-xl max-w-[90%]"
-              :class="msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted/10 text-foreground border border-default'"
+              :class="msg.role === 'user' ? 'bg-primary text-inverted' : 'bg-muted/10 text-default border border-default'"
             >
               {{ msg.text }}
             </div>
           </div>
           <div v-if="isCopilotLoading" class="flex items-start gap-1">
-            <div class="px-3 py-2 rounded-xl bg-muted/10 text-foreground border border-default">
+            <div class="px-3 py-2 rounded-xl bg-muted/10 text-default border border-default">
               <UIcon name="i-lucide-loader-2" class="size-4 animate-spin text-primary" />
             </div>
           </div>
         </div>
 
-        <div class="p-3 border-t border-default bg-background">
+        <div class="p-3 border-t border-default">
           <UInput
             v-model="copilotPrompt"
             placeholder="E.g. Add a slack alert node"
@@ -963,7 +963,7 @@ onPaneReady(() => {
         <div class="p-4 border-b border-default flex items-center justify-between">
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-sliders" class="size-4 text-muted" />
-            <span class="font-semibold text-sm text-foreground">Node Configuration</span>
+            <span class="font-semibold text-sm text-default">Node Configuration</span>
           </div>
           <UButton 
             color="neutral" 
@@ -976,12 +976,12 @@ onPaneReady(() => {
 
         <div v-if="selectedNode" class="p-4 flex-1 overflow-y-auto space-y-4">
           <!-- Node Title & Type -->
-          <div class="flex items-center gap-3 p-3 bg-background border border-default rounded-lg">
+          <div class="flex items-center gap-3 p-3 border border-default rounded-lg">
             <div class="p-2 bg-elevated rounded-md border border-default">
               <UIcon :name="selectedNode.data.icon || 'i-lucide-box'" class="size-5" />
             </div>
             <div class="min-w-0 flex-1">
-              <h3 class="font-semibold text-foreground text-sm truncate">{{ selectedNode.data.title }}</h3>
+              <h3 class="font-semibold text-default text-sm truncate">{{ selectedNode.data.title }}</h3>
               <p class="text-xs text-muted uppercase tracking-wider">{{ selectedNode.type }} Node</p>
             </div>
           </div>
@@ -990,14 +990,14 @@ onPaneReady(() => {
           <div class="flex items-center gap-2 border-b border-default mb-4">
             <button 
               class="px-3 py-1.5 text-xs font-medium border-b-2 transition-colors"
-              :class="activePropertiesTab === 'config' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-foreground'"
+              :class="activePropertiesTab === 'config' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-default'"
               @click="activePropertiesTab = 'config'"
             >
               Configuration
             </button>
             <button 
               class="px-3 py-1.5 text-xs font-medium border-b-2 transition-colors"
-              :class="activePropertiesTab === 'test' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-foreground'"
+              :class="activePropertiesTab === 'test' ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-default'"
               @click="activePropertiesTab = 'test'"
             >
               Test Step
@@ -1010,23 +1010,23 @@ onPaneReady(() => {
             <template v-if="selectedNode.type === 'trigger'">
               <div class="space-y-3" v-if="selectedNode.data.subtype !== 'webhook'">
                 <div>
-                  <label class="text-xs font-medium text-foreground block mb-1">Trigger Service</label>
-                  <div class="flex items-center gap-2 p-2 rounded-md border border-default bg-background text-sm">
+                  <label class="text-xs font-medium text-default block mb-1">Trigger Service</label>
+                  <div class="flex items-center gap-2 p-2 rounded-md border border-default text-sm">
                     <UIcon name="i-logos-google-gmail" class="size-4 shrink-0" />
-                    <span class="font-medium text-foreground">Gmail</span>
+                    <span class="font-medium text-default">Gmail</span>
                     <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Connected</span>
                   </div>
                 </div>
 
                 <div>
-                  <label class="text-xs font-medium text-foreground block mb-1">Account</label>
-                  <div class="p-2 rounded-md border border-default bg-background text-xs font-mono text-muted truncate">
+                  <label class="text-xs font-medium text-default block mb-1">Account</label>
+                  <div class="p-2 rounded-md border border-default text-xs font-mono text-muted truncate">
                     {{ selectedNode.data.connection || 'Not connected' }}
                   </div>
                 </div>
 
                 <div>
-                  <label class="text-xs font-medium text-foreground block mb-1">Event</label>
+                  <label class="text-xs font-medium text-default block mb-1">Event</label>
                   <USelect
                     :options="[{ label: 'New Email Received', value: 'new_email' }, { label: 'Important Email Received', value: 'important_email' }]"
                     v-model="selectedNode.data.event"
@@ -1038,7 +1038,7 @@ onPaneReady(() => {
               </div>
               <div class="space-y-3" v-else>
                 <div>
-                  <label class="text-xs font-medium text-foreground block mb-1">Webhook URL</label>
+                  <label class="text-xs font-medium text-default block mb-1">Webhook URL</label>
                   <div class="flex items-center gap-2">
                     <UInput
                       :model-value="webhookUrl"
@@ -1047,7 +1047,7 @@ onPaneReady(() => {
                       class="flex-1 font-mono text-[10px]"
                     />
                     <UButton
-                      :color="copied ? 'emerald' : 'neutral'"
+                      :color="copied ? 'success' : 'neutral'"
                       variant="soft"
                       :icon="copied ? 'i-lucide-check' : 'i-lucide-copy'"
                       size="sm"
@@ -1064,7 +1064,7 @@ onPaneReady(() => {
           <template v-if="selectedNode.type === 'agent'">
             <div class="space-y-3">
               <div>
-                <label class="text-xs font-medium text-foreground block mb-1">AI Engine Model</label>
+                <label class="text-xs font-medium text-default block mb-1">AI Engine Model</label>
                 <USelect
                   :options="models"
                   v-model="selectedNode.data.model"
@@ -1075,7 +1075,7 @@ onPaneReady(() => {
               </div>
 
               <div>
-                <label class="text-xs font-medium text-foreground block mb-1">System Instructions</label>
+                <label class="text-xs font-medium text-default block mb-1">System Instructions</label>
                 <VariableTextarea
                   v-model="selectedNode.data.prompt"
                   :variables="dynamicVariables"
@@ -1085,13 +1085,13 @@ onPaneReady(() => {
               </div>
 
               <div>
-                <label class="text-xs font-medium text-foreground block mb-1">Context Pipeline Inputs</label>
+                <label class="text-xs font-medium text-default block mb-1">Context Pipeline Inputs</label>
                 <div class="space-y-1.5">
-                  <div class="flex items-center justify-between p-2 bg-background border border-default rounded-md text-xs">
+                  <div class="flex items-center justify-between p-2 border border-default rounded-md text-xs">
                     <span class="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[11px]">{{ '{' }}{{ 'trigger.email.body' }}{{ '}' }}</span>
                     <span class="text-muted text-[11px]">Email Body</span>
                   </div>
-                  <div class="flex items-center justify-between p-2 bg-background border border-default rounded-md text-xs">
+                  <div class="flex items-center justify-between p-2 border border-default rounded-md text-xs">
                     <span class="font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded text-[11px]">{{ '{' }}{{ 'trigger.email.sender' }}{{ '}' }}</span>
                     <span class="text-muted text-[11px]">Sender</span>
                   </div>
@@ -1104,7 +1104,7 @@ onPaneReady(() => {
           <template v-if="selectedNode.type === 'logic'">
             <div class="space-y-3">
               <div v-if="selectedNode.id.startsWith('logic-if') || selectedNode.data.title.includes('If')">
-                <label class="text-xs font-medium text-foreground block mb-1">Condition Expression</label>
+                <label class="text-xs font-medium text-default block mb-1">Condition Expression</label>
                 <VariablePicker
                   v-model="selectedNode.data.condition"
                   :variables="dynamicVariables"
@@ -1112,7 +1112,7 @@ onPaneReady(() => {
                 />
               </div>
               <div v-else-if="selectedNode.id.startsWith('logic-switch') || selectedNode.data.title.includes('Switch')">
-                <label class="text-xs font-medium text-foreground block mb-1">Switch Variable</label>
+                <label class="text-xs font-medium text-default block mb-1">Switch Variable</label>
                 <VariablePicker
                   v-model="selectedNode.data.switchVar"
                   :variables="dynamicVariables"
@@ -1120,7 +1120,7 @@ onPaneReady(() => {
                 />
               </div>
               <div v-else-if="selectedNode.id.startsWith('logic-code') || selectedNode.data.title.includes('JavaScript')">
-                <label class="text-xs font-medium text-foreground block mb-1">Code snippet (JavaScript)</label>
+                <label class="text-xs font-medium text-default block mb-1">Code snippet (JavaScript)</label>
                 <VariableTextarea
                   v-model="selectedNode.data.code"
                   :variables="dynamicVariables"
@@ -1135,11 +1135,11 @@ onPaneReady(() => {
           <template v-if="selectedNode.type === 'action'">
             <div class="space-y-3">
               <div>
-                <label class="text-xs font-medium text-foreground block mb-1">Target Service</label>
+                <label class="text-xs font-medium text-default block mb-1">Target Service</label>
                 <div class="space-y-2">
                   <select
                     v-model="selectedNode.data.provider"
-                    class="w-full text-sm rounded-md border border-default bg-background p-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    class="w-full text-sm rounded-md border border-default p-2 text-default focus:outline-none focus:ring-1 focus:ring-primary"
                     @change="handleProviderChange(($event.target as HTMLSelectElement).value)"
                   >
                     <optgroup label="Google Workspace (Native)">
@@ -1167,15 +1167,15 @@ onPaneReady(() => {
 
               <!-- Connection Status & Action -->
               <div>
-                <label class="text-xs font-medium text-foreground block mb-1">Connection State</label>
-                <div class="p-3 rounded-lg border border-default bg-background flex items-center justify-between">
+                <label class="text-xs font-medium text-default block mb-1">Connection State</label>
+                <div class="p-3 rounded-lg border border-default flex items-center justify-between">
                   <div class="min-w-0 pr-2">
                     <div class="flex items-center gap-2">
                       <span 
                         class="size-2 rounded-full" 
                         :class="selectedIntegration?.status === 'connected' ? 'bg-emerald-500' : 'bg-neutral-400'"
                       />
-                      <span class="text-xs font-medium text-foreground">
+                      <span class="text-xs font-medium text-default">
                         {{ selectedIntegration?.status === 'connected' ? 'Connected' : 'Not Connected' }}
                       </span>
                     </div>
@@ -1196,12 +1196,12 @@ onPaneReady(() => {
 
               <!-- Action Parameters -->
               <div v-if="selectedNode.data.provider === 'slack'">
-                <label class="text-xs font-medium text-foreground block mb-1">Slack Channel</label>
+                <label class="text-xs font-medium text-default block mb-1">Slack Channel</label>
                 <UInput v-model="selectedNode.data.channel" placeholder="#client-alerts" size="sm" class="w-full" />
               </div>
 
               <div v-else-if="selectedNode.data.provider === 'google_drive'">
-                <label class="text-xs font-medium text-foreground block mb-1">Drive Folder</label>
+                <label class="text-xs font-medium text-default block mb-1">Drive Folder</label>
                 <UInput v-model="selectedNode.data.folder" placeholder="/Client Proposals" size="sm" class="w-full" />
               </div>
             </div>
@@ -1212,7 +1212,7 @@ onPaneReady(() => {
           <div v-if="activePropertiesTab === 'test'" class="space-y-4">
             <div class="space-y-2">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-medium text-foreground">Mock Input Data (JSON)</label>
+                <label class="text-xs font-medium text-default">Mock Input Data (JSON)</label>
                 <UButton
                   label="Test this step"
                   color="primary"
@@ -1232,19 +1232,19 @@ onPaneReady(() => {
 
             <div v-if="nodeTestResult" class="space-y-2 mt-4 pt-4 border-t border-default">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-medium text-foreground">Execution Result</label>
+                <label class="text-xs font-medium text-default">Execution Result</label>
                 <span class="text-[10px] px-2 py-0.5 rounded-full"
                   :class="nodeTestResult.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'">
                   {{ nodeTestResult.status === 'completed' ? 'Success' : 'Failed' }} ({{ nodeTestResult.durationMs }}ms)
                 </span>
               </div>
-              <pre class="bg-background border border-default p-2 rounded-md text-[10px] font-mono overflow-auto max-h-64">{{ JSON.stringify(nodeTestResult.output, null, 2) }}</pre>
+              <pre class="border border-default p-2 rounded-md text-[10px] font-mono overflow-auto max-h-64">{{ JSON.stringify(nodeTestResult.output, null, 2) }}</pre>
               <div v-if="nodeTestResult.message" class="text-xs mt-2" :class="nodeTestResult.status === 'completed' ? 'text-emerald-500' : 'text-red-500'">
                 {{ nodeTestResult.message }}
               </div>
               <div v-if="nodeTestResult.authUrl" class="mt-2">
                 <UButton
-                  color="amber"
+                  color="warning"
                   variant="soft"
                   size="xs"
                   label="Authenticate Provider"
@@ -1256,12 +1256,12 @@ onPaneReady(() => {
             
             <div v-else-if="selectedNode.data.output" class="space-y-2 mt-4 pt-4 border-t border-default">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-medium text-foreground">Previous Run Output</label>
+                <label class="text-xs font-medium text-default">Previous Run Output</label>
                 <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">
                   Success ({{ selectedNode.data.durationMs }}ms)
                 </span>
               </div>
-              <pre class="bg-background border border-default p-2 rounded-md text-[10px] font-mono overflow-auto max-h-64">{{ JSON.stringify(selectedNode.data.output, null, 2) }}</pre>
+              <pre class="border border-default p-2 rounded-md text-[10px] font-mono overflow-auto max-h-64">{{ JSON.stringify(selectedNode.data.output, null, 2) }}</pre>
             </div>
           </div>
 
@@ -1306,7 +1306,7 @@ onPaneReady(() => {
           <!-- Overall Status Banner -->
           <div 
             v-if="isExecuting"
-            class="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center gap-3 text-sm text-foreground"
+            class="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center gap-3 text-sm text-default"
           >
             <UIcon name="i-lucide-loader-2" class="size-4 animate-spin text-primary shrink-0" />
             <span>Executing workflow pipeline through AI and integration dispatchers...</span>
@@ -1338,7 +1338,7 @@ onPaneReady(() => {
                     class="size-3.5"
                     :class="log.status === 'completed' ? 'text-emerald-500' : (log.status === 'auth_required' ? 'text-amber-500' : 'text-red-500')"
                   />
-                  <span class="font-semibold text-foreground">{{ log.nodeTitle }}</span>
+                  <span class="font-semibold text-default">{{ log.nodeTitle }}</span>
                   <span class="text-[10px] uppercase font-mono px-1.5 py-0.2 rounded bg-neutral-200 dark:bg-neutral-800 text-muted">
                     {{ log.type }}
                   </span>
@@ -1365,7 +1365,7 @@ onPaneReady(() => {
               </div>
 
               <!-- Output snippet -->
-              <div v-if="log.output" class="bg-background rounded p-2 border border-default font-mono text-[10px] text-muted overflow-x-auto max-h-24">
+              <div v-if="log.output" class="rounded p-2 border border-default font-mono text-[10px] text-muted overflow-x-auto max-h-24">
                 <pre>{{ JSON.stringify(log.output, null, 2) }}</pre>
               </div>
             </div>
@@ -1394,7 +1394,7 @@ onPaneReady(() => {
           
           <div v-else-if="workflowRuns.length === 0" class="text-center py-12">
             <UIcon name="i-lucide-activity" class="size-10 text-muted/50 mx-auto mb-3" />
-            <h3 class="text-sm font-medium text-foreground">No execution history</h3>
+            <h3 class="text-sm font-medium text-default">No execution history</h3>
             <p class="text-xs text-muted mt-1">Deploy and trigger this workflow to see logs here.</p>
           </div>
 
@@ -1407,7 +1407,7 @@ onPaneReady(() => {
               <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
                   <span class="size-2 rounded-full" :class="run.status === 'completed' ? 'bg-emerald-500' : 'bg-red-500'" />
-                  <span class="text-sm font-semibold text-foreground">
+                  <span class="text-sm font-semibold text-default">
                     {{ run.status === 'completed' ? 'Success' : 'Failed' }}
                   </span>
                 </div>
@@ -1415,8 +1415,8 @@ onPaneReady(() => {
               </div>
               
               <div class="flex items-center justify-between text-xs text-muted mb-4 pb-4 border-b border-default">
-                <span>Duration: <span class="font-mono text-foreground">{{ run.durationMs }}ms</span></span>
-                <span>ID: <span class="font-mono text-foreground">{{ run.id.slice(-6) }}</span></span>
+                <span>Duration: <span class="font-mono text-default">{{ run.durationMs }}ms</span></span>
+                <span>ID: <span class="font-mono text-default">{{ run.id.slice(-6) }}</span></span>
               </div>
 
               <!-- Simplified log view inside history card -->
@@ -1427,7 +1427,7 @@ onPaneReady(() => {
                     class="size-3"
                     :class="log.status === 'completed' ? 'text-emerald-500' : (log.status === 'failed' ? 'text-red-500' : 'text-amber-500')"
                   />
-                  <span class="font-medium text-foreground truncate w-24">{{ log.nodeTitle }}</span>
+                  <span class="font-medium text-default truncate w-24">{{ log.nodeTitle }}</span>
                   <span class="text-muted truncate flex-1">{{ log.message }}</span>
                   <span class="font-mono text-[9px] text-muted">{{ log.durationMs }}ms</span>
                 </div>
@@ -1481,7 +1481,7 @@ onPaneReady(() => {
 .vue-flow__controls-button {
   background-color: transparent;
   border-bottom: 1px solid var(--ui-border-default);
-  color: var(--ui-text-foreground);
+  color: var(--ui-text-default);
   transition: background-color 0.15s ease;
 }
 .vue-flow__controls-button:hover {

@@ -2,6 +2,7 @@
 defineProps<{
   title: string
   description: string
+  confirmLabel?: string
   color?: 'error' | 'warning' | 'info' | 'success'
 }>()
 
@@ -21,7 +22,7 @@ const emit = defineEmits<{ close: [boolean] }>()
     <template #footer>
       <UButton
         :color="color"
-        label="Delete"
+        :label="confirmLabel || 'Delete'"
         @click="emit('close', true)"
       />
       <UButton

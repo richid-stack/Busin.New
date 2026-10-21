@@ -5,10 +5,13 @@ import { useChat } from '@ai-sdk/vue'
 import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, getToolName } from 'ai'
 import type { UIMessage } from 'ai'
 import { getSearchQuery } from '../../utils/tool'
-import { compressImage } from '../../utils/image'
 import { useModels } from '../../composables/useModels'
 import { useChats } from '../../composables/useChats'
 import { useCsrf } from '../../composables/useCsrf'
+import { useUserSession } from '../../composables/useUserSession'
+import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import { usePromptAttachments } from '../../composables/usePromptAttachments'
+import PromptAttachments from '../../components/PromptAttachments.vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import ChatMessageContent from '../../components/chat/message/MessageContent.vue'
@@ -27,8 +30,12 @@ export interface Vote {
 const route = useRoute<'/chat/[id]'>()
 const toast = useToast()
 const { model } = useModels()
+const DEFAULT_MODEL = 'google/gemini-3.5-flash'
 const { fetchChats, chats, updateChat } = useChats()
 const { csrf, headerName } = useCsrf()
+const { loggedIn } = useUserSession()
+const { openAuthModal } = useFirebaseAuth()
+const { attachments, processing, onInputChange, remove: removeAttachment, clear: clearAttachments, toFileParts } = usePromptAttachments()
 
 const data = await $fetch(`/api/chats/${route.params.id}`).catch(() => null)
 
@@ -56,14 +63,14 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const mcpItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      label: 'Upload Files',
+      label: 'Upload files',
       icon: 'i-lucide-paperclip',
       onSelect: () => {
         fileInput.value?.click()
       }
     },
     {
-      label: 'Web Search (Agent)',
+      label: 'Search the web',
       icon: 'i-lucide-globe',
       onSelect: () => {
         input.value = 'Search the web for: '
@@ -72,36 +79,17 @@ const mcpItems = computed<DropdownMenuItem[][]>(() => [
   ],
   [
     {
-      label: 'Connect Gmail',
-      icon: 'i-logos-google-gmail',
-      onSelect: () => {
-        input.value = 'Connect my Gmail account and check for client inquiries'
-        handleSubmit()
-      }
-    },
-    {
-      label: 'Connect Slack',
-      icon: 'i-logos-slack-icon',
-      onSelect: () => {
-        input.value = 'Connect Slack workspace and alerts'
-        handleSubmit()
-      }
-    },
-    {
-      label: 'Connect Google Drive',
-      icon: 'i-logos-google-drive',
-      onSelect: () => {
-        input.value = 'Connect Google Drive and check shared folders'
-        handleSubmit()
-      }
-    }
-  ],
-  [
-    {
-      label: 'Create Automated Workflow',
+      label: 'Workflow Studio',
       icon: 'i-lucide-workflow',
       onSelect: () => {
         router.push('/workflows')
+      }
+    },
+    {
+      label: 'Integrations',
+      icon: 'i-lucide-blocks',
+      onSelect: () => {
+        router.push('/integrations')
       }
     }
   ]
@@ -152,32 +140,37 @@ const { messages, status, error, sendMessage, regenerate, stop } = useChat({
     let message = error.message
     if (typeof message === 'string' && message[0] === '{') {
       try {
-        message = JSON.parse(message).message || message
+        const parsed = JSON.parse(message)
+        message = parsed.statusMessage || parsed.message || message
       } catch {
         // keep original message on malformed JSON
       }
     }
 
-    const isQuotaError = typeof message === 'string' && (
-      message.includes('quota') ||
-      message.includes('RESOURCE_EXHAUSTED') ||
-      message.includes('rate limit') ||
-      message.includes('rate-limit') ||
-      message.includes('Rate limit') ||
-      message.includes('TPM') ||
-      message.includes('tokens per minute') ||
-      message.includes('429')
-    )
-
-    if (isQuotaError) {
+    // Our own per-user throttle (HTTP 429 from the server): just ask them to wait.
+    if (typeof message === 'string' && /too many requests/i.test(message)) {
       toast.add({
-        title: 'Model Limit Reached',
-        description: 'The selected model has reached its rate limit. Switched model to Gemini 3.5 Flash for you.',
+        title: 'Slow down a little',
+        description: message,
+        icon: 'i-lucide-timer',
+        color: 'warning',
+        duration: 8000
+      })
+      return
+    }
+
+    // The model provider's quota was reached: offer the default model instead.
+    const isQuotaError = typeof message === 'string' && /quota|RESOURCE_EXHAUSTED|rate[ -]?limit|\bTPM\b|tokens per minute/i.test(message)
+
+    if (isQuotaError && model.value !== DEFAULT_MODEL) {
+      model.value = DEFAULT_MODEL
+      toast.add({
+        title: 'Model limit reached',
+        description: 'That model hit its rate limit, so we switched to Gemini 3.5 Flash. Send your message again.',
         icon: 'i-lucide-zap',
         color: 'warning',
         duration: 8000
       })
-      model.value = 'google/gemini-3.5-flash'
     } else {
       toast.add({
         description: message,
@@ -229,51 +222,25 @@ const activeActivityText = computed(() => {
   return 'Thinking...'
 })
 
-const attachments = ref<Array<{ file: File, url: string }>>([])
-
-async function handleFileSelect(e: Event) {
-  const target = e.target as HTMLInputElement
-  if (target.files) {
-    const newAttachments = await Promise.all(
-      Array.from(target.files).map(async (file) => {
-        const compressed = await compressImage(file)
-        return {
-          file: compressed,
-          url: compressed.type.startsWith('image/') ? URL.createObjectURL(compressed) : ''
-        }
-      })
-    )
-    attachments.value = [...attachments.value, ...newAttachments]
-  }
-  target.value = ''
-}
-
-function removeAttachment(index: number) {
-  const attachment = attachments.value[index]
-  if (attachment && attachment.url) {
-    URL.revokeObjectURL(attachment.url)
-  }
-  attachments.value.splice(index, 1)
-}
-
 async function handleSubmit() {
-  if (input.value.trim() || attachments.value.length > 0) {
-    sendMessage({
-      text: input.value,
-      files: attachments.value.length > 0 ? attachments.value.map(a => a.file) : undefined
-    })
-    input.value = ''
-    attachments.value.forEach(a => {
-      if (a.url) URL.revokeObjectURL(a.url)
-    })
-    attachments.value = []
-  }
+  if (processing.value) return
+  if (!input.value.trim() && attachments.value.length === 0) return
+
+  const files = attachments.value.length > 0 ? await toFileParts() : undefined
+  sendMessage({ text: input.value, files })
+  input.value = ''
+  clearAttachments()
 }
 
 const editingMessageId = ref<string | null>(null)
 
 
 function convertToWorkflow() {
+  if (!loggedIn.value) {
+    toast.add({ title: 'Sign in to build workflows', description: 'Workflows are tied to your account.', icon: 'i-lucide-lock', color: 'info' })
+    openAuthModal()
+    return
+  }
   sendMessage({ text: "Please convert the automated tasks we just discussed into an automated workflow pipeline." })
 }
 
@@ -455,80 +422,21 @@ function handleTextAction(action: string, selectedText: string) {
           </template>
         </UChatMessages>
 
-        <!-- Active Connections Context Pills -->
-        <div v-if="isOwner" class="flex items-center gap-2 px-3 pb-2 pt-2 border-t border-default/50 bg-background/80 backdrop-blur-sm z-10 sticky bottom-[4.5rem]">
-          <span class="text-xs font-medium text-muted uppercase tracking-wider mr-2">Context</span>
-          <UBadge color="neutral" variant="subtle" size="sm" class="rounded-full shadow-sm flex items-center gap-1.5">
-            <UIcon name="i-logos-google-gmail" class="size-3" />
-            Connected
-          </UBadge>
-          <UBadge color="neutral" variant="subtle" size="sm" class="rounded-full shadow-sm flex items-center gap-1.5 opacity-50 hover:opacity-100 cursor-pointer transition-opacity">
-            <UIcon name="i-logos-google-drive" class="size-3 grayscale" />
-            Connect
-          </UBadge>
-        </div>
-
         <UChatPrompt
           v-if="isOwner"
           v-model="input"
           :error="error"
-          :loading="status === 'streaming' || status === 'submitted'"
           color="neutral"
           variant="subtle"
-          class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10 border-t border-default bg-background shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]"
+          class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10 border-t border-default shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]"
           :ui="{ base: 'px-3 py-2' }"
           @submit="handleSubmit"
         >
           <template #header>
-            <div v-if="attachments.length > 0" class="flex flex-wrap gap-2 px-4 pt-4 border-b border-default pb-2">
-              <template
-                v-for="(attachment, index) in attachments"
-                :key="index"
-              >
-                <!-- Image Attachment -->
-                <div
-                  v-if="attachment.file.type.startsWith('image/')"
-                  class="relative group"
-                >
-                  <img
-                    :src="attachment.url"
-                    class="size-16 object-cover rounded-xl border border-default shadow-sm"
-                    alt="Attachment preview"
-                  />
-                  <UButton
-                    icon="i-lucide-x"
-                    color="neutral"
-                    variant="solid"
-                    class="absolute -top-2 -right-2 !rounded-full !p-1 size-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-inverted text-inverted shadow-sm"
-                    @click="removeAttachment(index)"
-                  />
-                </div>
-                <!-- Non-Image Attachment -->
-                <div
-                  v-else
-                  class="relative group flex items-center gap-2 bg-elevated border border-default rounded-md p-1.5 text-xs max-w-[12rem] pr-8 shadow-sm"
-                >
-                  <UIcon
-                    v-if="attachment.file.type.includes('pdf')"
-                    name="i-lucide-file-text"
-                    class="size-4 shrink-0 text-muted"
-                  />
-                  <UIcon
-                    v-else
-                    name="i-lucide-file"
-                    class="size-4 shrink-0 text-muted"
-                  />
-                  <span class="truncate">{{ attachment.file.name }}</span>
-                  <UButton
-                    icon="i-lucide-x"
-                    color="neutral"
-                    variant="ghost"
-                    class="absolute right-0.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity !p-1"
-                    @click="removeAttachment(index)"
-                  />
-                </div>
-              </template>
-            </div>
+            <PromptAttachments
+              :attachments="attachments"
+              @remove="removeAttachment"
+            />
           </template>
 
           <template #footer>
@@ -553,8 +461,8 @@ function handleTextAction(action: string, selectedText: string) {
                 type="file"
                 multiple
                 class="hidden"
-                accept="image/*,application/pdf,text/plain,.doc,.docx"
-                @change="handleFileSelect"
+                accept="image/*,application/pdf,text/plain"
+                @change="onInputChange"
               >
               <ModelSelect v-model="model" />
             </div>

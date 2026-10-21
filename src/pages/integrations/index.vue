@@ -34,7 +34,7 @@ function goToDetails(provider: string) {
     <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 py-12 md:py-20 flex-1">
       
       <div class="mb-10">
-        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-3">Integrations</h1>
+        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-default mb-3">Integrations</h1>
         <p class="text-muted text-base md:text-lg">Work with AI across your favorite tools.</p>
       </div>
 
@@ -52,7 +52,7 @@ function goToDetails(provider: string) {
       <!-- Installed Section -->
       <div v-if="installedIntegrations.length > 0 && !searchQuery" class="mb-12">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-medium text-foreground">Installed</h2>
+          <h2 class="text-lg font-medium text-default">Installed</h2>
           <UIcon name="i-lucide-chevron-right" class="size-5 text-muted" />
         </div>
         <div class="flex flex-wrap gap-4">
@@ -62,14 +62,14 @@ function goToDetails(provider: string) {
             class="flex items-center justify-center p-3 sm:p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:shadow-md hover:-translate-y-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0"
             @click="goToDetails(item.provider)"
           >
-            <UIcon :name="item.icon" class="size-8 sm:size-10 text-foreground" />
+            <UIcon :name="item.icon" class="size-8 sm:size-10 text-default" />
           </button>
         </div>
       </div>
 
       <!-- Popular / Search Results Section -->
       <div>
-        <h2 class="text-lg font-medium text-foreground mb-4">
+        <h2 class="text-lg font-medium text-default mb-4">
           {{ searchQuery ? 'Search Results' : 'Popular' }}
         </h2>
 
@@ -90,13 +90,13 @@ function goToDetails(provider: string) {
           >
             <div class="flex items-center gap-4 sm:gap-5 min-w-0 pr-4">
               <div class="flex-shrink-0 p-2.5 sm:p-3 rounded-xl bg-white dark:bg-neutral-800 shadow-sm border border-neutral-100 dark:border-neutral-700/50 flex items-center justify-center relative">
-                <UIcon :name="item.icon" class="size-6 sm:size-8 text-foreground" />
+                <UIcon :name="item.icon" class="size-6 sm:size-8 text-default" />
                 <div v-if="item.type === 'native' || item.category === 'google'" class="absolute -bottom-1 -right-1 size-4 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-sm">
                   <UIcon name="i-lucide-sparkles" class="size-3 text-primary" />
                 </div>
               </div>
               <div class="min-w-0">
-                <h3 class="text-base font-medium text-foreground mb-0.5 truncate">{{ item.name }}</h3>
+                <h3 class="text-base font-medium text-default mb-0.5 truncate">{{ item.name }}</h3>
                 <p class="text-sm text-muted line-clamp-1 leading-snug">{{ item.description }}</p>
                 <div class="flex flex-wrap items-center gap-2 mt-2">
                   <span v-if="item.supportedEventsCount !== undefined" class="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
@@ -113,7 +113,7 @@ function goToDetails(provider: string) {
               </div>
             </div>
             
-            <div class="flex-shrink-0 text-muted group-hover:text-foreground transition-colors p-2">
+            <div class="flex-shrink-0 text-muted group-hover:text-default transition-colors p-2">
               <UIcon name="i-lucide-plus" class="size-6" />
             </div>
           </button>
