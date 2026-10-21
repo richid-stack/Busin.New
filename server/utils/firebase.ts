@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { Timestamp } from 'firebase-admin/firestore'
 import { getFirebaseDb } from './firebaseAdmin'
 
@@ -48,6 +49,8 @@ export interface FirestoreWorkflow {
   edges: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   nodeSchemas?: Record<string, any>
+  /** Shared secret callers must present to trigger the workflow via its public webhook. */
+  webhookSecret?: string
   createdAt: Date
   updatedAt?: Date
 }
@@ -343,9 +346,14 @@ function toWorkflow(id: string, data: Record<string, any>, userIdFallback = ''):
     nodes: data.nodes || [],
     edges: data.edges || [],
     nodeSchemas: data.nodeSchemas || {},
+    webhookSecret: data.webhookSecret || undefined,
     createdAt: toDate(data.createdAt, new Date())!,
     updatedAt: toDate(data.updatedAt)
   }
+}
+
+export function generateWebhookSecret(): string {
+  return randomBytes(24).toString('hex')
 }
 
 export async function getUserWorkflows(userId: string): Promise<FirestoreWorkflow[]> {
@@ -392,6 +400,7 @@ export async function createWorkflow(data: {
     nodes: data.nodes || [],
     edges: data.edges || [],
     nodeSchemas: data.nodeSchemas || {},
+    webhookSecret: generateWebhookSecret(),
     createdAt: now,
     updatedAt: now
   }
@@ -405,6 +414,7 @@ export async function createWorkflow(data: {
     nodes: workflow.nodes,
     edges: workflow.edges,
     nodeSchemas: workflow.nodeSchemas,
+    webhookSecret: workflow.webhookSecret,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   }))
