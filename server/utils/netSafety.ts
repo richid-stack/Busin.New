@@ -72,7 +72,7 @@ export function parseSafeUrl(raw: string): URL {
 }
 
 /** DNS lookup that refuses to hand back any non-public address (runs on every connection). */
-const safeLookup: typeof dnsLookup = ((hostname: string, options: any, callback: any) => {
+export const safeLookup: typeof dnsLookup = ((hostname: string, options: any, callback: any) => {
   const cb = typeof options === 'function' ? options : callback
   const opts = typeof options === 'function' ? {} : options
   dnsLookup(hostname, { ...opts, all: true }, (err, addresses: any) => {
