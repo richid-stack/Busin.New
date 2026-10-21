@@ -20,6 +20,9 @@ import { createDocumentTool, createPresentationTool, createSpreadsheetTool } fro
 import { prepareMessagesForModel, supportsNativePdf } from '../../../services/documents/attachments'
 import { skills } from '../../../services/skills/registry'
 import { describeCatalog } from '../../../services/skills/parse'
+import { getAgent } from '../../../services/agents/store'
+import { filterSkills } from '../../../services/agents/profile'
+import { resolveChatSetup } from '../../../services/agents/setup'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
 import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
@@ -173,17 +176,24 @@ export default defineHandler(async (event) => {
     }).catch(err => console.warn('Non-blocking user message save error:', err))
   }
 
+  // A chat started with a saved agent keeps talking to it. The link lives on the chat, not in the request,
+  // so it cannot be swapped from the browser. An agent that has since been deleted simply stops applying.
+  const savedAgent = signedIn && chat.agentId ? await getAgent(chat.agentId) : null
+  const agent = savedAgent && savedAgent.userId === userId ? savedAgent : null
+
   // Retired models (e.g. old saved selections) are mapped to the default; a missing API key
   // for the chosen provider produces a clear 400 from getLanguageModel.
-  const languageModel = getLanguageModel(model)
+  const modelId = agent?.model ?? model
+  const languageModel = getLanguageModel(modelId)
 
    
   let assistantFinishEvent: any = null
 
   // Workflow and app-integration tools act on a person's account, so they exist only for signed-in users.
-  const loadSkill = createLoadSkillTool(userId, skills)
+  const activeSkills = agent ? filterSkills(skills, agent) : skills
+  const loadSkill = createLoadSkillTool(userId, activeSkills)
   const readDocument = createReadDocumentTool(userId, messages)
-  const tools = {
+  const allTools = {
     ...(loadSkill ? { load_skill: loadSkill } : {}),
     ...(readDocument ? { read_document: readDocument } : {}),
     chart: chartTool,
@@ -204,6 +214,8 @@ export default defineHandler(async (event) => {
         }
       : {})
   }
+  const setup = resolveChatSetup({ agent, tools: allTools, model: modelId, defaultSteps: 10 })
+  const tools = setup.tools
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
@@ -248,8 +260,8 @@ export default defineHandler(async (event) => {
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-${signedIn ? WORKFLOW_PROMPT : ANON_PROMPT}${skills.length ? `\n\n${skillsPrompt(describeCatalog(skills))}` : ''}`,
-          messages: await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(model) })),
+${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}`,
+          messages: await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })),
           tools,
           providerOptions: {
             anthropic: {
@@ -272,7 +284,7 @@ ${signedIn ? WORKFLOW_PROMPT : ANON_PROMPT}${skills.length ? `\n\n${skillsPrompt
               reasoningSummary: 'detailed'
             } satisfies OpenAILanguageModelResponsesOptions
           },
-          stopWhen: isStepCount(10),
+          stopWhen: isStepCount(setup.maxSteps),
           experimental_transform: smoothStream(),
           onFinish: async (event) => {
             assistantFinishEvent = event

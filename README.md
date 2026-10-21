@@ -57,6 +57,15 @@ Besides AI agents, approvals and connected apps, workflows have these steps:
 
 Every connected-app, AI, HTTP, page, Set and Loop step also has **If this step fails** settings: retry up to 3 times (waits double each time; setup mistakes are never retried, and a loop is never retried as a whole), then either stop the run, carry on with the error as the step's output, or follow the red **ERROR** connector to a different step. Each user can send 300 workflow web requests per 10 minutes.
 
+## Agents
+
+An agent is a saved assistant: a name, instructions, an optional fixed model, the tools it may use, the skills it may load and a limit on steps per reply. Make them on the **Agents** page (start from Research assistant, Inbox helper or Document drafter, or blank), then pick one next to the model menu when you start a chat, or press **Chat** on its card. A chat keeps its agent; the link is stored on the chat on the server, so it cannot be swapped from the browser.
+
+- Tools come in groups (web, reading files, creating files, small helpers, connected apps, workflows). An agent only gets the groups switched on; the two that act in your accounts (apps and workflows) start off and carry a warning.
+- Deleting an agent leaves its chats in place; they carry on as the standard assistant.
+- Each person can keep 10 agents. Steps per reply: 1 to 15. Agents are stored in the Firestore collection `agents` and are private to their owner.
+- Each reply already has an **Agent Activity & Timeline** view (message menu) that lists the steps, tools and sources it used.
+
 ## Workflow templates
 
 The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.
