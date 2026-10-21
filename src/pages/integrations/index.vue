@@ -27,7 +27,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   productivity: 'Productivity',
   project_management: 'Project management',
   crm: 'CRM',
-  developer: 'Developer'
+  developer: 'Developer',
+  ghana: 'Made for Ghana'
 }
 
 onMounted(() => {

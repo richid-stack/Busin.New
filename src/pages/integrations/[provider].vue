@@ -6,6 +6,7 @@ import { useClipboard } from '@vueuse/core'
 import { useIntegrations } from '../../composables/useIntegrations'
 import { useIntegrationConnect } from '../../composables/useIntegrationConnect'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import ConnectWithKey from '../../components/integrations/ConnectWithKey.vue'
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
 
@@ -25,15 +26,15 @@ const {
   loaded,
   unauthorized,
   loadError,
-  canConnect,
   fetchIntegrations,
   getIntegrationByProvider
 } = useIntegrations()
-const { busyProvider, connect, disconnect } = useIntegrationConnect()
+const { busyProvider, connect, disconnect, saveKey } = useIntegrationConnect()
 
 const integration = computed(() => getIntegrationByProvider(provider.value))
 const isConnected = computed(() => integration.value?.status === 'connected')
 const busy = computed(() => busyProvider.value === provider.value)
+const usesKey = computed(() => integration.value?.type === 'custom')
 
 const CATEGORY_LABELS: Record<string, string> = {
   google: 'Google Workspace',
@@ -41,7 +42,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   productivity: 'Productivity',
   project_management: 'Project management',
   crm: 'CRM',
-  developer: 'Developer'
+  developer: 'Developer',
+  ghana: 'Made for Ghana'
 }
 const categoryLabel = computed(() =>
   integration.value ? (CATEGORY_LABELS[integration.value.category] || integration.value.category) : ''
@@ -205,6 +207,18 @@ const links = computed(() => {
           <p v-if="showcase" class="text-sm text-muted leading-relaxed mt-3">{{ showcase.overview }}</p>
         </div>
 
+        <!-- Connect with your own key -->
+        <section v-if="usesKey && !isConnected" class="mb-10">
+          <ConnectWithKey
+            :name="integration.name"
+            :fields="integration.credentialFields ?? []"
+            :advice="integration.keyAdvice"
+            :get-key-url="integration.getKeyUrl"
+            :busy="busy"
+            @save="(values: Record<string, string>) => saveKey(provider, values)"
+          />
+        </section>
+
         <!-- What OpenLobs can do -->
         <section v-if="showcase" class="mb-10">
           <h3 class="text-lg font-medium text-highlighted mb-4">What OpenLobs can do with {{ integration.name }}</h3>
@@ -272,6 +286,7 @@ const links = computed(() => {
           <h3 class="text-sm font-semibold text-highlighted mb-3">Good to know</h3>
           <ul class="space-y-2 text-sm text-muted">
             <li class="flex items-start gap-2"><UIcon name="i-lucide-user-check" class="size-4 mt-0.5 shrink-0 text-primary" />OpenLobs only acts through the account you connect, and only when you ask in chat or run a workflow.</li>
+            <li v-if="usesKey" class="flex items-start gap-2"><UIcon name="i-lucide-key-round" class="size-4 mt-0.5 shrink-0 text-primary" />Your key is stored encrypted, is never shown again, and is only ever sent to {{ integration.name }} itself.</li>
             <li class="flex items-start gap-2"><UIcon name="i-lucide-shield-check" class="size-4 mt-0.5 shrink-0 text-primary" />Add an approval step to a workflow to review anything before it is sent or changed.</li>
             <li class="flex items-start gap-2"><UIcon name="i-lucide-unplug" class="size-4 mt-0.5 shrink-0 text-primary" />You can disconnect at any time, and OpenLobs loses access straight away.</li>
           </ul>
@@ -339,6 +354,7 @@ const links = computed(() => {
           :loading="busy"
           @click="handleDisconnect"
         />
+        <p v-else-if="usesKey" class="text-xs text-muted text-center">Paste your key in the form above to connect {{ integration.name }}.</p>
         <UButton
           v-else-if="!isAuthenticated"
           label="Sign in to connect"
@@ -350,15 +366,15 @@ const links = computed(() => {
         />
         <template v-else>
           <UButton
-            :label="canConnect ? `Connect ${integration.name}` : 'Connections unavailable'"
+            :label="integration.canConnect ? `Connect ${integration.name}` : 'Connections unavailable'"
             color="neutral"
             size="xl"
             class="w-full justify-center rounded-full shadow-lg"
             :loading="busy"
-            :disabled="!canConnect || (busyProvider !== null && !busy)"
+            :disabled="!integration.canConnect || (busyProvider !== null && !busy)"
             @click="connect(provider)"
           />
-          <p v-if="!canConnect" class="text-xs text-muted text-center mt-2">
+          <p v-if="!integration.canConnect" class="text-xs text-muted text-center mt-2">
             This server has no integration provider key configured.
           </p>
         </template>

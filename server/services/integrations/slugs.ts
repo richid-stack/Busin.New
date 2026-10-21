@@ -5,7 +5,9 @@ const PROVIDER_TO_TOOLKIT: Record<string, string> = {
   google_calendar: 'googlecalendar',
   google_docs: 'googledocs',
   google_sheets: 'googlesheets',
-  google_tasks: 'googletasks'
+  google_tasks: 'googletasks',
+  google_slides: 'googleslides',
+  google_meet: 'googlemeet'
 }
 
 const TOOLKIT_TO_PROVIDER = Object.fromEntries(Object.entries(PROVIDER_TO_TOOLKIT).map(([p, t]) => [t, p]))

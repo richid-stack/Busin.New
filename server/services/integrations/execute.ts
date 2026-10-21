@@ -73,6 +73,21 @@ export async function runIntegrationInstruction(opts: {
     return { success: false, authRequired: true, authUrl, output: null, toolCalls: 0, message: `Connect your ${providerName} account to continue.` }
   }
 
+  return runWithTools({ userId, providerName, instruction, abortSignal, getTools: async () => await client.tools.get(userId, { toolkits: [composioToolkitSlug(provider)] }) as Record<string, any> })
+}
+
+/**
+ * Plans and runs an instruction with a set of tools. Shared by Composio apps and by connectors, so the
+ * charging, the step limit and the "only a success when every call worked" rules are the same for both.
+ */
+export async function runWithTools(opts: {
+  userId: string
+  providerName: string
+  instruction: string
+  abortSignal?: AbortSignal
+  getTools: () => Promise<Record<string, any>>
+}): Promise<IntegrationRunResult> {
+  const { userId, providerName, instruction, abortSignal } = opts
   const modelId = pickAvailableModel()
   if (!modelId) {
     return { success: false, output: null, toolCalls: 0, message: 'No AI provider is configured on the server, so the action could not be planned.' }
@@ -86,7 +101,7 @@ export async function runIntegrationInstruction(opts: {
     throw err
   }
 
-  const tools = await client.tools.get(userId, { toolkits: [composioToolkitSlug(provider)] }) as Record<string, any>
+  const tools = await opts.getTools()
   if (!tools || Object.keys(tools).length === 0) {
     return { success: false, output: null, toolCalls: 0, message: `No ${providerName} actions are available for this account.` }
   }

@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
 import { deleteIntegration } from '../../../utils/firebase'
 import { listComposioUserConnections, deleteComposioConnection } from '../../../services/composio/client'
+import { getConnector } from '../../../services/connectors/definitions'
+import { deleteCredentials, defaultDb } from '../../../services/connectors/store'
 import { composioToolkitSlug, providerFromToolkitSlug } from '../../../services/integrations/slugs'
 
 export default defineHandler(async (event) => {
@@ -12,6 +14,16 @@ export default defineHandler(async (event) => {
   const { provider } = await getValidatedRouterParams(event, z.object({
     provider: z.string()
   }).parse)
+
+  // Services connected with a key: removing the stored key is the whole disconnect.
+  if (getConnector(provider)) {
+    try {
+      await deleteCredentials(defaultDb(), user.id, provider)
+    } catch {
+      throw new HTTPError({ statusCode: 502, statusMessage: 'Could not remove the key. Try again.' })
+    }
+    return { success: true, provider, removed: 1 }
+  }
 
   // Legacy record from the old "mark as connected" flow, if any.
   await deleteIntegration(user.id, provider).catch(() => {})
