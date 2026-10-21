@@ -28,10 +28,6 @@ export const webSearchTool = tool({
       const sources: Array<{ title: string, url: string }> = []
       const snippets: string[] = []
 
-      // Match result links and titles
-      const resultRegex = /<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi
-      const titleRegex = /<a[^>]*class="[^"]*result__url[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi
-      
       // Extract main result titles & links
       const linkMatches = html.matchAll(/<h2[^>]*class="[^"]*result__title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi)
       

@@ -1,4 +1,5 @@
 import { Composio } from '@composio/core'
+import { composioToolkitSlug, providerFromToolkitSlug } from '../integrations/slugs'
 
 let composioClient: Composio | null = null
 
@@ -307,20 +308,23 @@ export async function getComposioUserConnections(userId: string): Promise<Compos
 
   try {
     const res = await client.connectedAccounts.list({
-      entityIds: [userId]
+      userIds: [userId]
     })
 
-    const items = res.items || []
-    return items.map((item: any) => ({
-      id: item.id,
-      userId: item.userId || userId,
-      appUniqueId: item.appUniqueId,
-      toolkitSlug: (item.toolkit?.slug || item.toolkitSlug || item.appName || '').toLowerCase(),
-      status: item.status || 'ACTIVE',
-      accountName: item.params?.user_info?.name || item.params?.user_info?.email || item.integrationName || item.toolkit?.name,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt
-    }))
+    const items = (res.items || []) as any[]
+    return items
+      // Defence in depth: never surface another user's connection.
+      .filter(item => !item.userId || item.userId === userId)
+      .map(item => ({
+        id: item.id,
+        userId,
+        appUniqueId: item.appUniqueId,
+        toolkitSlug: providerFromToolkitSlug(item.toolkit?.slug || item.toolkitSlug || item.appName || ''),
+        status: item.status || 'ACTIVE',
+        accountName: item.params?.user_info?.name || item.params?.user_info?.email || item.integrationName || item.toolkit?.name,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
+      }))
   } catch (err) {
     console.warn(`[ComposioService] Failed to list connections for user ${userId}:`, err)
     return []
@@ -342,7 +346,7 @@ export async function createComposioConnectionLink(
     throw new Error('Composio is not configured. Please provide COMPOSIO_API_KEY.')
   }
 
-  const normalizedSlug = toolkitSlug.toLowerCase().trim()
+  const normalizedSlug = composioToolkitSlug(toolkitSlug)
 
   // 1. Discover or automatically create the appropriate auth config ID for this toolkit
   let authConfigId: string | null = null
@@ -419,6 +423,9 @@ export async function createComposioConnectionLink(
       allowMultiple: true
     })
 
+    if (!connectionRequest.redirectUrl) {
+      throw new Error('Composio did not return an authorization URL.')
+    }
     return {
       redirectUrl: connectionRequest.redirectUrl,
       connectionRequestId: connectionRequest.id,
@@ -446,8 +453,12 @@ export async function createComposioConnectionLink(
     }
 
     const data = await restRes.json()
+    const redirectUrl = data.redirect_url || data.redirectUrl
+    if (!redirectUrl) {
+      throw new Error('Composio did not return an authorization URL.')
+    }
     return {
-      redirectUrl: data.redirect_url || data.redirectUrl,
+      redirectUrl,
       connectionRequestId: data.id || data.connection_request_id,
       authConfigId
     }
@@ -462,9 +473,9 @@ export async function deleteComposioConnection(userId: string, connectionId: str
   if (!client) return false
 
   try {
-    // Verify ownership first
-    const conn = await client.connectedAccounts.get(connectionId)
-    if (conn && conn.userId && conn.userId !== userId) {
+    // Only connections that belong to this user can be removed.
+    const mine = await getComposioUserConnections(userId)
+    if (!mine.some(c => c.id === connectionId)) {
       throw new Error('Unauthorized: Connection belongs to a different user.')
     }
     await client.connectedAccounts.delete(connectionId)
@@ -476,265 +487,12 @@ export async function deleteComposioConnection(userId: string, connectionId: str
 }
 
 /**
- * Execute a Composio tool for a specific user.
- * Returns structured result or AUTH_REQUIRED if user is unauthenticated.
+ * The user's active connection for a provider, or null. Only ever looks at this user's own accounts.
  */
-export async function executeComposioToolSafely(
-  userId: string,
-  toolSlug: string,
-  args: Record<string, any>
-): Promise<{
-  success: boolean
-  authRequired?: boolean
-  authUrl?: string
-  result?: any
-  error?: string
-}> {
-  const client = getComposioClient()
-  const apiKey = getComposioApiKey()
-
-  if (!client || !apiKey) {
-    return {
-      success: false,
-      error: 'Integration provider not configured (missing COMPOSIO_API_KEY).'
-    }
-  }
-
-  try {
-    const execution = await client.tools.execute(toolSlug, {
-      entityId: userId,
-      arguments: args,
-      dangerouslySkipVersionCheck: true
-    })
-
-    return {
-      success: true,
-      result: execution
-    }
-  } catch (err: any) {
-    const errMsg = err?.message || String(err)
-
-    // Check if error is due to missing authentication / unlinked account
-    if (
-      errMsg.includes('CONNECTED_ACCOUNT_NOT_FOUND') ||
-      errMsg.includes('not authenticated') ||
-      errMsg.includes('No connected account') ||
-      errMsg.includes('AUTH_REQUIRED')
-    ) {
-      // Determine toolkit from tool slug (e.g. "slack_send_message" -> "slack")
-      const toolkitSlug = toolSlug.split('_')[0]
-      let authUrl: string | undefined
-      try {
-        const link = await createComposioConnectionLink(userId, toolkitSlug)
-        authUrl = link.redirectUrl
-      } catch {
-        // ignore if link cannot be pre-generated
-      }
-
-      return {
-        success: false,
-        authRequired: true,
-        authUrl,
-        error: `Authentication required for ${toolkitSlug}. Please connect your account to proceed.`
-      }
-    }
-
-    return {
-      success: false,
-      error: errMsg
-    }
-  }
+export async function getActiveComposioConnection(userId: string, provider: string): Promise<ComposioConnectionInfo | null> {
+  const slug = providerFromToolkitSlug(composioToolkitSlug(provider))
+  const connections = await getComposioUserConnections(userId)
+  return connections.find(c => c.toolkitSlug === slug && c.status === 'ACTIVE') ?? null
 }
-
-const userSessions = new Map<string, any>()
-
-/**
- * Get or create a runtime Composio session for a specific application user.
- * Preserves user identity and tool state per session.
- */
-export async function getUserComposioSession(userId: string) {
-  const client = getComposioClient()
-  if (!client) return null
-
-  if (userSessions.has(userId)) {
-    return userSessions.get(userId)
-  }
-
-  try {
-    const session = await client.create(userId)
-    userSessions.set(userId, session)
-    return session
-  } catch (err) {
-    console.error(`[ComposioService] Error creating session for user ${userId}:`, err)
-    return null
-  }
-}
-
-/**
- * Maps common third-party toolkits to a safe, read-only verification tool
- */
-export function getSafeTestToolForToolkit(toolkitSlug: string): {
-  toolSlug: string
-  name: string
-  description: string
-  args: Record<string, any>
-} {
-  const normalized = toolkitSlug.toLowerCase().trim()
-  switch (normalized) {
-    case 'github':
-      return {
-        toolSlug: 'GITHUB_GET_THE_AUTHENTICATED_USER',
-        name: 'Get Authenticated User Profile',
-        description: 'Safely reads the logged-in GitHub profile (username, avatar, repository count).',
-        args: {}
-      }
-    case 'slack':
-      return {
-        toolSlug: 'SLACK_TEST_AUTH',
-        name: 'Test Slack Authentication',
-        description: 'Validates Slack bot and user credentials, returning workspace ID and user details.',
-        args: {}
-      }
-    case 'gmail':
-      return {
-        toolSlug: 'GMAIL_GET_PROFILE',
-        name: 'Get Gmail Profile',
-        description: 'Fetches the authenticated email address, history ID, and total messages count.',
-        args: {}
-      }
-    case 'discord':
-      return {
-        toolSlug: 'DISCORD_GET_MY_USER',
-        name: 'Get Current Discord User',
-        description: 'Returns the connected Discord tag, avatar, and user ID.',
-        args: {}
-      }
-    case 'notion':
-      return {
-        toolSlug: 'NOTION_MCP_NOTION_SEARCH',
-        name: 'Notion Search Workspace',
-        description: 'Performs a read-only search across accessible Notion workspace pages.',
-        args: { query: '' }
-      }
-    case 'microsoft_teams':
-      return {
-        toolSlug: 'MICROSOFT_TEAMS_CHATS_GET_ALL_CHATS',
-        name: 'Get Microsoft Teams Chats',
-        description: 'Verifies connection with Microsoft Teams and queries accessible chats.',
-        args: {}
-      }
-    case 'outlook':
-      return {
-        toolSlug: 'OUTLOOK_GET_ME',
-        name: 'Get Outlook Profile',
-        description: 'Verifies connection to Microsoft Exchange / Outlook mailbox.',
-        args: {}
-      }
-    case 'one_drive':
-    case 'onedrive':
-      return {
-        toolSlug: 'ONE_DRIVE_GET_DRIVE',
-        name: 'Inspect OneDrive Drive',
-        description: 'Checks read permissions for OneDrive enterprise storage.',
-        args: {}
-      }
-    default:
-      return {
-        toolSlug: `${normalized.toUpperCase()}_TEST_AUTH`,
-        name: `Verify ${toolkitSlug}`,
-        description: `Perform safe read-only verification for ${toolkitSlug}.`,
-        args: {}
-      }
-  }
-}
-
-/**
- * Execute a safe read-only tool call using the user's Composio session.
- * If not connected, returns the Connect Link and authorization instructions.
- */
-export async function executeSafeVerificationTool(
-  userId: string,
-  toolkitSlug: string
-): Promise<{
-  success: boolean
-  connected: boolean
-  toolSlug: string
-  toolName: string
-  logId?: string
-  result?: any
-  redirectUrl?: string
-  message: string
-}> {
-  const session = await getUserComposioSession(userId)
-  const safeTool = getSafeTestToolForToolkit(toolkitSlug)
-
-  if (!session) {
-    return {
-      success: false,
-      connected: false,
-      toolSlug: safeTool.toolSlug,
-      toolName: safeTool.name,
-      message: 'Composio session could not be initialized. Check COMPOSIO_API_KEY.'
-    }
-  }
-
-  try {
-    const execution = await session.execute(safeTool.toolSlug, safeTool.args)
-    return {
-      success: true,
-      connected: true,
-      toolSlug: safeTool.toolSlug,
-      toolName: safeTool.name,
-      logId: execution?.logId,
-      result: execution?.data || execution,
-      message: `Successfully executed ${safeTool.name} via Composio Platform session!`
-    }
-  } catch (err: any) {
-    const errMsg = err?.message || String(err)
-
-    // Check if error is due to missing active connection
-    if (
-      errMsg.includes('No active connection found') ||
-      errMsg.includes('ToolRouterV2_NoActiveConnection') ||
-      errMsg.includes('CONNECTED_ACCOUNT_NOT_FOUND')
-    ) {
-      try {
-        const connectRes = await session.execute('COMPOSIO_MANAGE_CONNECTIONS', {
-          toolkits: [toolkitSlug.toLowerCase()]
-        })
-
-        const toolkitRes = connectRes?.data?.results?.[toolkitSlug.toLowerCase()]
-        const redirectUrl = toolkitRes?.redirect_url
-
-        return {
-          success: false,
-          connected: false,
-          toolSlug: safeTool.toolSlug,
-          toolName: safeTool.name,
-          logId: connectRes?.logId,
-          redirectUrl,
-          message: `No active connection found for ${toolkitSlug}. Please authorize using the Connect link.`
-        }
-      } catch (connErr: any) {
-        return {
-          success: false,
-          connected: false,
-          toolSlug: safeTool.toolSlug,
-          toolName: safeTool.name,
-          message: `Connection required: ${connErr?.message || errMsg}`
-        }
-      }
-    }
-
-    return {
-      success: false,
-      connected: true,
-      toolSlug: safeTool.toolSlug,
-      toolName: safeTool.name,
-      message: errMsg
-    }
-  }
-}
-
 
 export const POPULAR_COMPOSIO_TOOLKITS: SupportedThirdPartyToolkit[] = SUPPORTED_THIRD_PARTY_TOOLKITS

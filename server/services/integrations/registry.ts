@@ -1,11 +1,10 @@
 import type { UnifiedIntegrationDefinition, IntegrationCategory } from './types'
-import { getUserIntegrations } from '../../utils/firebase'
-import { getComposioUserConnections, isComposioConfigured, executeComposioToolSafely, executeSafeVerificationTool } from '../composio/client'
-import { POPULAR_COMPOSIO_TOOLKITS } from '../composio/client'
+import { getComposioUserConnections, isComposioConfigured, POPULAR_COMPOSIO_TOOLKITS } from '../composio/client'
+import { runIntegrationInstruction } from './execute'
 
 /**
- * Native Google Integrations - controlled directly within the app architecture.
- * MUST NOT be routed through Composio.
+ * Google Workspace integrations. Shown as 'native' in the UI, but connected and executed through
+ * Composio's Google toolkits, like every other provider, so there is a single code path.
  */
 export const NATIVE_GOOGLE_INTEGRATIONS: UnifiedIntegrationDefinition[] = [
   {
@@ -169,80 +168,34 @@ const AUTHENTIC_LINKS: Record<string, { website: string; privacy: string; terms:
 }
 
 export async function getResolvedUserIntegrations(userId: string): Promise<ResolvedUserIntegration[]> {
-  // 1. Fetch user local records from Firestore
-  const firestoreIntegrations = await getUserIntegrations(userId).catch(() => [])
-
-  // 2. Fetch user Composio connections
-  const composioConnections = await getComposioUserConnections(userId).catch(() => [])
   const composioConfigured = isComposioConfigured()
+  // The only source of truth for "connected" is the user's own active Composio accounts.
+  const connections = composioConfigured ? await getComposioUserConnections(userId) : []
 
-  const resolved = ALL_INTEGRATIONS_CATALOG.map(catalogItem => {
-    // Check if user has a Firestore record
-    const firestoreRecord = firestoreIntegrations.find(f => f.provider === catalogItem.provider)
-    
-    // Check if user has a Composio connected account
-    const composioConn = composioConnections.find(c => c.toolkitSlug === catalogItem.provider && c.status === 'ACTIVE')
-    
-    let status: 'connected' | 'disconnected' = 'disconnected'
-    let account = 'Not connected'
-    let connectionId: string | undefined
-
-    if (catalogItem.type === 'native') {
-      if (firestoreRecord && firestoreRecord.status === 'connected') {
-        status = 'connected'
-        account = firestoreRecord.account || 'Google Account Connected'
-      }
-    } else if (catalogItem.type === 'composio') {
-      if (composioConn) {
-        status = 'connected'
-        account = composioConn.accountName || `Connected (${catalogItem.name})`
-        connectionId = composioConn.id
-      } else if (firestoreRecord && firestoreRecord.status === 'connected') {
-        status = 'connected'
-        account = firestoreRecord.account || 'Connected'
-      }
-    }
-
+  return ALL_INTEGRATIONS_CATALOG.map((item) => {
+    const conn = connections.find(c => c.toolkitSlug === item.provider && c.status === 'ACTIVE')
     return {
-      provider: catalogItem.provider,
-      name: catalogItem.name,
-      type: catalogItem.type,
-      icon: catalogItem.icon,
-      category: catalogItem.category,
-      status,
-      account,
-      connectionId,
-      capabilities: catalogItem.capabilities,
-      description: catalogItem.description,
-      supportedEventsCount: catalogItem.supportedEvents?.length || 0,
-      supportedActionsCount: catalogItem.supportedActions?.length || 0,
-      externalLinks: AUTHENTIC_LINKS[catalogItem.provider] || { website: 'https://example.com', privacy: 'https://example.com/privacy', terms: 'https://example.com/terms' },
-      canConnect: catalogItem.type === 'native' || composioConfigured
-    }
+      provider: item.provider,
+      name: item.name,
+      type: item.type,
+      icon: item.icon,
+      category: item.category,
+      status: conn ? 'connected' : 'disconnected',
+      account: conn ? (conn.accountName || `Connected (${item.name})`) : 'Not connected',
+      connectionId: conn?.id,
+      capabilities: item.capabilities,
+      description: item.description,
+      supportedEventsCount: item.supportedEvents?.length || 0,
+      supportedActionsCount: item.supportedActions?.length || 0,
+      externalLinks: AUTHENTIC_LINKS[item.provider],
+      canConnect: composioConfigured
+    } satisfies ResolvedUserIntegration
   })
-
-  // Ping connected providers to confirm token validity
-  const validated = await Promise.all(resolved.map(async (item) => {
-    if (item.status === 'connected' && item.type === 'composio') {
-      try {
-        const ping = await executeSafeVerificationTool(userId, item.provider)
-        if (!ping.connected || !ping.success) {
-          item.status = 'disconnected'
-          item.account = 'Token expired - Please reconnect'
-        }
-      } catch (e) {
-        item.status = 'disconnected'
-        item.account = 'Token validation failed'
-      }
-    }
-    return item as ResolvedUserIntegration
-  }))
-
-  return validated
 }
 
 /**
- * Execute an action for any integrated service (Native or Composio)
+ * Execute an action on a connected service. Nothing is simulated: the result reflects what the
+ * provider really did, or why it could not be done.
  */
 export async function executeIntegratedAction(
   userId: string,
@@ -258,184 +211,39 @@ export async function executeIntegratedAction(
 }> {
   const definition = ALL_INTEGRATIONS_CATALOG.find(i => i.provider === provider)
   if (!definition) {
-    return {
-      success: false,
-      output: null,
-      message: `Unknown integration provider: "${provider}"`
-    }
+    return { success: false, output: null, message: `Unknown integration provider: "${provider}"` }
   }
 
-  // A. Native Google Actions
-  if (definition.type === 'native') {
-    if (provider === 'google_drive') {
-      const folder = parameters.folder || '/Client Proposals'
-      const fileName = parameters.fileName || `Client-Document-${Date.now()}.pdf`
-      return {
-        success: true,
-        output: {
-          success: true,
-          fileId: `drive_${Date.now()}`,
-          fileName,
-          folder,
-          webUrl: `https://drive.google.com/drive/folders/client-proposals/${encodeURIComponent(fileName)}`,
-          status: 'Created and synced to Google Drive'
-        },
-        message: `Synced ${fileName} to Google Drive folder ${folder}`
-      }
-    }
+  const action = definition.supportedActions?.find(a => a.id === actionId)
+  const { instruction: explicit, inputs, ...rest } = parameters ?? {}
+  const details = Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined && v !== null && v !== ''))
 
-    if (provider === 'gmail') {
-      const recipient = parameters.recipient || 'client@acme-corp.com'
-      const subject = parameters.subject || 'Automated Proposal & Kickoff'
-      return {
-        success: true,
-        output: {
-          success: true,
-          messageId: `gmail_msg_${Date.now()}`,
-          recipient,
-          subject,
-          status: 'Draft queued in Gmail'
-        },
-        message: `Draft created in Gmail for ${recipient}`
-      }
-    }
-
-    if (provider === 'google_calendar') {
-      return {
-        success: true,
-        output: {
-          success: true,
-          eventId: `gcal_evt_${Date.now()}`,
-          title: parameters.title || 'Client Kickoff Review',
-          timeslot: parameters.timeslot || 'Next Tuesday at 2:00 PM EST',
-          status: 'Calendar hold created'
-        },
-        message: 'Meeting invite created on Google Calendar'
-      }
-    }
-
-    if (provider === 'google_sheets') {
-      return {
-        success: true,
-        output: {
-          success: true,
-          spreadsheetId: `sheet_${Date.now()}`,
-          rowAppended: parameters.row || ['Client Record', new Date().toISOString(), 'Success'],
-          status: 'Appended row to Google Sheet'
-        },
-        message: 'Row logged in Google Sheets'
-      }
-    }
-
-    if (provider === 'google_docs') {
-      return {
-        success: true,
-        output: {
-          success: true,
-          docId: `doc_${Date.now()}`,
-          title: parameters.title || 'Executive Client Brief',
-          status: 'Generated Google Doc'
-        },
-        message: 'Generated styled Google Doc'
-      }
-    }
-
-    if (provider === 'google_tasks') {
-      return {
-        success: true,
-        output: {
-          success: true,
-          taskId: `task_${Date.now()}`,
-          title: parameters.title || 'Review Onboarding Proposal',
-          status: 'Task created in Google Tasks'
-        },
-        message: 'Action item created in Google Tasks'
-      }
-    }
-
-    return {
-      success: true,
-      output: {
-        success: true,
-        provider,
-        actionId,
-        timestamp: new Date().toISOString()
-      },
-      message: `Native action ${actionId} executed.`
-    }
+  const lines: string[] = []
+  if (typeof explicit === 'string' && explicit.trim()) {
+    lines.push(explicit.trim())
+  } else if (action) {
+    lines.push(`${action.name}: ${action.description}.`)
+  } else {
+    lines.push(`Perform the action "${actionId}".`)
   }
+  if (Object.keys(details).length) lines.push(`Settings: ${JSON.stringify(details)}`)
+  if (inputs && Object.keys(inputs).length) lines.push(`Data from earlier workflow steps: ${JSON.stringify(inputs).slice(0, 6000)}`)
 
-  // B. Composio Third-Party Integrations
-  if (definition.type === 'composio') {
-    if (isComposioConfigured()) {
-      const toolSlug = actionId || `${provider}_action`
-      const res = await executeComposioToolSafely(userId, toolSlug, parameters)
-      if (res.authRequired) {
-        return {
-          success: false,
-          authRequired: true,
-          authUrl: res.authUrl,
-          output: null,
-          message: res.error || `Authentication required to execute ${definition.name} action.`
-        }
-      }
-      if (!res.success) {
-        return {
-          success: false,
-          output: null,
-          message: res.error || `Failed to execute ${definition.name} action.`
-        }
-      }
-      return {
-        success: true,
-        output: res.result,
-        message: `Executed ${actionId} on ${definition.name}`
-      }
-    }
-
-    if (provider === 'slack') {
-      const channel = parameters.channel || '#client-alerts'
-      return {
-        success: true,
-        output: {
-          success: true,
-          channel,
-          messageTs: `slack_ts_${Date.now()}`,
-          delivered: true,
-          preview: parameters.message || 'Notification dispatched to Slack channel.'
-        },
-        message: `Dispatched notification to ${channel} on Slack`
-      }
-    }
-
-    if (provider === 'notion') {
-      return {
-        success: true,
-        output: {
-          success: true,
-          pageId: `notion_page_${Date.now()}`,
-          url: `https://notion.so/client-onboarding-${Date.now()}`,
-          title: parameters.title || 'Client Onboarding Specs'
-        },
-        message: `Created Notion document`
-      }
-    }
-
+  try {
+    const res = await runIntegrationInstruction({
+      userId,
+      provider,
+      providerName: definition.name,
+      instruction: lines.join('\n')
+    })
     return {
-      success: true,
-      output: {
-        success: true,
-        provider,
-        actionId,
-        timestamp: new Date().toISOString()
-      },
-      message: `Executed action on ${definition.name}`
+      success: res.success,
+      authRequired: res.authRequired,
+      authUrl: res.authUrl,
+      output: res.output,
+      message: res.message
     }
-  }
-
-  return {
-    success: true,
-    output: { executed: true },
-    message: 'Action completed.'
+  } catch (err: any) {
+    return { success: false, output: null, message: `${definition.name} action failed: ${err?.message || 'unknown error'}` }
   }
 }
