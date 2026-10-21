@@ -34,6 +34,8 @@ A skill is a folder `skills/<name>/SKILL.md`: a short YAML header (`name`, `desc
 
 To add one, create the folder and file (the folder name must equal `name`), then run `npm test`: it checks the format and that the skill only mentions tools that exist. A broken skill is skipped with a warning, never a crash. Skills are bundled at build time, so a new one needs a rebuild.
 
+Ships with general skills (research, meeting notes, inbox triage, proposals) and 18 for small businesses in Ghana: invoices, tax and VAT lookups, payroll estimates, payment reminders and reconciliation, registration, bookkeeping, cash flow, pricing, import costing, tenders, hiring, grants, content plans, data protection and a weekly review. The ones that involve tax, duty or deadlines tell the assistant to look the current rule up and cite it; a test fails if one carries a hard-coded rate. Each skill adds one line to what the chat reads on every message, so add skills that earn their place.
+
 Skills from other projects follow the same format ([agentskills.io](https://agentskills.io)). Check the licence before copying one in.
 
 ## Attached files

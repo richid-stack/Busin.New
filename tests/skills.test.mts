@@ -33,7 +33,7 @@ for (const dir of readdirSync(root, { withFileTypes: true })) {
 const shipped = buildCatalog(files, m => { console.log('FAIL', m); process.exitCode = 1 })
 assert(shipped.length === Object.keys(files).length && shipped.length >= 6, `all ${Object.keys(files).length} shipped skills are valid`)
 assert(shipped.every(s => s.description.length >= 60 && /use when/i.test(s.description)), 'shipped descriptions say what the skill does and when to use it')
-const known = new Set(['web_search', 'web_fetch', 'plan', 'calculator', 'chart', 'integration_status', 'integration_execute', 'workflow_create', 'workflow_run', 'load_skill'])
+const known = new Set(['web_search', 'web_fetch', 'plan', 'calculator', 'chart', 'integration_status', 'integration_execute', 'workflow_create', 'workflow_run', 'load_skill', 'create_document', 'create_spreadsheet'])
 const mentioned = new Set(shipped.flatMap(s => [...s.body.matchAll(/`([a-z]+_[a-z_]+|plan|calculator|chart)`/g)].map(m => m[1]!)))
 assert([...mentioned].every(t => known.has(t)), `skills only mention tools that exist (${[...mentioned].join(', ')})`)
 assert(shipped.every(s => !/^#{1,6}\s/m.test(s.body)), 'skills avoid markdown headings (the chat forbids them)')
@@ -45,3 +45,14 @@ const tool = createLoadSkillTool('u-skill-test', catalog)!
 const out: any = await (tool as any).execute({ name: 'alpha' }, {})
 assert(out.status === 'ok' && out.instructions === 'Step one.' && /never override/.test(out.notice), 'load_skill returns the instructions with a notice')
 assert(!(tool as any).inputSchema.safeParse({ name: 'nope' }).success, 'the model cannot ask for a skill that does not exist')
+
+// Skills about tax and duty must send the assistant to look rates up, and must not carry figures that go stale.
+const taxy = shipped.filter(s => /ghana-tax-lookup|payroll-estimate|import-costing/.test(s.name))
+assert(taxy.length === 3 && taxy.every(s => !/\d+(\.\d+)?\s?(%|percent)/i.test(s.body.replace(/20 percent less/g, ''))), 'tax skills carry no hard-coded rates')
+assert(taxy.every(s => /web_search/.test(s.body) && /web_fetch/.test(s.body) && /source/i.test(s.body)), 'tax skills look rates up and cite the source')
+const skillNames = new Set(shipped.map(s => s.name))
+const refs = shipped.flatMap(s => [...s.body.matchAll(/the `([a-z-]+)` skill/g)].map(m => m[1]!))
+assert(refs.every(r => skillNames.has(r)), 'skills that point to another skill point to one that exists')
+assert(shipped.length >= 24, `there are ${shipped.length} skills`)
+const sendy = shipped.filter(s => /payment-reminder|payment-reconciliation|weekly-business-review/.test(s.name))
+assert(sendy.every(s => /(wait for a yes|without (being )?ask|ask(ing)? first)/i.test(s.body)), 'skills that could send or change things say to ask first')
