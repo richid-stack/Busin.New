@@ -15,6 +15,7 @@ import AgentSelect from '../components/agents/AgentSelect.vue'
 import { useAgents } from '../composables/useAgents'
 import GuestReply from '../components/chat/GuestReply.vue'
 import { savePendingPrompt, takePendingPrompt } from '../utils/guestReply'
+import { suggestAgent } from '../utils/agentSuggest'
 
 const toast = useToast()
 const { fetchChats } = useChats()
@@ -37,6 +38,13 @@ watch([agentsLoaded, () => route.query.agent], () => {
   const wanted = route.query.agent
   if (typeof wanted === 'string' && agentsLoaded.value && agents.value.some(a => a.id === wanted)) agentId.value = wanted
 }, { immediate: true })
+// A free, local hint: when what is being typed clearly fits one of the person's agents, offer it. They choose.
+const dismissedHint = ref<string | null>(null)
+const agentHint = computed(() => {
+  if (agentId.value || !agents.value.length || input.value.trim().length < 15) return null
+  const found = suggestAgent(input.value, agents.value)
+  return found && found.agent.id !== dismissedHint.value ? found.agent : null
+})
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const greeting = computed(() => {
@@ -294,6 +302,14 @@ async function startAutomation(prompt: string) {
             />
           </template>
         </UChatPrompt>
+        </div>
+
+        <!-- A saved agent that fits what is being typed -->
+        <div v-if="agentHint && !guestMessage" class="mt-3 flex items-center gap-2 rounded-xl border border-default bg-elevated/50 px-3 py-2 text-sm" role="status">
+          <UIcon name="i-lucide-bot" class="size-4 text-primary shrink-0" />
+          <span class="text-muted min-w-0 truncate">This looks like a job for <span class="font-medium text-highlighted">{{ agentHint.name }}</span>.</span>
+          <UButton label="Use it" size="xs" color="neutral" class="ml-auto shrink-0" @click="agentId = agentHint.id" />
+          <UButton icon="i-lucide-x" size="xs" color="neutral" variant="ghost" class="shrink-0" aria-label="Dismiss suggestion" @click="dismissedHint = agentHint.id" />
         </div>
 
         <!-- Proactive Automations -->

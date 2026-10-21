@@ -9,7 +9,7 @@
     "start": "node .output/server/index.mjs",
     "lint": "eslint src server shared tests",
     "typecheck": "vue-tsc -p ./tsconfig.app.json",
-    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts && tsx tests/hardening.test.mts && tsx tests/netSafety.test.mts && tsx tests/webReader.test.mts && tsx tests/webSearch.test.mts && tsx tests/skills.test.mts && tsx tests/documents.test.mts && tsx tests/createFiles.test.mts && tsx tests/workflowNodes.test.mts && tsx tests/schedule.test.mts && tsx tests/templates.test.mts && tsx tests/agents.test.mts && tsx tests/mcp.test.mts && tsx tests/mcpIntegration.test.mts && tsx tests/memory.test.mts",
+    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts && tsx tests/hardening.test.mts && tsx tests/netSafety.test.mts && tsx tests/webReader.test.mts && tsx tests/webSearch.test.mts && tsx tests/skills.test.mts && tsx tests/documents.test.mts && tsx tests/createFiles.test.mts && tsx tests/workflowNodes.test.mts && tsx tests/schedule.test.mts && tsx tests/templates.test.mts && tsx tests/agents.test.mts && tsx tests/mcp.test.mts && tsx tests/mcpIntegration.test.mts && tsx tests/memory.test.mts && tsx tests/agentSuggest.test.mts",
     "typecheck:server": "tsc -p tsconfig.server.json",
     "fonts": "node scripts/build-fonts.mjs",
     "icons": "node scripts/build-icons.mjs"

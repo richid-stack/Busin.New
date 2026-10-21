@@ -66,6 +66,10 @@ An agent is a saved assistant: a name, instructions, an optional fixed model, th
 - Each person can keep 10 agents. Steps per reply: 1 to 15. Agents are stored in the Firestore collection `agents` and are private to their owner.
 - Each reply already has an **Agent Activity & Timeline** view (message menu) that lists the steps, tools and sources it used.
 
+**Suggestions.** Two small helpers, neither of which makes an extra model call:
+- *A hint for agents you already have.* While typing a new chat, if the words clearly fit one of your agents (and no other as well), a bar offers "This looks like a job for <agent>" with Use it / dismiss. It compares words locally and never switches on its own.
+- *A draft for a new one.* In a standard chat the assistant can call `propose_agent` when you ask for an agent or describe a repeated job. You get a card with its name, tools and full instructions and a **Save agent** button; nothing is saved until you click. Groups that act in your accounts (connected apps, workflows, MCP) can never be proposed; you switch those on yourself in the editor. Agents do not propose agents.
+
 ## MCP servers
 
 People can add tools from their own MCP servers on **Integrations → MCP servers**. It is built so a server can never quietly gain power:

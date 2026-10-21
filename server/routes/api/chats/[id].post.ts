@@ -28,6 +28,7 @@ import { buildMcpTools } from '../../../services/mcp/chatTools'
 import { isMemoryEnabled, listMemories } from '../../../services/memory/store'
 import { memoryPrompt } from '../../../services/memory/memory'
 import { createForgetTool, createRememberTool } from '../../../utils/tools/memory'
+import { createProposeAgentTool } from '../../../utils/tools/proposeAgent'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
 import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
@@ -209,6 +210,8 @@ export default defineHandler(async (event) => {
     : ''
   const allTools = {
     ...mcpTools,
+    // Only the standard assistant can offer to make an agent; an agent already is one.
+    ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
     ...(readDocument ? { read_document: readDocument } : {}),
@@ -276,6 +279,11 @@ ${Object.keys(tools).some(n => n.startsWith('mcp_')) ? `**MCP TOOLS:**
 - Say which server a result came from when it matters.
 
 ` : ''}${memoryOn ? `${memoryPrompt(memories, true)}
+
+` : ''}${signedIn && !agent ? `**SAVED AGENTS:**
+- If the user asks for an agent, or describes a job they will repeat and a saved agent would clearly help, call propose_agent with a draft. It shows them a card with a Save button and saves nothing itself.
+- Do not propose one for a one-off question, and do not propose more than one per conversation unless asked.
+- Never say an agent is created or saved until the user has done it.
 
 ` : ''}**RESPONSE QUALITY:**
 - Be concise yet comprehensive
