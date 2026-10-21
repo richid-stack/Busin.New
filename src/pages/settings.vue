@@ -286,6 +286,12 @@ const LINKS = [
             </div>
           </div>
         </section>
+
+        <p class="text-xs text-dimmed text-center">
+          <RouterLink to="/terms" class="underline underline-offset-2 hover:text-muted">Terms of use</RouterLink>
+          ·
+          <RouterLink to="/privacy" class="underline underline-offset-2 hover:text-muted">Privacy policy</RouterLink>
+        </p>
       </div>
     </div>
   </div>

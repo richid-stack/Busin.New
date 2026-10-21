@@ -33,7 +33,10 @@ export default defineConfig({
       }
     }),
     nitro({
-      serverDir: './server'
+      serverDir: './server',
+      // Firebase's server libraries read their own files at runtime (protobuf definitions, via
+      // __dirname), which breaks when they are folded into the bundle. Keep them as real packages.
+      traceDeps: ['firebase-admin', '@google-cloud/firestore']
     })
   ]
 })

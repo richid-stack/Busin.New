@@ -1,0 +1,13 @@
+# Builds the app image with the public contact email baked in, then pushes it.
+# Usage: gcloud builds submit --config cloudbuild.yaml --substitutions=_IMAGE=...,_CONTACT_EMAIL=...
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', '${_IMAGE}', '--build-arg', 'VITE_CONTACT_EMAIL=${_CONTACT_EMAIL}', '.']
+  - name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}']
+images:
+  - '${_IMAGE}'
+substitutions:
+  _CONTACT_EMAIL: ''
+options:
+  logging: CLOUD_LOGGING_ONLY

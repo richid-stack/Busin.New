@@ -148,8 +148,11 @@ Set the same `CRON_SECRET` on the app (the secret is also accepted as an `x-cron
 
 ## Deploying to Google Cloud
 
+Step-by-step (Cloud Run, secrets, scheduler, backups, file expiry, alerts): [docs/deploy.md](docs/deploy.md). A `Dockerfile` and `cloudbuild.yaml` are included, and `GET /api/health` is the health check.
+
 - The server uses Application Default Credentials: the attached service account needs Firestore access (and Firebase Auth token verification).
 - Firestore is only accessed through the Admin SDK; `firestore.rules` denies all direct client access. Deploy with `firebase deploy --only firestore:rules`.
+- Unexpected server errors are logged as JSON for Cloud Error Reporting (message, stack, method and path only; secrets scrubbed). Browsers report their own errors to `POST /api/client-errors` (rate limited, logged as warnings).
 - Workflow webhooks require the per-workflow secret (`x-webhook-secret` header or `?secret=`).
 
 ## Notes
