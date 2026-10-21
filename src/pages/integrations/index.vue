@@ -1,24 +1,66 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useIntegrations } from '../../composables/useIntegrations'
+import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 
 const router = useRouter()
-const { integrations, loading, fetchIntegrations, installedIntegrations } = useIntegrations()
+const { openAuthModal, isAuthenticated, authReady } = useFirebaseAuth()
+const {
+  integrations,
+  loading,
+  loaded,
+  unauthorized,
+  loadError,
+  canConnect,
+  fetchIntegrations,
+  installedIntegrations
+} = useIntegrations()
 
 const searchQuery = ref('')
+const category = ref('all')
+
+const CATEGORY_LABELS: Record<string, string> = {
+  google: 'Google Workspace',
+  communication: 'Communication',
+  productivity: 'Productivity',
+  project_management: 'Project management',
+  crm: 'CRM',
+  developer: 'Developer'
+}
 
 onMounted(() => {
   fetchIntegrations()
 })
 
+// Reload once sign-in completes (or after sign-out) so the list always matches the account.
+watch(isAuthenticated, () => {
+  fetchIntegrations()
+})
+
+const categories = computed(() => {
+  const present = [...new Set(integrations.value.map(i => i.category))]
+  return [
+    { value: 'all', label: 'All' },
+    ...present.map(value => ({ value, label: CATEGORY_LABELS[value] || value }))
+  ]
+})
+
+const isFiltering = computed(() => Boolean(searchQuery.value.trim()) || category.value !== 'all')
+
 const filteredIntegrations = computed(() => {
-  let list = integrations.value.filter(i => i.status !== 'connected')
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim()
-    list = list.filter(i => 
-      i.name.toLowerCase().includes(query) || 
-      i.description.toLowerCase().includes(query)
+  let list = integrations.value
+  if (!isFiltering.value) {
+    // Connected apps already appear under "Installed".
+    list = list.filter(i => i.status !== 'connected')
+  }
+  if (category.value !== 'all') {
+    list = list.filter(i => i.category === category.value)
+  }
+  const query = searchQuery.value.toLowerCase().trim()
+  if (query) {
+    list = list.filter(i =>
+      i.name.toLowerCase().includes(query) || i.description.toLowerCase().includes(query)
     )
   }
   return list
@@ -27,99 +69,188 @@ const filteredIntegrations = computed(() => {
 function goToDetails(provider: string) {
   router.push(`/integrations/${provider}`)
 }
+
+function clearFilters() {
+  searchQuery.value = ''
+  category.value = 'all'
+}
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-white dark:bg-neutral-950 overflow-y-auto">
+  <div class="flex-1 min-w-0 h-full flex flex-col bg-default overflow-y-auto">
     <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 py-12 md:py-20 flex-1">
-      
       <div class="mb-10">
-        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-default mb-3">Integrations</h1>
-        <p class="text-muted text-base md:text-lg">Work with AI across your favorite tools.</p>
+        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-highlighted mb-3">
+          Integrations
+        </h1>
+        <p class="text-muted text-base md:text-lg">
+          Connect your apps so OpenLobs can read from them and act on your behalf.
+        </p>
       </div>
 
-      <div class="mb-10">
-        <UInput
-          v-model="searchQuery"
-          icon="i-lucide-search"
-          placeholder="Search integrations"
-          size="lg"
-          class="w-full"
-          :ui="{ wrapper: 'rounded-xl shadow-sm border-neutral-200 dark:border-neutral-800' }"
+      <!-- Not signed in -->
+      <div
+        v-if="loaded && unauthorized"
+        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
+      >
+        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
+          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
+        </div>
+        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to connect your apps</h2>
+        <p class="text-sm text-muted mb-5">
+          Integrations are tied to your account, so only you can use what you connect.
+        </p>
+        <UButton
+          label="Sign in"
+          icon="i-lucide-log-in"
+          color="neutral"
+          :loading="!authReady"
+          @click="openAuthModal"
         />
       </div>
 
-      <!-- Installed Section -->
-      <div v-if="installedIntegrations.length > 0 && !searchQuery" class="mb-12">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-medium text-default">Installed</h2>
-          <UIcon name="i-lucide-chevron-right" class="size-5 text-muted" />
+      <!-- Load failure -->
+      <div
+        v-else-if="loaded && loadError && integrations.length === 0"
+        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
+      >
+        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
+          <UIcon name="i-lucide-cloud-off" class="size-5 text-muted" />
         </div>
-        <div class="flex flex-wrap gap-4">
-          <button
-            v-for="item in installedIntegrations"
-            :key="item.provider"
-            class="flex items-center justify-center p-3 sm:p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:shadow-md hover:-translate-y-0.5 transition-all focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0"
-            @click="goToDetails(item.provider)"
-          >
-            <UIcon :name="item.icon" class="size-8 sm:size-10 text-default" />
-          </button>
-        </div>
+        <h2 class="text-base font-semibold text-highlighted mb-1">Could not load integrations</h2>
+        <p class="text-sm text-muted mb-5">{{ loadError }}</p>
+        <UButton
+          label="Try again"
+          icon="i-lucide-refresh-cw"
+          color="neutral"
+          variant="subtle"
+          :loading="loading"
+          @click="fetchIntegrations"
+        />
       </div>
 
-      <!-- Popular / Search Results Section -->
-      <div>
-        <h2 class="text-lg font-medium text-default mb-4">
-          {{ searchQuery ? 'Search Results' : 'Popular' }}
-        </h2>
+      <template v-else>
+        <UAlert
+          v-if="loaded && !canConnect"
+          class="mb-8"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-plug-zap"
+          title="Connections are not set up yet"
+          description="This server has no integration provider key, so apps cannot be connected right now."
+        />
 
-        <div v-if="loading && integrations.length === 0" class="py-12 flex justify-center">
-          <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+        <div class="mb-6">
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="Search integrations"
+            size="lg"
+            class="w-full"
+            aria-label="Search integrations"
+          />
         </div>
-        
-        <div v-else-if="filteredIntegrations.length === 0" class="py-12 text-center text-muted">
-          No integrations found matching your search.
+
+        <div
+          v-if="categories.length > 2"
+          class="mb-10 -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto no-scrollbar"
+        >
+          <UButton
+            v-for="cat in categories"
+            :key="cat.value"
+            :label="cat.label"
+            size="sm"
+            class="rounded-full shrink-0"
+            color="neutral"
+            :variant="category === cat.value ? 'solid' : 'subtle'"
+            @click="category = cat.value"
+          />
         </div>
-        
-        <div v-else class="flex flex-col gap-2">
-          <button
-            v-for="item in filteredIntegrations"
-            :key="item.provider"
-            class="group flex items-center justify-between p-4 sm:p-5 rounded-2xl border border-transparent hover:bg-neutral-50 dark:hover:bg-neutral-900 transition-colors text-left focus:outline-none focus:bg-neutral-50 dark:focus:bg-neutral-900 w-full"
-            @click="goToDetails(item.provider)"
+
+        <!-- Installed -->
+        <section
+          v-if="installedIntegrations.length > 0 && !isFiltering"
+          class="mb-12"
+        >
+          <h2 class="text-lg font-medium text-highlighted mb-4">Installed</h2>
+          <div class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            <button
+              v-for="item in installedIntegrations"
+              :key="item.provider"
+              type="button"
+              class="group flex flex-col items-center gap-2 p-4 rounded-2xl border border-default bg-default hover:bg-elevated/60 hover:shadow-md hover:-translate-y-0.5 transition-all focus-visible:outline-2 focus-visible:outline-primary"
+              @click="goToDetails(item.provider)"
+            >
+              <UIcon :name="item.icon" class="size-8" />
+              <span class="text-xs font-medium text-default truncate max-w-full">{{ item.name }}</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Catalog -->
+        <section>
+          <h2 class="text-lg font-medium text-highlighted mb-4">
+            {{ isFiltering ? 'Results' : 'Popular' }}
+          </h2>
+
+          <div
+            v-if="!loaded || (loading && integrations.length === 0)"
+            class="py-12 flex justify-center"
           >
-            <div class="flex items-center gap-4 sm:gap-5 min-w-0 pr-4">
-              <div class="flex-shrink-0 p-2.5 sm:p-3 rounded-xl bg-white dark:bg-neutral-800 shadow-sm border border-neutral-100 dark:border-neutral-700/50 flex items-center justify-center relative">
-                <UIcon :name="item.icon" class="size-6 sm:size-8 text-default" />
-                <div v-if="item.type === 'native' || item.category === 'google'" class="absolute -bottom-1 -right-1 size-4 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-sm">
-                  <UIcon name="i-lucide-sparkles" class="size-3 text-primary" />
-                </div>
-              </div>
-              <div class="min-w-0">
-                <h3 class="text-base font-medium text-default mb-0.5 truncate">{{ item.name }}</h3>
-                <p class="text-sm text-muted line-clamp-1 leading-snug">{{ item.description }}</p>
-                <div class="flex flex-wrap items-center gap-2 mt-2">
-                  <span v-if="item.supportedEventsCount !== undefined" class="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
-                    Trigger: {{ item.supportedEventsCount }}
-                  </span>
-                  <span v-if="item.supportedActionsCount !== undefined" class="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 ring-1 ring-inset ring-blue-500/20">
-                    Action: {{ item.supportedActionsCount }}
-                  </span>
-                  <span class="inline-flex items-center rounded-md bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-medium text-muted ring-1 ring-inset ring-neutral-200 dark:ring-neutral-700">
-                    Auth: {{ item.type === 'native' ? 'Google OAuth' : 'Managed Connector' }}
-                  </span>
-                </div>
+            <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+          </div>
 
+          <div
+            v-else-if="filteredIntegrations.length === 0"
+            class="py-12 text-center"
+          >
+            <p class="text-sm text-muted mb-3">
+              {{ isFiltering ? 'No integrations match your search.' : 'You have connected every available app.' }}
+            </p>
+            <UButton
+              v-if="isFiltering"
+              label="Clear filters"
+              color="neutral"
+              variant="link"
+              @click="clearFilters"
+            />
+          </div>
+
+          <div v-else class="flex flex-col gap-1">
+            <button
+              v-for="item in filteredIntegrations"
+              :key="item.provider"
+              type="button"
+              class="group flex items-center justify-between p-4 sm:p-5 rounded-2xl border border-transparent hover:bg-elevated/60 transition-colors text-left focus-visible:outline-2 focus-visible:outline-primary w-full"
+              @click="goToDetails(item.provider)"
+            >
+              <div class="flex items-center gap-4 sm:gap-5 min-w-0 pr-4">
+                <div class="shrink-0 p-2.5 sm:p-3 rounded-xl bg-default shadow-sm border border-default flex items-center justify-center">
+                  <UIcon :name="item.icon" class="size-6 sm:size-8" />
+                </div>
+                <div class="min-w-0">
+                  <h3 class="text-base font-medium text-highlighted mb-0.5 truncate">{{ item.name }}</h3>
+                  <p class="text-sm text-muted line-clamp-1 leading-snug">{{ item.description }}</p>
+                  <p
+                    v-if="item.supportedActionsCount"
+                    class="text-xs text-dimmed mt-1.5"
+                  >
+                    {{ item.supportedActionsCount }} {{ item.supportedActionsCount === 1 ? 'action' : 'actions' }}
+                  </p>
+                </div>
               </div>
-            </div>
-            
-            <div class="flex-shrink-0 text-muted group-hover:text-default transition-colors p-2">
-              <UIcon name="i-lucide-plus" class="size-6" />
-            </div>
-          </button>
-        </div>
-      </div>
-      
+
+              <div class="shrink-0 text-muted group-hover:text-default transition-colors p-2">
+                <UIcon
+                  :name="item.status === 'connected' ? 'i-lucide-circle-check' : 'i-lucide-plus'"
+                  class="size-6"
+                  :class="item.status === 'connected' ? 'text-success' : ''"
+                />
+              </div>
+            </button>
+          </div>
+        </section>
+      </template>
     </div>
   </div>
 </template>
