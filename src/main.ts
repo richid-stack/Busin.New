@@ -7,11 +7,16 @@ import { routes, handleHotUpdate } from 'vue-router/auto-routes'
 import { setupLayouts } from 'virtual:generated-layouts'
 import { createHead } from '@unhead/vue/client'
 import ui from '@nuxt/ui/vue-plugin'
+import { addCollection } from '@iconify/vue'
+import bundledIcons from './generated/icons.json'
 
 import App from './App.vue'
 import { installAuthFetch } from './lib/authFetch'
 
 installAuthFetch()
+
+// Icons ship with the app (see scripts/build-icons.mjs); the Iconify CDN is only a fallback for unknown names.
+for (const collection of bundledIcons) addCollection(collection as unknown as Parameters<typeof addCollection>[0])
 
 const app = createApp(App)
 

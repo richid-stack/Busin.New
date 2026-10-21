@@ -229,7 +229,7 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
   {
     slug: 'excel',
     name: 'Microsoft Excel',
-    icon: 'i-logos-microsoft-excel',
+    icon: 'i-simple-icons:microsoftexcel',
     description: 'Create spreadsheets, update workbook rows, and analyze financial models.',
     category: 'productivity',
     popularActions: [
@@ -241,7 +241,7 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
   {
     slug: 'word',
     name: 'Microsoft Word',
-    icon: 'i-logos-microsoft-word',
+    icon: 'i-simple-icons:microsoftword',
     description: 'Generate enterprise proposals, technical requirements, and legal documents.',
     category: 'productivity',
     popularActions: [
@@ -252,7 +252,7 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
   {
     slug: 'powerpoint',
     name: 'Microsoft PowerPoint',
-    icon: 'i-logos-microsoft-powerpoint',
+    icon: 'i-simple-icons:microsoftpowerpoint',
     description: 'Generate presentation slides, executive briefings, and deck templates.',
     category: 'productivity',
     popularActions: [

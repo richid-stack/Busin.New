@@ -44,7 +44,7 @@ const output = computed(() => props.invocation.output)
       </div>
     </div>
     
-    <div v-else-if="output && !output.success" class="p-3 border border-red-500/20 bg-red-500/5 rounded-md text-red-600 dark:text-red-400 text-xs">
+    <div v-else-if="output && !output.success" class="p-3 border border-error/20 bg-error/5 rounded-md text-error text-xs">
       <div class="font-semibold mb-1">Failed to build workflow</div>
       <div class="opacity-80">{{ output.error }}</div>
     </div>
