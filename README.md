@@ -24,6 +24,8 @@ npm run dev
 | `ALLOW_ANONYMOUS_CHAT` | Chat requires sign-in by default. Set to `true` to allow anonymous (rate-limited) chats, e.g. local demos. |
 | `TRUSTED_PROXY_HOPS` | Reverse proxies in front of the app (default `1`, matching Cloud Run). Used to read the real client address for rate limiting. |
 | `FIRECRAWL_API_KEY`, `PARALLEL_API_KEY`, `TAVILY_API_KEY` | Optional web tool keys. Without them, search uses DuckDuckGo and pages are read by the built-in reader. Each key you add switches that provider on. |
+| `CRON_SECRET` | Enables scheduled workflows. 16+ random characters; the timer endpoint does not exist without it. See "Scheduled workflows". |
+| `SCHEDULE_MIN_MINUTES` | Shortest gap allowed between two runs of a scheduled workflow (default `15`). |
 | `SEARCH_PROVIDERS` | Optional comma-separated order for search providers (default `parallel,tavily,firecrawl,duckduckgo`). |
 
 ## Skills
@@ -54,6 +56,27 @@ Besides AI agents, approvals and connected apps, workflows have these steps:
 - **Loop**: runs one small step (read a page, send a request, set fields or ask the AI) for each item of a list, three at a time, with `{{item}}` and `{{index}}`. At most 50 items (10 for AI steps). Failed items are reported without stopping the rest, unless "stop on first error" is on.
 
 Every connected-app, AI, HTTP, page, Set and Loop step also has **If this step fails** settings: retry up to 3 times (waits double each time; setup mistakes are never retried, and a loop is never retried as a whole), then either stop the run, carry on with the error as the step's output, or follow the red **ERROR** connector to a different step. Each user can send 300 workflow web requests per 10 minutes.
+
+## Scheduled workflows
+
+Add a **Schedule** trigger and pick when it runs (every 15 minutes, hourly, daily, weekdays, weekly, monthly, or a custom five-field cron such as `0 9 * * 1-5`) and the time zone. The form shows the next five run times. It runs only while the workflow is **active** (Deploy).
+
+The app has no background process of its own, so a timer outside it calls the app. With Google Cloud this is one free Cloud Scheduler job:
+
+```sh
+gcloud scheduler jobs create http openlobs-tick \
+  --schedule="*/5 * * * *" \
+  --uri="https://<your-app>/api/cron/workflows" \
+  --http-method=POST \
+  --headers="Authorization=Bearer <CRON_SECRET>"
+```
+
+Set the same `CRON_SECRET` on the app (the secret is also accepted as an `x-cron-secret` header). Each call starts every workflow whose time has come, so a schedule is checked every 5 minutes in this setup. A few rules keep a free tier safe:
+
+- The shortest gap between runs is 15 minutes (`SCHEDULE_MIN_MINUTES`), and each user can have 5 scheduled workflows on at once.
+- A run is claimed in a Firestore transaction, so overlapping calls start it once. After downtime a missed schedule runs once, not once per missed slot.
+- After 5 failed scheduled runs in a row the workflow is paused and the reason is shown on the Schedule step. A run waiting for approval does not count as a failure.
+- The trigger's output has `event`, `scheduledFor`, `firedAt`, `cron` and `timezone`, available to later steps like any other trigger output.
 
 ## Deploying to Google Cloud
 

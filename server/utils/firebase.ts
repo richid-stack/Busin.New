@@ -51,6 +51,13 @@ export interface FirestoreWorkflow {
   nodeSchemas?: Record<string, any>
   /** Shared secret callers must present to trigger the workflow via its public webhook. */
   webhookSecret?: string
+  /** When the timer endpoint should next start this workflow (ISO time). Null or missing: not scheduled. */
+  scheduleNextRunAt?: string | null
+  scheduleLastRunAt?: string | null
+  /** Why a schedule was switched off (for example after repeated failures). */
+  scheduleError?: string | null
+  /** Scheduled runs that failed one after another. */
+  scheduleFailures?: number
   createdAt: Date
   updatedAt?: Date
 }
@@ -340,7 +347,7 @@ export async function setChatVote(chatId: string, messageId: string, userId: str
 // ==================== WORKFLOWS ====================
 
  
-function toWorkflow(id: string, data: Record<string, any>, userIdFallback = ''): FirestoreWorkflow {
+export function toWorkflow(id: string, data: Record<string, any>, userIdFallback = ''): FirestoreWorkflow {
   return {
     id,
     title: data.title || 'Untitled Workflow',
@@ -351,6 +358,10 @@ function toWorkflow(id: string, data: Record<string, any>, userIdFallback = ''):
     edges: data.edges || [],
     nodeSchemas: data.nodeSchemas || {},
     webhookSecret: data.webhookSecret || undefined,
+    scheduleNextRunAt: data.scheduleNextRunAt ?? null,
+    scheduleLastRunAt: data.scheduleLastRunAt ?? null,
+    scheduleError: data.scheduleError ?? null,
+    scheduleFailures: Number(data.scheduleFailures) || 0,
     createdAt: toDate(data.createdAt, new Date())!,
     updatedAt: toDate(data.updatedAt)
   }
@@ -401,6 +412,7 @@ export async function createWorkflow(data: {
    
   nodeSchemas?: Record<string, any>
   status?: 'active' | 'draft' | 'paused'
+  scheduleNextRunAt?: string | null
 }): Promise<FirestoreWorkflow> {
   const workflowId = data.id || crypto.randomUUID()
   const now = new Date()
@@ -415,6 +427,7 @@ export async function createWorkflow(data: {
     edges: data.edges || [],
     nodeSchemas: data.nodeSchemas || {},
     webhookSecret: generateWebhookSecret(),
+    scheduleNextRunAt: data.scheduleNextRunAt ?? null,
     createdAt: now,
     updatedAt: now
   }
@@ -430,6 +443,7 @@ export async function createWorkflow(data: {
     edges: workflow.edges,
     nodeSchemas: workflow.nodeSchemas,
     webhookSecret: workflow.webhookSecret,
+    scheduleNextRunAt: workflow.scheduleNextRunAt ?? null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   }))

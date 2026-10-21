@@ -7,6 +7,7 @@ import HttpFields from './fields/HttpFields.vue'
 import WebFetchFields from './fields/WebFetchFields.vue'
 import SetFields from './fields/SetFields.vue'
 import ErrorSettings from './fields/ErrorSettings.vue'
+import ScheduleFields from './fields/ScheduleFields.vue'
 import { STATUS_META, logicKind } from '../../utils/workflowGraph'
 import type { NodeRuntime } from '../../utils/workflowGraph'
 import type { IntegrationItem } from '../../types/integrations'
@@ -21,6 +22,8 @@ const props = defineProps<{
   webhookUrl: string
   webhookSecret?: string
   workflowActive: boolean
+  scheduleNextRunAt?: string | null
+  scheduleError?: string | null
   runtime?: NodeRuntime
   testing: boolean
   testResult: { status: string, output?: any, message?: string, durationMs?: number, authUrl?: string } | null
@@ -131,6 +134,7 @@ const triggerMode = computed(() => {
   const subtype = data.value.subtype
   if (subtype === 'webhook') return 'webhook'
   if (subtype === 'manual') return 'manual'
+  if (subtype === 'schedule') return 'schedule'
   return 'unsupported'
 })
 
@@ -261,6 +265,15 @@ function pretty(value: unknown) {
             </UFormField>
           </template>
 
+          <ScheduleFields
+            v-else-if="triggerMode === 'schedule'"
+            :schedule="data.schedule"
+            :active="workflowActive"
+            :next-run-at="scheduleNextRunAt"
+            :error="scheduleError"
+            @update="set('schedule', $event)"
+          />
+
           <UAlert
             v-else-if="triggerMode === 'manual'"
             color="neutral"
@@ -275,8 +288,8 @@ function pretty(value: unknown) {
             color="warning"
             variant="subtle"
             icon="i-lucide-clock"
-            title="Automatic triggers are not live yet"
-            description="This workflow will not start by itself when email arrives or on a schedule. Start it with Test Run, a webhook, or from chat."
+            title="This trigger is not live yet"
+            description="This workflow will not start by itself when email arrives. Start it with Test Run, a webhook, a schedule, or from chat."
           />
         </template>
 

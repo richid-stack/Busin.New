@@ -65,6 +65,15 @@ const title = ref('')
 const titleDraft = ref('')
 const workflowStatus = ref<'active' | 'draft' | 'paused'>('draft')
 const webhookSecret = ref<string | undefined>()
+const scheduleNextRunAt = ref<string | null>(null)
+const scheduleError = ref<string | null>(null)
+const hasSchedule = computed(() => nodes.value.some(n => n.type === 'trigger' && n.data?.subtype === 'schedule'))
+
+function applySchedule(result: { schedule?: { nextRunAt: string | null, error: string | null } }) {
+  if (!result?.schedule) return
+  scheduleNextRunAt.value = result.schedule.nextRunAt
+  scheduleError.value = result.schedule.error
+}
 
 const selectedId = ref<string | null>(null)
 const selectedNode = computed(() => nodes.value.find(n => n.id === selectedId.value) ?? null)
@@ -115,11 +124,11 @@ async function doSave() {
 
   saveStatus.value = 'saving'
   try {
-    await $fetch(`/api/workflows/${workflowId.value}`, {
+    applySchedule(await $fetch<any>(`/api/workflows/${workflowId.value}`, {
       method: 'PUT',
       headers: headers(),
       body: JSON.parse(snapshot)
-    })
+    }))
     lastSaved = snapshot
     saveStatus.value = graph.value === snapshot ? 'saved' : 'unsaved'
     saveErrorShown = false
@@ -176,6 +185,8 @@ async function loadWorkflow() {
     titleDraft.value = title.value
     workflowStatus.value = workflow.status || 'draft'
     webhookSecret.value = workflow.webhookSecret
+    scheduleNextRunAt.value = workflow.scheduleNextRunAt ?? null
+    scheduleError.value = workflow.scheduleError ?? null
     nodes.value = workflow.nodes ?? []
     edges.value = (workflow.edges ?? []).map((edge: any) => ({
       ...edge,
@@ -239,15 +250,17 @@ async function toggleDeploy() {
   isDeploying.value = true
   try {
     if (next === 'active' && !(await persist())) return
-    await $fetch(`/api/workflows/${workflowId.value}/status`, {
+    applySchedule(await $fetch<any>(`/api/workflows/${workflowId.value}/status`, {
       method: 'PATCH',
       headers: headers(),
       body: { status: next }
-    })
+    }))
     workflowStatus.value = next
     toast.add({
       title: next === 'active' ? 'Workflow is live' : 'Workflow paused',
-      description: next === 'active' ? 'Its webhook now accepts calls.' : 'Its webhook will reject calls until you deploy again.',
+      description: next === 'active'
+        ? (hasSchedule.value ? 'It will run on its schedule, and its webhook accepts calls.' : 'Its webhook now accepts calls.')
+        : 'It will not run or accept calls until you deploy again.',
       icon: next === 'active' ? 'i-lucide-rocket' : 'i-lucide-pause',
       color: next === 'active' ? 'success' : 'neutral'
     })
@@ -849,6 +862,8 @@ const saveLabel = computed(() => ({ saved: 'Saved', unsaved: 'Unsaved changes', 
           :webhook-url="webhookUrl"
           :webhook-secret="webhookSecret"
           :workflow-active="workflowStatus === 'active'"
+          :schedule-next-run-at="scheduleNextRunAt"
+          :schedule-error="scheduleError"
           :runtime="selectedId ? runtime[selectedId] : undefined"
           :testing="isTestingNode"
           :test-result="nodeTestResult"

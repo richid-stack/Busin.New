@@ -3,6 +3,7 @@ import { getValidatedRouterParams, readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../../utils/session'
 import { getWorkflow, updateWorkflow, resolveWorkflowId } from '../../../../utils/firebase'
+import { scheduleFieldsForSave } from '../../../../utils/workflowSchedule'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
@@ -23,11 +24,13 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 404, statusMessage: 'Workflow not found or access denied' })
   }
 
-  await updateWorkflow(id, { status })
+  const schedule = await scheduleFieldsForSave(userId, id, existing, { status, nodes: existing.nodes })
+  await updateWorkflow(id, { status, ...(schedule ?? {}) })
 
   return {
     success: true,
     id,
-    status
+    status,
+    ...(schedule ? { schedule: { nextRunAt: schedule.scheduleNextRunAt, error: schedule.scheduleError } } : {})
   }
 })

@@ -9,7 +9,7 @@
     "start": "node .output/server/index.mjs",
     "lint": "eslint src server shared tests",
     "typecheck": "vue-tsc -p ./tsconfig.app.json",
-    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts && tsx tests/hardening.test.mts && tsx tests/netSafety.test.mts && tsx tests/webReader.test.mts && tsx tests/webSearch.test.mts && tsx tests/skills.test.mts && tsx tests/documents.test.mts && tsx tests/createFiles.test.mts && tsx tests/workflowNodes.test.mts",
+    "test": "tsx tests/workflowEngine.test.mts && tsx tests/helpers.test.mts && tsx tests/integrations.test.mts && tsx tests/hardening.test.mts && tsx tests/netSafety.test.mts && tsx tests/webReader.test.mts && tsx tests/webSearch.test.mts && tsx tests/skills.test.mts && tsx tests/documents.test.mts && tsx tests/createFiles.test.mts && tsx tests/workflowNodes.test.mts && tsx tests/schedule.test.mts",
     "typecheck:server": "tsc -p tsconfig.server.json",
     "fonts": "node scripts/build-fonts.mjs",
     "icons": "node scripts/build-icons.mjs"
@@ -38,6 +38,7 @@
     "@vue-flow/minimap": "^1.5.4",
     "@vueuse/core": "^14.4.0",
     "ai": "^7.0.93",
+    "cron-parser": "^5.10.2",
     "dagre": "^0.8.5",
     "date-fns": "^4.4.0",
     "docx": "^9.12.0",
