@@ -13,6 +13,15 @@ const MAX_BUCKETS = 10_000
  * Throws 429 with Retry-After when the limit is exceeded.
  */
 export function enforceRateLimit(event: H3Event, scope: string, subject: string, limit: number, windowMs: number): void {
+  const { ok, retryAfter } = checkRateLimit(scope, subject, limit, windowMs)
+  if (!ok) {
+    event.res.headers.set('Retry-After', String(retryAfter))
+    throw new HTTPError({ statusCode: 429, statusMessage: `Too many requests. Try again in ${retryAfter}s.` })
+  }
+}
+
+/** Same limiter without an HTTP event, for callers like agent tools. Counts the call it is asked about. */
+export function checkRateLimit(scope: string, subject: string, limit: number, windowMs: number): { ok: boolean, retryAfter: number } {
   const now = Date.now()
   let key = `${scope}:${subject}`
   let max = limit
@@ -35,10 +44,9 @@ export function enforceRateLimit(event: H3Event, scope: string, subject: string,
 
   bucket.count++
   if (bucket.count > max) {
-    const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))
-    event.res.headers.set('Retry-After', String(retryAfter))
-    throw new HTTPError({ statusCode: 429, statusMessage: `Too many requests. Try again in ${retryAfter}s.` })
+    return { ok: false, retryAfter: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) }
   }
+  return { ok: true, retryAfter: 0 }
 }
 
 /**

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PILLARS } from '../../utils/integrationShowcase'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useIntegrations } from '../../composables/useIntegrations'
@@ -86,6 +87,21 @@ function clearFilters() {
         <p class="text-muted text-base md:text-lg">
           Connect your apps so OpenLobs can read from them and act on your behalf.
         </p>
+      </div>
+
+      <!-- What connecting an app unlocks -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+        <div
+          v-for="pillar in PILLARS"
+          :key="pillar.title"
+          class="rounded-2xl border border-default bg-elevated/40 p-4"
+        >
+          <div class="size-8 rounded-lg border border-default bg-default shadow-sm flex items-center justify-center mb-3">
+            <UIcon :name="pillar.icon" class="size-4 text-primary" />
+          </div>
+          <h3 class="text-sm font-semibold text-highlighted mb-1">{{ pillar.title }}</h3>
+          <p class="text-xs text-muted leading-relaxed">{{ pillar.detail }}</p>
+        </div>
       </div>
 
       <!-- Not signed in -->

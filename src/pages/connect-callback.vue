@@ -27,6 +27,10 @@ onMounted(() => {
 <template>
   <main class="min-h-[100dvh] flex items-center justify-center px-6">
     <div class="w-full max-w-sm text-center">
+      <div class="flex items-center justify-center gap-2 mb-8">
+        <img src="/favicon.svg" alt="" class="size-6">
+        <span class="text-base font-bold tracking-tight text-highlighted">OpenLobs</span>
+      </div>
       <div
         class="mx-auto mb-6 size-14 rounded-2xl border border-default shadow-sm flex items-center justify-center"
         :class="failed ? 'bg-error/10' : 'bg-success/10'"

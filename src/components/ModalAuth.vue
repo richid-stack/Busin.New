@@ -5,6 +5,7 @@ import { useUserSession } from '../composables/useUserSession'
 
 const {
   isAuthModalOpen,
+  authModalMode,
   signInWithGoogle,
   signInWithGithub,
   signInWithEmail,
@@ -25,7 +26,9 @@ const resetSent = ref(false)
 
 // Never leave credentials sitting in component state once the dialog is closed.
 watch(isAuthModalOpen, (open) => {
-  if (!open) {
+  if (open) {
+    mode.value = authModalMode.value
+  } else {
     password.value = ''
     formError.value = null
     resetSent.value = false
@@ -105,6 +108,11 @@ async function handleSubmit() {
   >
     <template #body>
       <div class="flex flex-col gap-4">
+        <div class="flex items-center justify-center gap-2 -mt-1 mb-1">
+          <img src="/favicon.svg" alt="" class="size-7">
+          <span class="text-lg font-bold tracking-tight text-highlighted">OpenLobs</span>
+        </div>
+
         <!-- Social Providers -->
         <div class="flex flex-col gap-2.5">
           <UButton
