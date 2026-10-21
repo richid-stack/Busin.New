@@ -28,7 +28,8 @@ export const NODE_CATEGORIES: Array<{ id: string, label: string, icon: string, n
     nodes: [
       { type: 'logic', subtype: 'if-else', title: 'If / Else', subtitle: 'Condition', icon: 'i-lucide-split', color: 'text-violet-500' },
       { type: 'logic', subtype: 'switch', title: 'Switch', subtitle: 'Router', icon: 'i-lucide-git-commit', color: 'text-violet-500' },
-      { type: 'logic', subtype: 'loop', title: 'Loop', subtitle: 'Iterator', icon: 'i-lucide-repeat', color: 'text-violet-500', comingSoon: true },
+      { type: 'logic', subtype: 'loop', title: 'Loop', subtitle: 'For each item', icon: 'i-lucide-repeat', color: 'text-violet-500', config: { items: '', maxItems: 20, stopOnError: false, body: { kind: 'web-fetch', config: { url: '{{item}}' } } } },
+      { type: 'logic', subtype: 'set', title: 'Set Fields', subtitle: 'Shape data', icon: 'i-lucide-braces', color: 'text-violet-500', config: { fields: [{ key: '', value: '', mode: 'text' }] } },
       { type: 'logic', subtype: 'code', title: 'JavaScript', subtitle: 'Run Code', icon: 'i-lucide-code-2', color: 'text-violet-500' }
     ]
   },
@@ -56,7 +57,8 @@ export const NODE_CATEGORIES: Array<{ id: string, label: string, icon: string, n
     nodes: [
       { type: 'action', subtype: 'slack', title: 'Send Slack', subtitle: 'Message', icon: 'i-logos-slack-icon', color: 'text-emerald-500' },
       { type: 'action', subtype: 'google_drive', title: 'Save to Drive', subtitle: 'File', icon: 'i-logos-google-drive', color: 'text-emerald-500' },
-      { type: 'action', subtype: 'api', title: 'HTTP Request', subtitle: 'API Call', icon: 'i-lucide-globe', color: 'text-emerald-500', comingSoon: true }
+      { type: 'action', subtype: 'api', title: 'HTTP Request', subtitle: 'Call an API', icon: 'i-lucide-globe', color: 'text-emerald-500', config: { method: 'GET', url: '', headers: [], body: '', timeoutSec: 15 } },
+      { type: 'action', subtype: 'web-fetch', title: 'Read Web Page', subtitle: 'Page to text', icon: 'i-lucide-book-open-text', color: 'text-emerald-500', config: { url: '', maxChars: 8000 } }
     ]
   }
 ]

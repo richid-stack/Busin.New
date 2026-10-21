@@ -72,8 +72,10 @@ export function createNode(def: NodeDefinition, position: { x: number, y: number
   }
   if (type === 'action') {
     // Library entries for a specific app (Slack, Drive) preselect it; others start empty.
-    data.provider = subtype && subtype !== 'api' ? subtype : ''
+    data.provider = subtype && subtype !== 'api' && subtype !== 'web-fetch' ? subtype : ''
   }
+  // Each node gets its own copy of the library's starting settings.
+  if (extra.config) data.config = structuredClone(extra.config)
 
   return {
     id: `${type}-${crypto.randomUUID().slice(0, 8)}`,
@@ -87,13 +89,26 @@ export function createNode(def: NodeDefinition, position: { x: number, y: number
  * Logic nodes made by the library carry a `subtype`; older nodes (and AI-generated ones) only
  * have it in their id or title.
  */
-export function logicKind(node: { id: string, data?: Record<string, any> }): 'if-else' | 'switch' | 'code' | 'loop' | null {
+export function logicKind(node: { id: string, data?: Record<string, any> }): 'if-else' | 'switch' | 'code' | 'loop' | 'set' | null {
   const subtype = node.data?.subtype
-  if (subtype === 'if-else' || subtype === 'switch' || subtype === 'code' || subtype === 'loop') return subtype
+  if (subtype === 'if-else' || subtype === 'switch' || subtype === 'code' || subtype === 'loop' || subtype === 'set') return subtype
   const id = node.id.toLowerCase()
   const title = String(node.data?.title ?? '').toLowerCase()
   if (id.startsWith('logic-if') || /\bif\b/.test(title)) return 'if-else'
   if (id.startsWith('logic-switch') || /\bswitch\b/.test(title)) return 'switch'
   if (id.startsWith('logic-code') || /\b(javascript|code)\b/.test(title)) return 'code'
+  return null
+}
+
+/** The fields a step produces, known before it has run, so they can be offered in the variable picker. */
+export function knownOutputKeys(node: { type: string, data?: Record<string, any> }): string[] | null {
+  const d = node.data ?? {}
+  if (node.type === 'action' && d.subtype === 'api') return ['status', 'ok', 'body', 'headers', 'url']
+  if (node.type === 'action' && d.subtype === 'web-fetch') return ['content', 'title', 'url', 'truncated']
+  if (node.type === 'logic' && d.subtype === 'loop') return ['results', 'outputs', 'count', 'succeeded', 'failed']
+  if (node.type === 'logic' && d.subtype === 'set') {
+    const keys = ((d.config?.fields ?? []) as Array<{ key?: string }>).map(f => f.key).filter((k): k is string => Boolean(k))
+    return keys.length ? keys : null
+  }
   return null
 }
