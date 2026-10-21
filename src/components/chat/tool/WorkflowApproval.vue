@@ -8,10 +8,12 @@ const props = defineProps<{
 const isLoading = ref(false)
 const result = ref<'approved' | 'rejected' | null>(null)
 
-const workflowId = props.invocation.args.workflowId
-const runId = props.invocation.args.runId
-const title = props.invocation.args.title || 'Workflow'
-const prompt = props.invocation.args.prompt
+// AI SDK v5+ tool parts carry `input`; older saved messages used `args`.
+const args = props.invocation.input ?? props.invocation.args ?? {}
+const workflowId = args.workflowId
+const runId = args.runId
+const title = args.title || 'Workflow'
+const prompt = args.prompt
 
 async function handleApproval(approved: boolean) {
   isLoading.value = true

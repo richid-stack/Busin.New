@@ -2,15 +2,16 @@ import { defineHandler, HTTPError } from 'nitro'
 import { getValidatedRouterParams, readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
-import { getWorkflow, updateWorkflow, createWorkflow } from '../../../utils/firebase'
+import { getWorkflow, updateWorkflow, createWorkflow, resolveWorkflowId } from '../../../utils/firebase'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
   const userId = user.id
 
-  const { id } = await getValidatedRouterParams(event, z.object({
+  const { id: requestedId } = await getValidatedRouterParams(event, z.object({
     id: z.string()
   }).parse)
+  const id = resolveWorkflowId(userId, requestedId)
 
   const body = await readValidatedBody(event, z.object({
     title: z.string().optional(),
@@ -22,7 +23,7 @@ export default defineHandler(async (event) => {
   }).parse)
 
   let existing = await getWorkflow(id)
-  if (!existing && (id === 'client-onboarding-pipeline' || id === 'default')) {
+  if (!existing && id !== requestedId) {
     existing = await createWorkflow({
       id,
       title: body.title || 'Client Onboarding Pipeline',
