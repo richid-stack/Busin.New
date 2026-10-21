@@ -1,14 +1,14 @@
 import { defineHandler } from 'nitro'
 import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
-import { useUserSession } from '../../../utils/session'
+import { requireUser } from '../../../utils/session'
 import { executeSafeVerificationTool, isComposioConfigured } from '../../../services/composio/client'
 import { getUserIntegrations } from '../../../utils/firebase'
 import { ALL_INTEGRATIONS_CATALOG } from '../../../services/integrations/registry'
 
 export default defineHandler(async (event) => {
-  const session = await useUserSession(event)
-  const userId = session.data.user?.id || session.id!
+  const user = await requireUser(event)
+  const userId = user.id
 
   const body = await readValidatedBody(event, z.object({
     provider: z.string().default('github')
@@ -62,7 +62,7 @@ export default defineHandler(async (event) => {
     }
   }
 
-  const composioUserId = session.data.user?.id || session.id!
+  const composioUserId = userId
   const result = await executeSafeVerificationTool(composioUserId, body.provider)
   return result
 })

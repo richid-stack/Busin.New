@@ -20,12 +20,10 @@ import VariableTextarea from '../../components/workflow/VariableTextarea.vue'
 import { useModels } from '../../composables/useModels'
 import { useRoute } from 'vue-router'
 import { useCsrf } from '../../composables/useCsrf'
-import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { $fetch } from 'ofetch'
 
 const { onPaneReady, fitView, project, onConnect, addEdges, removeNodes, removeEdges } = useVueFlow()
 const { csrf, headerName } = useCsrf()
-const { firebaseUser } = useFirebaseAuth()
 const { models } = useModels()
 const route = useRoute()
 
@@ -33,7 +31,6 @@ const getHeaders = () => {
   const headers: Record<string, string> = {}
   const token = csrf()
   if (token) headers[headerName] = token
-  if (firebaseUser.value?.uid) headers['x-user-id'] = firebaseUser.value.uid
   return headers
 }
 

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>OpenLobs</title>
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF6B5E"/>
+      <stop offset="1" stop-color="#D93A3A"/>
+    </linearGradient>
+  </defs>
+  <!-- antennae -->
+  <path d="M28 20 C24 12 20 8 14 6" fill="none" stroke="#B82E34" stroke-width="2" stroke-linecap="round"/>
+  <path d="M36 20 C40 12 44 8 50 6" fill="none" stroke="#B82E34" stroke-width="2" stroke-linecap="round"/>
+  <!-- arms -->
+  <path d="M25 30 C18 30 14 26 12 22" fill="none" stroke="#D93A3A" stroke-width="4" stroke-linecap="round"/>
+  <path d="M39 30 C46 30 50 26 52 22" fill="none" stroke="#D93A3A" stroke-width="4" stroke-linecap="round"/>
+  <!-- claws -->
+  <path fill="url(#shell)" d="M12 22 C3 20 1 10 6 6 C8 4 10 6 10 9 C11 7 14 7 15 10 C18 13 18 20 12 22 Z"/>
+  <path fill="url(#shell)" d="M52 22 C61 20 63 10 58 6 C56 4 54 6 54 9 C53 7 50 7 49 10 C46 13 46 20 52 22 Z"/>
+  <!-- tail fan -->
+  <path fill="#B82E34" d="M32 50 L22 61 C27 63 37 63 42 61 Z"/>
+  <path fill="#FF6B5E" d="M32 50 L27 62 C29.5 62.6 34.5 62.6 37 62 Z"/>
+  <!-- body segments -->
+  <ellipse cx="32" cy="45" rx="8" ry="7" fill="#D93A3A"/>
+  <ellipse cx="32" cy="32" rx="11" ry="15" fill="url(#shell)"/>
+  <path d="M22 40 H42 M23.500 46 H40.500" stroke="#B82E34" stroke-width="1.600" stroke-linecap="round" fill="none"/>
+  <!-- legs -->
+  <path d="M22 33 L16 36 M22 38 L17 42 M42 33 L48 36 M42 38 L47 42" stroke="#D93A3A" stroke-width="2.200" stroke-linecap="round"/>
+  <!-- eyes -->
+  <circle cx="27.500" cy="22" r="3" fill="#fff"/>
+  <circle cx="36.500" cy="22" r="3" fill="#fff"/>
+  <circle cx="28" cy="22.300" r="1.500" fill="#1B1B1F"/>
+  <circle cx="36" cy="22.300" r="1.500" fill="#1B1B1F"/>
+</svg>
