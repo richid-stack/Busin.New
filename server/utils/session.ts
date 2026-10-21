@@ -90,3 +90,22 @@ export async function requireUser(event: H3Event): Promise<SessionUser> {
   }
   return user
 }
+
+/**
+ * For actions that cannot be undone: the caller must have signed in recently, so a stolen or
+ * left-open session cannot do them. Throws 403 with a message the app understands.
+ */
+export async function requireRecentSignIn(event: H3Event, maxAgeSeconds = 600): Promise<SessionUser> {
+  const user = await requireUser(event)
+  const token = getHeader(event, 'authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]
+  let authTime = 0
+  try {
+    authTime = Number((await getFirebaseAuth().verifyIdToken(token!)).auth_time) || 0
+  } catch {
+    authTime = 0
+  }
+  if (Date.now() / 1000 - authTime > maxAgeSeconds) {
+    throw new HTTPError({ statusCode: 403, statusMessage: 'Please sign in again to confirm it is you, then try once more.' })
+  }
+  return user
+}

@@ -98,6 +98,12 @@ const items = computed<DropdownMenuItem[][]>(() => ([[{
     }
   }]
 }], [{
+  label: 'Settings',
+  icon: 'i-lucide-settings',
+  onSelect() {
+    router.push('/settings')
+  }
+}, {
   label: 'Integrations',
   icon: 'i-lucide-blocks',
   onSelect() {

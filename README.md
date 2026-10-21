@@ -110,6 +110,15 @@ Every model call costs **credits**, counted per person per day and per month (UT
 - `GET /api/usage` returns the signed-in person's plan, use and reset times. Tune limits with `USAGE_<GUEST|FREE|PRO>_<DAILY|MONTHLY>`; list owners and testers in `USAGE_UNLIMITED_USER_IDS`.
 - Stored in `usage` (one document per person per month) and `user_plans`, server-only like the rest.
 
+## Settings and your data
+
+**Settings** (name menu, bottom of the sidebar) has the person's profile (display name), plan and usage, shortcuts to Memory, Agents, Connected apps, MCP servers and Workflows, theme, security (sign-in method, password reset, log out) and their data.
+
+- **Download your data** (`GET /api/account/export`): chats with messages, workflows with runs, agents, memory, MCP servers, files (listed, not embedded), plan, usage and connected app names, as one JSON file. MCP tokens and other secrets are never included.
+- **Delete account** (`DELETE /api/account`): the person types `DELETE` and signs in again first (the server rejects a sign-in older than 10 minutes). Connected apps are disconnected first, and if that fails nothing is deleted, so a retry starts clean. Then chats (with messages and votes), workflows (with runs), agents, memory, MCP servers, files, usage, plan and the sign-in account are removed. A half-finished attempt can be run again.
+- The list of what is exported and deleted lives in one place, `server/services/account/account.ts`; a new collection that holds personal data must be added there.
+- Email notifications are not in Settings yet; they arrive with email sending.
+
 ## Workflow templates
 
 The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.
