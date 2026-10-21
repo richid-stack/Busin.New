@@ -4,6 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
 import { useCsrf } from '../../composables/useCsrf'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import { useModels } from '../../composables/useModels'
+import WorkflowTemplates from '../../components/workflow/WorkflowTemplates.vue'
+import { instantiateTemplate } from '../../utils/workflowTemplates'
+import type { WorkflowTemplate } from '../../utils/workflowTemplates'
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
 
@@ -23,6 +27,7 @@ const toast = useToast()
 const overlay = useOverlay()
 const { csrf, headerName } = useCsrf()
 const { openAuthModal, isAuthenticated } = useFirebaseAuth()
+const { defaultModel } = useModels()
 
 // Links from before the studio had its own page: /workflows?id=...
 if (typeof route.query.id === 'string' && route.query.id) {
@@ -115,6 +120,35 @@ async function createWorkflow() {
     toast.add({ title: 'Could not create the workflow', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
   } finally {
     creating.value = false
+  }
+}
+
+// Create from a template
+const templates = ref<InstanceType<typeof WorkflowTemplates> | null>(null)
+const creatingFromTemplate = ref(false)
+
+async function createFromTemplate({ template, title }: { template: WorkflowTemplate, title: string }) {
+  if (creatingFromTemplate.value) return
+  if (unauthorized.value || !isAuthenticated.value) {
+    templates.value?.close()
+    openAuthModal()
+    return
+  }
+  creatingFromTemplate.value = true
+  try {
+    const { nodes, edges } = instantiateTemplate(template, { model: defaultModel })
+    const workflow = await $fetch<WorkflowSummary>('/api/workflows', {
+      method: 'POST',
+      headers: { [headerName]: csrf() },
+      // A draft: nothing runs, and no schedule starts, until the user deploys it.
+      body: { title, description: template.description, status: 'draft', nodes, edges }
+    })
+    templates.value?.close()
+    router.push(`/workflows/${workflow.id}`)
+  } catch (err: any) {
+    toast.add({ title: 'Could not add the template', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    creatingFromTemplate.value = false
   }
 }
 
@@ -254,6 +288,14 @@ const isEmpty = computed(() => !loading.value && !unauthorized.value && !loadErr
           </p>
         </div>
       </div>
+
+      <WorkflowTemplates
+        v-if="!loading && !loadError"
+        ref="templates"
+        class="mt-14"
+        :creating="creatingFromTemplate"
+        @use="createFromTemplate"
+      />
     </div>
 
     <UModal
