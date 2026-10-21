@@ -5,6 +5,7 @@ import { getWorkflow } from '../../../utils/firebase'
 import crypto from 'node:crypto'
 import { getHeader } from 'nitro/h3'
 import { executeAndRecordRun } from '../../../utils/workflowRuns'
+import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 
 export default defineHandler(async (event) => {
   const { workflowId } = await getValidatedRouterParams(event, z.object({
@@ -14,9 +15,12 @@ export default defineHandler(async (event) => {
   let body = {}
   try {
     body = await readBody(event) || {}
-  } catch (e) {
+  } catch {
     // If not JSON, ignore
   }
+
+  // Public endpoint: throttle per caller and workflow before touching the database.
+  enforceRateLimit(event, 'webhook', `${workflowId}:${rateLimitSubject(event)}`, 60, 60_000)
 
   const query = getQuery(event)
 
@@ -42,8 +46,8 @@ export default defineHandler(async (event) => {
 
   // Never persist the secret into run inputs/logs
   const safeHeaders = Object.fromEntries(event.headers.entries())
-  delete safeHeaders['x-webhook-secret']
-  const { secret: _secret, ...safeQuery } = query as Record<string, unknown>
+  for (const h of ['x-webhook-secret', 'authorization', 'cookie', 'x-csrf-token']) delete safeHeaders[h]
+  const safeQuery = Object.fromEntries(Object.entries(query).filter(([k]) => k !== 'secret'))
 
   const payload = {
     method: event.method,

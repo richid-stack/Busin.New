@@ -5,10 +5,12 @@ import { requireUser } from '../../../../utils/session'
 import { getWorkflow, resolveWorkflowId } from '../../../../utils/firebase'
 import { DEFAULT_WORKFLOW_NODES, DEFAULT_WORKFLOW_EDGES } from '../../../../utils/workflowEngine'
 import { executeAndRecordRun } from '../../../../utils/workflowRuns'
+import { enforceRateLimit } from '../../../../utils/rateLimit'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
   const userId = user.id
+  enforceRateLimit(event, 'workflow-run', userId, 30, 10 * 60_000)
 
   const { id: requestedId } = await getValidatedRouterParams(event, z.object({
     id: z.string()

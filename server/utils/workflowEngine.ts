@@ -28,7 +28,7 @@ export interface WorkflowNode {
     approverRole?: string
     approvalPrompt?: string
     autoApproveAfterHours?: number
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     config?: Record<string, any>
   }
 }

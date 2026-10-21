@@ -15,8 +15,11 @@ export const calculatorTool = tool({
       // Clean and safely evaluate basic math expressions
       const sanitized = expression.replace(/[^0-9+\-*/().%^eE ]/g, '')
       const replaced = sanitized.replace(/\^/g, '**')
-      // eslint-disable-next-line no-new-func
+       
       const result = Function(`'use strict'; return (${replaced})`)()
+      if (typeof result !== 'number' || !Number.isFinite(result)) {
+        throw new Error('Not a finite number')
+      }
       return {
         expression,
         label,

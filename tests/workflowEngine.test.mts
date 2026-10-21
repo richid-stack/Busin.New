@@ -23,7 +23,7 @@ assert(r.status === 'failed' && r.logs.find(l=>l.nodeId==='x')?.status==='failed
 const nodes = [n('t','trigger'), n('a','logic',{subtype:'code',code:'return 1'}), n('ap','approval',{approvalPrompt:'ok?'}),
   n('b','logic',{subtype:'code',code:'return 2'}), n('join','logic',{subtype:'code',code:'return inputs.a.result + inputs.b.result'})]
 const edges = [e('t','a'), e('a','ap'), e('ap','b'), e('a','join'), e('b','join')]
-let p = await executeWorkflowDAG(wf(nodes, edges), undefined, 'u')
+const p = await executeWorkflowDAG(wf(nodes, edges), undefined, 'u')
 assert(p.status === 'waiting_approval' && p.approvalNodeId === 'ap', 'pauses at approval')
 let serialisable = true; try { JSON.stringify(p) } catch { serialisable = false }
 assert(serialisable, 'paused result is JSON-serialisable (no circular refs)')
