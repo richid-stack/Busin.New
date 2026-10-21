@@ -24,22 +24,42 @@ export async function getMemory(id: string): Promise<(MemoryItem & { userId: str
   return doc.exists ? { ...fromDoc(doc.id, doc.data()!), userId: String(doc.data()!.userId || '') } : null
 }
 
-/** Saves one memory, or returns the one already there when the person said the same thing before. */
+const OFF = 'Memory is switched off, so nothing new is saved. Switch it on to add or change notes.'
+
+/**
+ * Saves one memory, or returns the one already there when the person said the same thing before. Switched off means
+ * nothing is written. The duplicate and size checks and the write are one transaction, so simultaneous requests
+ * cannot all pass against the same list.
+ */
 export async function addMemory(userId: string, rawText: string, source: MemoryItem['source']): Promise<{ item: MemoryItem, existed: boolean }> {
   const text = cleanMemoryText(rawText)
-  const existing = await listMemories(userId)
-  const same = existing.find(m => sameMemory(m.text, text))
-  if (same) return { item: same, existed: true }
-  if (existing.length >= MAX_MEMORIES) throw new MemoryError(`Memory is full (${MAX_MEMORIES} items). Delete some on the Memory page to make room.`)
-  const ref = getFirebaseDb().collection(COLLECTION).doc()
+  if (!(await isMemoryEnabled(userId))) throw new MemoryError(OFF)
+  const db = getFirebaseDb()
+  const ref = db.collection(COLLECTION).doc()
   const doc = { userId, text, source, createdAt: new Date().toISOString() }
-  await ref.set(doc)
-  return { item: fromDoc(ref.id, doc), existed: false }
+  return await db.runTransaction(async (tx) => {
+    const snap = await tx.get(db.collection(COLLECTION).where('userId', '==', userId))
+    const existing = snap.docs.map(d => fromDoc(d.id, d.data())).filter(m => m.text)
+    const same = existing.find(m => sameMemory(m.text, text))
+    if (same) return { item: same, existed: true }
+    if (existing.length >= MAX_MEMORIES) throw new MemoryError(`Memory is full (${MAX_MEMORIES} items). Delete some on the Memory page to make room.`)
+    tx.set(ref, doc)
+    return { item: fromDoc(ref.id, doc), existed: false }
+  })
 }
 
-export async function updateMemory(id: string, rawText: string): Promise<string> {
+/** Changes one note. The new text follows the same rules as a new note, including not repeating another one. */
+export async function updateMemory(userId: string, id: string, rawText: string): Promise<string> {
   const text = cleanMemoryText(rawText)
-  await getFirebaseDb().collection(COLLECTION).doc(id).update({ text })
+  if (!(await isMemoryEnabled(userId))) throw new MemoryError(OFF)
+  const db = getFirebaseDb()
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(db.collection(COLLECTION).where('userId', '==', userId))
+    const mine = snap.docs.find(d => d.id === id)
+    if (!mine) throw new MemoryError('Memory not found.')
+    if (snap.docs.some(d => d.id !== id && sameMemory(String(d.data().text || ''), text))) throw new MemoryError('You already have a note that says that.')
+    tx.update(db.collection(COLLECTION).doc(id), { text })
+  })
   return text
 }
 

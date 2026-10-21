@@ -132,8 +132,42 @@ export default defineHandler(async (event) => {
     updateChatTitle(id, initialTitle).catch(err => console.warn('Failed to update chat title in background:', err))
   }
 
+  const lastMessage = messages[messages.length - 1]
+  // Existing messages keep their original timestamps when the conversation is saved again.
+  const existingCreatedAt = new Map(chat.messages.map(m => [m.id, m.createdAt]))
+  if (lastMessage?.role === 'user' && messages.length > 1) {
+    const userCreatedAt = new Date()
+    existingCreatedAt.set(lastMessage.id, userCreatedAt)
+    // Save non-blocking so the stream begins immediately without delay
+    saveChatMessage(id as string, {
+      id: lastMessage.id,
+      role: 'user',
+      parts: lastMessage.parts,
+      createdAt: userCreatedAt
+    }).catch(err => console.warn('Non-blocking user message save error:', err))
+  }
+
+  // A chat started with a saved agent keeps talking to it. The link lives on the chat, not in the request,
+  // so it cannot be swapped from the browser. An agent that has since been deleted simply stops applying.
+  const savedAgent = signedIn && chat.agentId ? await getAgent(chat.agentId) : null
+  const agent = savedAgent && savedAgent.userId === userId ? savedAgent : null
+
+  // Retired models (e.g. old saved selections) are mapped to the default; a missing API key
+  // for the chosen provider produces a clear 400 from getLanguageModel.
+  const modelId = agent?.model ?? model
+  const languageModel = getLanguageModel(modelId)
+
+  // Every message draws from the person's credits. A limit that is reached answers with a plain 429 and
+  // a message the chat shows as it is; a call that fails before doing any work gives the credits back.
+  // Guests are counted by their address, not their cookie, so a new session does not bring a new allowance.
+  const charge = await chargeUsage(signedIn ? userId : `guest-${rateLimitSubject(event).replace(/[^A-Za-z0-9._-]/g, '_')}`, modelCost(modelId), { guest: !signedIn }).catch((err) => {
+    if (err instanceof UsageLimitError) throw createError({ statusCode: 429, statusMessage: err.message })
+    throw err
+  })
+
   // Generate a more refined title asynchronously in the background
-  if (userPromptText) {
+  // Only for signed-in people, and only after the credit check has passed: a refused or guest request never starts a model call for its title.
+  if (userPromptText && signedIn) {
     ;(async () => {
       try {
         let refinedTitle = ''
@@ -169,40 +203,10 @@ export default defineHandler(async (event) => {
     })()
   }
 
-  const lastMessage = messages[messages.length - 1]
-  // Existing messages keep their original timestamps when the conversation is saved again.
-  const existingCreatedAt = new Map(chat.messages.map(m => [m.id, m.createdAt]))
-  if (lastMessage?.role === 'user' && messages.length > 1) {
-    const userCreatedAt = new Date()
-    existingCreatedAt.set(lastMessage.id, userCreatedAt)
-    // Save non-blocking so the stream begins immediately without delay
-    saveChatMessage(id as string, {
-      id: lastMessage.id,
-      role: 'user',
-      parts: lastMessage.parts,
-      createdAt: userCreatedAt
-    }).catch(err => console.warn('Non-blocking user message save error:', err))
-  }
-
-  // A chat started with a saved agent keeps talking to it. The link lives on the chat, not in the request,
-  // so it cannot be swapped from the browser. An agent that has since been deleted simply stops applying.
-  const savedAgent = signedIn && chat.agentId ? await getAgent(chat.agentId) : null
-  const agent = savedAgent && savedAgent.userId === userId ? savedAgent : null
-
-  // Retired models (e.g. old saved selections) are mapped to the default; a missing API key
-  // for the chosen provider produces a clear 400 from getLanguageModel.
-  const modelId = agent?.model ?? model
-  const languageModel = getLanguageModel(modelId)
-
-  // Every message draws from the person's credits. A limit that is reached answers with a plain 429 and
-  // a message the chat shows as it is; a call that fails before doing any work gives the credits back.
-  const charge = await chargeUsage(userId, modelCost(modelId), { guest: !signedIn }).catch((err) => {
-    if (err instanceof UsageLimitError) throw createError({ statusCode: 429, statusMessage: err.message })
-    throw err
-  })
 
    
   let assistantFinishEvent: any = null
+  let produced = false
 
   // Workflow and app-integration tools act on a person's account, so they exist only for signed-in users.
   const activeSkills = agent ? filterSkills(skills, agent) : skills
@@ -326,9 +330,10 @@ ${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activ
           },
           stopWhen: isStepCount(setup.maxSteps),
           experimental_transform: smoothStream(),
+          onChunk: () => { produced = true },
           onFinish: async (event) => {
             assistantFinishEvent = event
-            if (signedIn) recordTokens(userId, event.totalUsage?.inputTokens ?? 0, event.totalUsage?.outputTokens ?? 0).catch(() => {})
+            if (signedIn) recordTokens(userId, event.totalUsage?.inputTokens ?? 0, event.totalUsage?.outputTokens ?? 0).catch(err => console.warn('[usage] token totals not recorded:', err?.message))
           }
         })
 
@@ -343,7 +348,11 @@ ${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activ
           stream: result.stream,
           sendSources: true,
           sendReasoning: true,
-          onError: describeModelError
+          onError: (err) => {
+            // A provider that fails before saying anything did no work, so the credits come back.
+            if (!produced) void charge.refund()
+            return describeModelError(err)
+          }
         }))
 
       } catch (err) {

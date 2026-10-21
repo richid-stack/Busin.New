@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { MemoryError, findMemoryMatches, hasForgetIntent, hasRememberIntent } from '../../services/memory/memory'
+import { MemoryError, findMemoryMatches, groundedInUserText, hasForgetIntent, hasRememberIntent } from '../../services/memory/memory'
 import { addMemory, deleteMemory, listMemories } from '../../services/memory/store'
 import { withToolLimits } from './limits'
 
@@ -15,6 +15,10 @@ export const createRememberTool = (userId: string, userText: string) => tool({
     async ({ text }) => {
       if (!hasRememberIntent(userText)) {
         return { status: 'failed' as const, error: 'The user did not ask to remember anything in their message, so nothing was saved. Do not try again unless they ask.' }
+      }
+      // The fact must be what the person's own message is about, so text from a page or file cannot slip in an unrelated one.
+      if (!groundedInUserText(userText, text)) {
+        return { status: 'failed' as const, error: 'That is not what the user asked you to remember, so nothing was saved. Save only what they said, in their words.' }
       }
       try {
         const { item, existed } = await addMemory(userId, text, 'assistant')
@@ -37,6 +41,9 @@ export const createForgetTool = (userId: string, userText: string) => tool({
     async ({ query }) => {
       if (!hasForgetIntent(userText)) {
         return { status: 'failed' as const, error: 'The user did not ask to forget anything in their message, so nothing was deleted.' }
+      }
+      if (!groundedInUserText(userText, query)) {
+        return { status: 'failed' as const, error: 'The user did not ask to forget that, so nothing was deleted.' }
       }
       const matches = findMemoryMatches(await listMemories(userId), query)
       if (!matches.length) return { status: 'failed' as const, error: 'No remembered fact matches that. Tell the user, and do not guess.' }

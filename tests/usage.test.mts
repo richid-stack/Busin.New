@@ -14,6 +14,10 @@ process.env.USAGE_FREE_DAILY = '7'
 assert(planLimits('free').daily === 7, 'limits can be set from the environment')
 process.env.USAGE_FREE_DAILY = 'nonsense'
 assert(planLimits('free').daily === 30, 'a bad environment value falls back to the default')
+process.env.USAGE_FREE_DAILY = ''
+assert(planLimits('free').daily === 30, 'a blank environment value means the default, not zero')
+process.env.USAGE_FREE_DAILY = '   '
+assert(planLimits('free').monthly === 400 && planLimits('free').daily === 30, 'a whitespace-only value means the default')
 delete process.env.USAGE_FREE_DAILY
 assert(modelCost('anthropic/claude-haiku-4.5') === 3 && modelCost('something/else') === 1 && modelCost(null) === 1, 'model costs, default 1')
 const t = new Date('2026-10-19T23:59:00Z')
@@ -103,3 +107,16 @@ console.warn = warn
 assert(open === 'allowed', 'a storage outage lets the request through')
 useFirebaseDbForTests(db as any)
 assert(!!(await limitError(() => chargeUsage('g1', 5, { guest: true }))), 'a limit still stops people once storage is back')
+
+// ---- A refund goes back to the day the charge was taken ----
+{
+  const charged = await chargeUsage('refund-user', 2)
+  const before = (await getUsage('refund-user')).usedToday
+  await charged.refund()
+  const after = (await getUsage('refund-user')).usedToday
+  assert(before === 2 && after === 0, 'a refund returns the credits that were charged')
+  const past = new Date('2026-01-31T23:59:59Z')
+  await consumeCredits('late-user', 'free', 4, past)
+  await refundCredits('late-user', 4, past)
+  assert((await getUsage('late-user', past)).usedToday === 0 && (await getUsage('late-user', new Date('2026-02-01T00:00:01Z'))).usedToday === 0, 'a refund for last month’s charge does not touch the new month')
+}

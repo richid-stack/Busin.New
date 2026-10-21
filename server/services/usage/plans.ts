@@ -12,6 +12,8 @@ export interface PlanLimits {
 }
 
 const num = (value: string | undefined, fallback: number) => {
+  // An unset or blank variable means "use the default", not zero (which would block everyone).
+  if (value === undefined || value.trim() === '') return fallback
   const n = Number(value)
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback
 }

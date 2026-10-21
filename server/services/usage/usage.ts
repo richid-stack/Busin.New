@@ -130,8 +130,10 @@ export async function chargeUsage(userId: string, cost: number, opts: { guest?: 
   if (cost <= 0 || isUnlimited(userId)) return noop
   try {
     const plan: PlanId = opts.guest ? 'guest' : (await getPlan(userId)).plan
-    await consumeCredits(userId, plan, cost)
-    return { refund: () => refundCredits(userId, cost).catch(err => console.warn('Usage refund failed:', err?.message)) }
+    // The refund goes back to the day and month it was taken from, even if midnight passes while the reply runs.
+    const chargedAt = new Date()
+    await consumeCredits(userId, plan, cost, chargedAt)
+    return { refund: () => refundCredits(userId, cost, chargedAt).catch(err => console.warn('Usage refund failed:', err?.message)) }
   } catch (err) {
     if (err instanceof UsageLimitError) throw err
     console.warn('Usage counting unavailable, allowing the request:', (err as Error)?.message)
