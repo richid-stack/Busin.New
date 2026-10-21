@@ -14,6 +14,7 @@ import ChatToolAgentProposal from '../tool/AgentProposal.vue'
 import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
 import ChatToolFile from '../tool/File.vue'
+import ChatToolInspection from '../tool/Inspection.vue'
 import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatMessageEdit from './MessageEdit.vue'
@@ -139,6 +140,10 @@ const emit = defineEmits<{
       />
       <ChatToolFile
         v-else-if="['create_document', 'create_spreadsheet', 'create_presentation'].includes(getToolName(part))"
+        :invocation="part"
+      />
+      <ChatToolInspection
+        v-else-if="getToolName(part) === 'inspect_design'"
         :invocation="part"
       />
       <ChatToolWorkflowCreate

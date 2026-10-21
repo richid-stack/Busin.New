@@ -5,6 +5,7 @@ import VariablePicker from './VariablePicker.vue'
 import VariableTextarea from './VariableTextarea.vue'
 import HttpFields from './fields/HttpFields.vue'
 import WebFetchFields from './fields/WebFetchFields.vue'
+import VisualCheckFields from './fields/VisualCheckFields.vue'
 import SetFields from './fields/SetFields.vue'
 import ErrorSettings from './fields/ErrorSettings.vue'
 import ScheduleFields from './fields/ScheduleFields.vue'
@@ -70,7 +71,7 @@ function patchConfig(patch: Record<string, any>) {
 }
 
 // What this action does: call a web address, read a page, or use a connected app.
-const actionKind = computed<'http' | 'web-fetch' | 'app'>(() => (data.value.subtype === 'api' ? 'http' : data.value.subtype === 'web-fetch' ? 'web-fetch' : 'app'))
+const actionKind = computed<'http' | 'web-fetch' | 'visual-check' | 'app'>(() => (data.value.subtype === 'api' ? 'http' : data.value.subtype === 'web-fetch' ? 'web-fetch' : data.value.subtype === 'visual-check' ? 'visual-check' : 'app'))
 
 // Loop: one small step repeated for every item in a list.
 const loopBody = computed<Record<string, any>>(() => config.value.body ?? { kind: 'web-fetch', config: {} })
@@ -453,6 +454,9 @@ function pretty(value: unknown) {
         </template>
         <template v-else-if="node.type === 'action' && actionKind === 'web-fetch'">
           <WebFetchFields :config="config" :variables="variables" @update="patchConfig" />
+        </template>
+        <template v-else-if="node.type === 'action' && actionKind === 'visual-check'">
+          <VisualCheckFields :config="config" :variables="variables" @update="patchConfig" />
         </template>
         <template v-else-if="node.type === 'action'">
           <UFormField label="App" size="sm">

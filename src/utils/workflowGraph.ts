@@ -73,7 +73,7 @@ export function createNode(def: NodeDefinition, position: { x: number, y: number
   }
   if (type === 'action') {
     // Library entries for a specific app (Slack, Drive) preselect it; others start empty.
-    data.provider = subtype && subtype !== 'api' && subtype !== 'web-fetch' ? subtype : ''
+    data.provider = subtype && subtype !== 'api' && subtype !== 'web-fetch' && subtype !== 'visual-check' ? subtype : ''
   }
   if (type === 'trigger' && subtype === 'schedule') data.schedule = defaultSchedule()
   // Each node gets its own copy of the library's starting settings.
@@ -107,6 +107,7 @@ export function knownOutputKeys(node: { type: string, data?: Record<string, any>
   const d = node.data ?? {}
   if (node.type === 'action' && d.subtype === 'api') return ['status', 'ok', 'body', 'headers', 'url']
   if (node.type === 'action' && d.subtype === 'web-fetch') return ['content', 'title', 'url', 'truncated']
+  if (node.type === 'action' && d.subtype === 'visual-check') return ['passed', 'verdict', 'score', 'summary', 'defects', 'defectCount', 'progressNote', 'screenshotFileId']
   if (node.type === 'logic' && d.subtype === 'loop') return ['results', 'outputs', 'count', 'succeeded', 'failed']
   if (node.type === 'logic' && d.subtype === 'set') {
     const keys = ((d.config?.fields ?? []) as Array<{ key?: string }>).map(f => f.key).filter((k): k is string => Boolean(k))
