@@ -77,6 +77,17 @@ People can add tools from their own MCP servers on **Integrations → MCP server
 - **Results are untrusted data.** Each result is labelled so, size-capped, rate-limited per person and cut off after a timeout. Images and other non-text content are not passed to the model.
 - **Agents.** The "Use your MCP servers" group switches an agent's approved MCP tools on. It is not on by default and does not include connected apps.
 
+## Memory
+
+**Memory** (sidebar) holds short notes OpenLobs keeps about a person so they do not have to repeat themselves. There are no extra model calls: nothing is learned in the background.
+
+- **Only what the person asks for.** Notes come from the Memory page, or from chat when the person says "remember that…" / "forget that…". The `remember` and `forget_memory` tools refuse unless the person's own latest message asks for it, so text on a web page, in a file or in a tool result cannot plant a memory.
+- **No secrets.** Passwords, keys, tokens and card numbers are refused, on the page and in chat.
+- **Small on purpose.** At most 30 notes of 240 characters, sent with each message, which keeps the cost predictable.
+- **In control.** Add, edit, delete or forget everything, or switch memory off (nothing is shared or saved while off; stored notes stay).
+- **Agents** only see memory when the "Remember things about you" group is on for them (off by default).
+- Stored in the `memories` and `memory_settings` collections, private to each person (the server enforces ownership; client access is denied by `firestore.rules`).
+
 ## Workflow templates
 
 The Workflows page has a gallery of ready-made workflows (digest of links, weekly competitor snapshot, website uptime check, morning inbox digest, new inquiry with approval, hot lead router, Friday status report). A template opens in a dialog that shows how it works, which apps it needs (and whether they are connected) and what to change before switching it on. Using it saves a **draft** copy with your chosen AI model and your time zone, so nothing runs and no schedule starts until you deploy it.

@@ -10,8 +10,10 @@ const props = defineProps<{
 const toolName = computed(() => getToolName(props.part) || 'tool')
 const streaming = computed(() => isToolStreaming(props.part))
 
+// Tools from an MCP server are named mcp_<server>_<tool>.
+const isMcp = computed(() => toolName.value.startsWith('mcp_'))
 const formattedName = computed(() => {
-  return toolName.value.replace(/_/g, ' ')
+  return (isMcp.value ? toolName.value.slice(4) : toolName.value).replace(/_/g, ' ')
 })
 
 const summary = computed(() => {
@@ -40,10 +42,10 @@ const formattedOutput = computed(() => {
 
 <template>
   <UChatTool
-    :text="streaming ? `Running ${formattedName}...` : `Completed ${formattedName}`"
+    :text="isMcp ? (streaming ? `Using ${formattedName}...` : props.part.output?.status === 'failed' ? `Could not use ${formattedName}` : `Used ${formattedName}`) : (streaming ? `Running ${formattedName}...` : `Completed ${formattedName}`)"
     :suffix="summary"
     :streaming="streaming"
-    icon="i-lucide-wrench"
+    :icon="isMcp ? 'i-lucide-plug' : 'i-lucide-wrench'"
     chevron="leading"
   >
     <div
