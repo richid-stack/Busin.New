@@ -1,0 +1,99 @@
+import { getFirebaseAuth, getFirebaseDb } from '../../utils/firebaseAdmin'
+import { renewalReminderEmail, sendEmail, workflowFailedEmail } from '../email/email'
+import type { EmailMessage } from '../email/email'
+
+const SETTINGS = 'user_settings'
+const LOG = 'notification_log'
+
+export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean }
+export const DEFAULT_NOTIFICATIONS: NotificationSettings = { emailRenewals: true, emailWorkflowFailures: true }
+
+export interface NotifyDeps {
+  db: any
+  now: () => Date
+  send: (msg: EmailMessage) => Promise<{ sent: boolean }>
+  /** Email and name of a person, if they have any. */
+  contact: (userId: string) => Promise<{ email?: string, name?: string } | null>
+  appUrl?: string
+}
+
+export const defaultNotifyDeps = (): NotifyDeps => ({
+  db: getFirebaseDb(),
+  now: () => new Date(),
+  send: msg => sendEmail(msg),
+  contact: async (userId) => {
+    const u = await getFirebaseAuth().getUser(userId).catch(() => null)
+    return u ? { email: u.email || undefined, name: u.displayName || undefined } : null
+  },
+  appUrl: process.env.APP_URL
+})
+
+export async function getNotificationSettings(db: any, userId: string): Promise<NotificationSettings> {
+  const doc = await db.collection(SETTINGS).doc(userId).get()
+  const d = doc.exists ? doc.data() : {}
+  return { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false }
+}
+
+export async function setNotificationSettings(db: any, userId: string, patch: Partial<NotificationSettings>): Promise<NotificationSettings> {
+  const next = { ...(await getNotificationSettings(db, userId)), ...patch }
+  await db.collection(SETTINGS).doc(userId).set({ userId, ...next, updatedAt: new Date().toISOString() })
+  return next
+}
+
+export const REMINDER_DAYS = 3
+
+export interface ReminderSummary { checked: number, sent: number, skipped: number }
+
+/**
+ * Emails people whose Pro plan ends within REMINDER_DAYS, once per plan end date. Run once a day.
+ * Reads only the plans that end soon: a range on one field, which needs no extra index.
+ */
+export async function processRenewalReminders(deps: NotifyDeps, limit = 200): Promise<ReminderSummary> {
+  const now = deps.now()
+  const horizon = new Date(now.getTime() + REMINDER_DAYS * 86_400_000).toISOString()
+  const snap = await deps.db.collection('user_plans').where('endsAt', '<=', horizon).get()
+  const summary: ReminderSummary = { checked: 0, sent: 0, skipped: 0 }
+
+  for (const doc of (snap.docs as any[]).slice(0, limit)) {
+    const plan = doc.data()
+    summary.checked++
+    const endsAt = typeof plan.endsAt === 'string' ? plan.endsAt : ''
+    if (plan.plan !== 'pro' || !endsAt || new Date(endsAt) <= now || plan.reminderFor === endsAt) { summary.skipped++; continue }
+    const settings = await getNotificationSettings(deps.db, doc.id)
+    const email = plan.email || (await deps.contact(doc.id))?.email
+    if (!settings.emailRenewals || !email) { summary.skipped++; continue }
+
+    const name = (await deps.contact(doc.id))?.name
+    const result = await deps.send({ ...renewalReminderEmail({ name, endsAt, appUrl: deps.appUrl }), to: email, idempotencyKey: `renewal-${doc.id}-${endsAt}` }).catch(() => ({ sent: false }))
+    if (result.sent) {
+      await doc.ref.update({ reminderFor: endsAt })
+      summary.sent++
+    } else {
+      summary.skipped++
+    }
+  }
+  return summary
+}
+
+export interface FailureInfo { userId: string, workflowId: string, workflowName: string, step?: string, error?: string }
+
+/** At most one failure email per workflow per day, and only if the person has not switched them off. */
+export async function notifyWorkflowFailure(deps: NotifyDeps, info: FailureInfo): Promise<boolean> {
+  const settings = await getNotificationSettings(deps.db, info.userId)
+  if (!settings.emailWorkflowFailures) return false
+
+  const key = `workflow-failed__${info.workflowId}__${deps.now().toISOString().slice(0, 10)}`
+  const logRef = deps.db.collection(LOG).doc(key)
+  if ((await logRef.get()).exists) return false
+
+  const who = await deps.contact(info.userId)
+  if (!who?.email) return false
+  const result = await deps.send({
+    ...workflowFailedEmail({ name: who.name, workflowName: info.workflowName, step: info.step, error: info.error, appUrl: deps.appUrl, workflowId: info.workflowId }),
+    to: who.email,
+    idempotencyKey: key
+  }).catch(() => ({ sent: false }))
+  if (!result.sent) return false
+  await logRef.set({ userId: info.userId, kind: 'workflow-failed', createdAt: deps.now().toISOString() })
+  return true
+}

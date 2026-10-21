@@ -5,6 +5,7 @@ import { useColorMode } from '@vueuse/core'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { useUserSession } from '../composables/useUserSession'
 import { useAccount } from '../composables/useAccount'
+import { useBilling } from '../composables/useBilling'
 
 const ModalDeleteAccount = defineAsyncComponent(() => import('../components/settings/ModalDeleteAccount.vue'))
 
@@ -15,12 +16,14 @@ const colorMode = useColorMode()
 const { openAuthModal, firebaseUser, signInMethod, sendPasswordReset, updateDisplayName, signOutUser } = useFirebaseAuth()
 const { user, loggedIn, clearSession } = useUserSession()
 const { usage, usageError, loadingUsage, fetchUsage, downloadExport } = useAccount()
+const { billing, notifications, fetchBilling, startCheckout, fetchNotifications, saveNotifications } = useBilling()
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
 // The signed-in state is the server session, which is what every API call here is checked against.
-onMounted(() => { if (loggedIn.value) fetchUsage() })
-watch(loggedIn, (v) => { if (v) fetchUsage() })
+const loadAll = () => { fetchUsage(); fetchBilling(); fetchNotifications() }
+onMounted(() => { if (loggedIn.value) loadAll() })
+watch(loggedIn, (v) => { if (v) loadAll() })
 
 // ---- Profile ----
 const name = ref('')
@@ -52,6 +55,31 @@ const resetsLabel = (iso: string, kind: 'day' | 'month') => {
   return kind === 'day' ? 'Resets at midnight (Ghana time)' : `Resets on ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`
 }
 const fmt = (n: number) => n.toLocaleString('en-GB')
+
+// ---- Buying Pro ----
+const buying = ref<string | null>(null)
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+const money = (amount: number, currency: string, minor = false) => `${currency} ${(minor ? amount / 100 : amount).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+
+async function buy(period: 'month' | 'year') {
+  if (buying.value) return
+  buying.value = period
+  try {
+    await startCheckout(period)
+  } catch (err: any) {
+    buying.value = null
+    toast.add({ title: 'Could not start the payment', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
+  }
+}
+
+// ---- Notifications ----
+async function setNotification(key: 'emailRenewals' | 'emailWorkflowFailures', value: boolean) {
+  try {
+    await saveNotifications({ [key]: value })
+  } catch (err: any) {
+    toast.add({ title: 'Could not change that', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
+  }
+}
 
 // ---- Security ----
 const resetting = ref(false)
@@ -171,7 +199,25 @@ const LINKS = [
                   <UBadge :label="usage.limits.label + ' plan'" :color="usage.plan === 'pro' ? 'primary' : 'neutral'" variant="subtle" />
                   <span v-if="usage.unlimited" class="text-xs text-muted">No limits on this account</span>
                 </div>
-                <p v-if="usage.plan !== 'pro'" class="text-xs text-muted">Pro plans are coming soon.</p>
+                <p v-if="usage.plan === 'pro' && usage.planEndsAt" class="text-xs text-muted">Pro until {{ day(usage.planEndsAt) }}</p>
+                <p v-else-if="usage.plan !== 'pro' && billing && !billing.enabled" class="text-xs text-muted">Pro plans are coming soon.</p>
+              </div>
+              <div v-if="billing?.enabled && !usage.unlimited" class="mb-5 rounded-xl border border-default bg-elevated/40 p-4">
+                <p class="text-sm font-medium text-highlighted">{{ usage.plan === 'pro' ? 'Add more Pro time' : 'Upgrade to Pro' }}</p>
+                <p class="text-xs text-muted mt-0.5 mb-3 leading-snug">Pay once by card or mobile money. Time you buy is added to what you have left, and nothing renews by itself.</p>
+                <div class="flex flex-wrap gap-2">
+                  <UButton
+                    v-for="o in billing.options"
+                    :key="o.period"
+                    :label="`${o.label} · ${money(o.price, billing.currency)}`"
+                    :loading="buying === o.period"
+                    :disabled="buying !== null"
+                    color="neutral"
+                    :variant="o.period === 'year' ? 'solid' : 'subtle'"
+                    size="sm"
+                    @click="buy(o.period)"
+                  />
+                </div>
               </div>
               <div v-if="!usage.unlimited" class="flex flex-col gap-5">
                 <div>
@@ -197,6 +243,20 @@ const LINKS = [
               </p>
             </template>
           </div>
+        </section>
+
+        <!-- Payments -->
+        <section v-if="billing?.payments?.length" aria-labelledby="s-payments">
+          <h2 id="s-payments" class="text-sm font-semibold text-highlighted mb-3">Payments</h2>
+          <ul class="rounded-2xl border border-default bg-default divide-y divide-default">
+            <li v-for="p in billing.payments" :key="p.reference" class="flex items-center justify-between gap-4 px-4 py-3">
+              <div class="min-w-0">
+                <p class="text-sm text-highlighted">{{ p.months }} month{{ p.months === 1 ? '' : 's' }} of Pro</p>
+                <p class="text-xs text-muted truncate">{{ day(p.paidAt) }} · <span class="font-mono">{{ p.reference }}</span></p>
+              </div>
+              <p class="text-sm tabular-nums text-highlighted shrink-0">{{ money(p.amount, p.currency, true) }}</p>
+            </li>
+          </ul>
         </section>
 
         <!-- Assistant -->
@@ -239,6 +299,32 @@ const LINKS = [
                 @click="colorMode = m.value"
               />
             </div>
+          </div>
+        </section>
+
+        <!-- Notifications -->
+        <section aria-labelledby="s-notifications">
+          <h2 id="s-notifications" class="text-sm font-semibold text-highlighted mb-3">Notifications</h2>
+          <div class="rounded-2xl border border-default bg-default divide-y divide-default">
+            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Pro plan ending</p>
+                <p class="text-xs text-muted leading-snug">An email a few days before your Pro time runs out.</p>
+              </div>
+              <USwitch :model-value="notifications?.emailRenewals !== false" :disabled="!notifications" aria-label="Email when Pro is ending" @update:model-value="setNotification('emailRenewals', Boolean($event))" />
+            </div>
+            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Scheduled workflow failed</p>
+                <p class="text-xs text-muted leading-snug">An email when a scheduled run fails, at most once a day for each workflow.</p>
+              </div>
+              <USwitch :model-value="notifications?.emailWorkflowFailures !== false" :disabled="!notifications" aria-label="Email when a scheduled workflow fails" @update:model-value="setNotification('emailWorkflowFailures', Boolean($event))" />
+            </div>
+            <p class="px-4 sm:px-5 py-3 text-xs text-dimmed leading-snug">
+              <template v-if="notifications && notifications.emailAvailable === false">Email sending is not switched on for this server yet, so these will start once it is.</template>
+              <template v-else-if="notifications?.email">Sent to {{ notifications.email }}. Payment receipts are always sent.</template>
+              <template v-else>Your account has no email address, so no emails can be sent.</template>
+            </p>
           </div>
         </section>
 

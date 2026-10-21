@@ -52,6 +52,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/billing/callback': RouteRecordInfo<
+      '/billing/callback',
+      '/billing/callback',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/chat/[id]': RouteRecordInfo<
       '/chat/[id]',
       '/chat/:id',
@@ -161,6 +168,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/agents/index.vue': {
       routes:
         | '/agents/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/billing/callback.vue': {
+      routes:
+        | '/billing/callback'
       views:
         | never
       pathParamNames:
