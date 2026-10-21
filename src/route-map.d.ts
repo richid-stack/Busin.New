@@ -73,6 +73,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/workflows/[id]': RouteRecordInfo<
+      '/workflows/[id]',
+      '/workflows/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
   }
 
   /**
@@ -133,6 +140,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | never
+    }
+    'src/pages/workflows/[id].vue': {
+      routes:
+        | '/workflows/[id]'
+      views:
+        | never
+      pathParamNames:
+        | 'id'
     }
   }
 

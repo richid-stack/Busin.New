@@ -18,12 +18,16 @@ const filteredCategories = computed(() => {
     ...category,
     nodes: category.nodes.filter(node => 
       node.title.toLowerCase().includes(query) || 
-      node.subtitle.toLowerCase().includes(query)
+      (node.subtitle ?? "").toLowerCase().includes(query)
     )
   })).filter(category => category.nodes.length > 0)
 })
 
 const onDragStart = (event: DragEvent, nodeType: any) => {
+  if (nodeType.comingSoon) {
+    event.preventDefault()
+    return
+  }
   if (event.dataTransfer) {
     event.dataTransfer.setData('application/vueflow', JSON.stringify(nodeType))
     event.dataTransfer.effectAllowed = 'move'
@@ -31,6 +35,7 @@ const onDragStart = (event: DragEvent, nodeType: any) => {
 }
 
 const handleNodeSelect = (node: any) => {
+  if (node.comingSoon) return
   emit('add-node', node)
 }
 </script>
@@ -73,13 +78,18 @@ const handleNodeSelect = (node: any) => {
           <div
             v-for="node in category.nodes"
             :key="node.subtype"
-            draggable="true"
+            :draggable="!node.comingSoon"
+            :aria-disabled="node.comingSoon || undefined"
+            :title="node.comingSoon ? `${node.title} is not available yet` : undefined"
             @dragstart="onDragStart($event, node)"
             @click="handleNodeSelect(node)"
-            class="group flex items-center justify-between p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800/60 active:scale-[0.98] cursor-pointer sm:cursor-grab sm:active:cursor-grabbing transition-all border border-transparent hover:border-default/50"
+            class="group flex items-center justify-between p-2 rounded-lg transition-all border border-transparent"
+            :class="node.comingSoon
+              ? 'opacity-60 cursor-not-allowed'
+              : 'hover:bg-accented/50 hover:border-default/50 active:scale-[0.98] cursor-pointer sm:cursor-grab sm:active:cursor-grabbing'"
           >
             <div class="flex items-center gap-2.5 min-w-0">
-              <div class="size-7 rounded-md bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
+              <div class="size-7 rounded-md bg-default border border-default flex items-center justify-center shrink-0">
                 <UIcon :name="node.icon" class="size-4 transition-colors" :class="[node.color || 'text-default']" />
               </div>
               <div class="min-w-0">
@@ -87,7 +97,19 @@ const handleNodeSelect = (node: any) => {
                 <div class="text-[10px] text-muted truncate">{{ node.subtitle }}</div>
               </div>
             </div>
-            <UIcon name="i-lucide-plus" class="size-3.5 text-muted opacity-40 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+            <UBadge
+              v-if="node.comingSoon"
+              label="Soon"
+              color="neutral"
+              variant="subtle"
+              size="sm"
+              class="shrink-0 ml-1"
+            />
+            <UIcon
+              v-else
+              name="i-lucide-plus"
+              class="size-3.5 text-muted opacity-40 group-hover:opacity-100 transition-opacity shrink-0 ml-1"
+            />
           </div>
         </div>
       </div>

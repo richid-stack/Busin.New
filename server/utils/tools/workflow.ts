@@ -108,7 +108,7 @@ This builds the topology, saves it to the database, and provides direct access t
         title: workflow.title,
         description: workflow.description,
         nodeCount: nodes.length,
-        studioUrl: `/workflows?id=${workflow.id}`,
+        studioUrl: `/workflows/${workflow.id}`,
         message: `Workflow "${title}" has been provisioned with ${nodes.length} nodes and routed to Workflow Studio.`
       }
     } catch (err: any) {
