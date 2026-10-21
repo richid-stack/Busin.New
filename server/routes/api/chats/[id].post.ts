@@ -2,12 +2,8 @@ import type { UIMessage } from 'ai'
 import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, generateText, isStepCount, smoothStream, streamText, toUIMessageStream } from 'ai'
 import { z } from 'zod'
 import type { AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
-import { anthropic, createAnthropic } from '@ai-sdk/anthropic'
 import type { GoogleLanguageModelOptions } from '@ai-sdk/google'
-import { google, createGoogleGenerativeAI } from '@ai-sdk/google'
-import { createGroq } from '@ai-sdk/groq'
 import type { OpenAILanguageModelResponsesOptions } from '@ai-sdk/openai'
-import { openai, createOpenAI } from '@ai-sdk/openai'
 import { useUserSession } from '../../../utils/session'
 import { getChat, updateChatTitle, saveChatMessage, saveChatMessages } from '../../../utils/firebase'
 import { defineHandler } from 'nitro'
@@ -19,65 +15,18 @@ import { calculatorTool } from '../../../utils/tools/calculator'
 import { webSearchTool } from '../../../utils/tools/webSearch'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
+import { DEFAULT_MODEL, getLanguageModel, pickAvailableModel } from '../../../utils/models'
 
-function getGoogleModel(modelId: string) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
-  if (!apiKey) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'GEMINI_API_KEY is not configured.'
-    })
-  }
-  const google = createGoogleGenerativeAI({ apiKey })
-  return google(modelId)
-}
+const RATE_LIMIT_PATTERN = /quota|RESOURCE_EXHAUSTED|429|rate[ -]?limit|\bI?O?TPM\b/i
 
-function getGroqModel(modelId: string) {
-  const apiKey = process.env.GROQ_API_KEY
-  if (!apiKey) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'GROQ_API_KEY is not configured. Please add GROQ_API_KEY in the environment settings.'
-    })
+// Turns provider errors into a short, honest message; details stay in the server log.
+function describeModelError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error('[chat] model error:', message)
+  if (RATE_LIMIT_PATTERN.test(message)) {
+    return 'This model has reached its rate limit. Wait a moment and try again, or pick another model from the dropdown.'
   }
-  const groq = createGroq({ apiKey })
-  if (modelId === 'compound-mini' || modelId === 'groq/compound-mini') {
-    return groq('groq/compound-mini')
-  }
-  if (modelId.includes('gpt-oss-120b')) {
-    return groq('openai/gpt-oss-120b')
-  }
-  if (modelId.includes('gpt-oss-20b')) {
-    return groq('openai/gpt-oss-20b')
-  }
-  if (modelId.startsWith('qwen')) {
-    return groq(`qwen/${modelId.replace('qwen/', '')}`)
-  }
-  return groq(modelId)
-}
-
-function getOpenAIModel(modelId: string) {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'OPENAI_API_KEY is not configured. Please add OPENAI_API_KEY in the environment settings.'
-    })
-  }
-  const openaiClient = createOpenAI({ apiKey })
-  return openaiClient(modelId)
-}
-
-function getAnthropicModel(modelId: string) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'ANTHROPIC_API_KEY is not configured. Please add ANTHROPIC_API_KEY in the environment settings.'
-    })
-  }
-  const anthropicClient = createAnthropic({ apiKey })
-  return anthropicClient(modelId)
+  return 'Something went wrong while generating the response. Please try again.'
 }
 
 export default defineHandler(async (event) => {
@@ -137,13 +86,12 @@ export default defineHandler(async (event) => {
     ;(async () => {
       try {
         let refinedTitle = ''
-        const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
-        if (geminiKey) {
+        const titleModelId = pickAvailableModel(DEFAULT_MODEL)
+        if (titleModelId) {
           try {
-            const google = createGoogleGenerativeAI({ apiKey: geminiKey })
             const { text } = await generateText({
               abortSignal: AbortSignal.timeout(5000),
-              model: google('gemini-3.5-flash'),
+              model: getLanguageModel(titleModelId),
               maxRetries: 0,
               instructions: 'Generate a short 2-4 word concise title for this prompt. Return ONLY plain text with NO quotes, NO punctuation, NO markdown.',
               prompt: userPromptText.slice(0, 150)
@@ -152,25 +100,7 @@ export default defineHandler(async (event) => {
               refinedTitle = text.trim()
             }
           } catch {
-            // ignore
-          }
-        }
-
-        if (!refinedTitle && process.env.GROQ_API_KEY) {
-          try {
-            const groq = createGroq({ apiKey: process.env.GROQ_API_KEY })
-            const { text } = await generateText({
-              abortSignal: AbortSignal.timeout(5000),
-              model: groq('groq/compound-mini'),
-              maxRetries: 0,
-              instructions: 'Generate a short 2-4 word concise title for this prompt. Return ONLY plain text with NO quotes, NO punctuation, NO markdown.',
-              prompt: userPromptText.slice(0, 150)
-            })
-            if (text && text.trim()) {
-              refinedTitle = text.trim()
-            }
-          } catch {
-            // ignore
+            // ignore: the provisional title stays
           }
         }
 
@@ -202,49 +132,19 @@ export default defineHandler(async (event) => {
     }).catch(err => console.warn('Non-blocking user message save error:', err))
   }
 
-  const abortController = new AbortController()
-  event.node?.req?.on('close', () => {
-    if (!event.node?.res?.writableEnded) {
-      abortController.abort()
-    }
-  })
-
-  // Select the appropriate model target, defaulting deprecated models to Gemini 3.5 Flash
-  let activeModel = model
-  if (
-    activeModel === 'google/gemini-2.5-flash' ||
-    activeModel === 'groq/llama-3.3-70b-versatile' ||
-    activeModel.includes('llama')
-  ) {
-    activeModel = 'google/gemini-3.5-flash'
-  }
+  // Retired models (e.g. old saved selections) are mapped to the default; a missing API key
+  // for the chosen provider produces a clear 400 from getLanguageModel.
+  const languageModel = getLanguageModel(model)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let languageModel: any = activeModel
-  if (activeModel.startsWith('google/')) {
-    const modelId = activeModel.replace('google/', '')
-    languageModel = getGoogleModel(modelId)
-  } else if (activeModel.startsWith('groq/')) {
-    const modelId = activeModel.replace('groq/', '')
-    languageModel = getGroqModel(modelId)
-  } else if (activeModel.startsWith('openai/')) {
-    const modelId = activeModel.replace('openai/', '')
-    languageModel = getOpenAIModel(modelId)
-  } else if (activeModel.startsWith('anthropic/')) {
-    const modelId = activeModel.replace('anthropic/', '')
-    languageModel = getAnthropicModel(modelId)
-  }
+  let assistantFinishEvent: any = null
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let assistantFinishEvent: any = null
-
         const result = streamText({
-          abortSignal: abortController.signal,
+          abortSignal: event.req.signal,
           model: languageModel,
-          maxSteps: 10,
           maxRetries: 0,
           instructions: `You are a knowledgeable and helpful AI assistant. ${session.data.user?.username ? `The user's name is ${session.data.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
 
@@ -329,55 +229,16 @@ export default defineHandler(async (event) => {
           stream: result.stream,
           sendSources: true,
           sendReasoning: true,
-          onError: (error) => {
-            const errStr = error instanceof Error ? error.message : String(error)
-            if (
-              errStr.includes('quota') ||
-              errStr.includes('RESOURCE_EXHAUSTED') ||
-              errStr.includes('429') ||
-              errStr.includes('rate limit') ||
-              errStr.includes('rate-limit') ||
-              errStr.includes('Rate limit') ||
-              errStr.includes('TPM') ||
-              errStr.includes('ITPM') ||
-              errStr.includes('OTPM')
-            ) {
-              return 'Model rate limit reached for this provider. Switched to Gemini 3.5 Flash for high throughput, or select another model from the dropdown.'
-            }
-            return errStr || 'An error occurred while generating the response.'
-          }
+          onError: describeModelError
         }))
 
-        // Keep reference in event for onEnd
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(event as any)._assistantFinish = () => assistantFinishEvent
       } catch (err) {
-        console.error('Error during streamText execution:', err)
-        const errStr = err instanceof Error ? err.message : String(err)
-        if (
-          errStr.includes('quota') ||
-          errStr.includes('RESOURCE_EXHAUSTED') ||
-          errStr.includes('429') ||
-          errStr.includes('rate limit') ||
-          errStr.includes('rate-limit') ||
-          errStr.includes('Rate limit') ||
-          errStr.includes('TPM') ||
-          errStr.includes('ITPM') ||
-          errStr.includes('OTPM')
-        ) {
-          writer.write({
-            type: 'text-delta',
-            textDelta: 'The selected model has temporarily reached its rate limit. Switched to Gemini 3.5 Flash for uninterrupted high capacity. Please continue your request!'
-          })
-          return
-        }
-        throw err
+        writer.write({ type: 'error', errorText: describeModelError(err) })
       }
     },
     onEnd: async ({ messages: finalMessages }) => {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const finishEvent = (event as any)._assistantFinish ? (event as any)._assistantFinish() : null
+        const finishEvent = assistantFinishEvent
         const formattedMessages = finalMessages.map(m => {
           let parts = m.parts || []
           if (m.role === 'assistant' && (!parts || parts.length === 0) && finishEvent?.text) {
