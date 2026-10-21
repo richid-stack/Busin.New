@@ -13,6 +13,8 @@ DB=ai-studio-chatvue-56a0dec3-90ee-47ed-8252-32967e796bf7
 gcloud config set project $PROJECT
 ```
 
+**One project for everything.** `PROJECT` must be the same Google Cloud project that Firebase Authentication and Firestore live in: the image carries `firebase-applet-config.json`, and the server uses its `projectId` and `firestoreDatabaseId`. If you deploy to a different project, update that file first (it holds public values only), or the app will talk to the wrong Firestore and reject real sign-ins.
+
 ## 1. Switch on the services
 
 ```bash
@@ -141,11 +143,11 @@ Both cost a little for storage; raise the retention only when you need it. To re
 - **Errors:** unexpected server errors are written to the logs in the format Cloud Error Reporting groups. Open *Error Reporting* in the console and switch on email notifications for new errors. Browser errors arrive as warnings in Cloud Logging (filter `jsonPayload.source="browser"`).
 - **Uptime:** create an uptime check on `https://YOUR-SERVICE-URL/api/health` (Monitoring → Uptime checks) with an email alert.
 - **Spend:** set a budget alert (Billing → Budgets) at an amount you are comfortable with.
-- Logs hold only error text and the page path. Request bodies, headers and people's content are never logged.
+- Logs hold only error text and the page path. Request bodies, headers, browser details and people's content are never logged.
 
 ## 9. Before you tell people about it
 
 - Set the contact email (step 4) and have a Ghanaian lawyer read `src/pages/terms.vue` and `src/pages/privacy.vue`. They are written in plain English from what the app does, but they are not legal advice.
 - Register with Ghana's Data Protection Commission if the law requires it for your business.
-- Deploy the Firestore rules: `firebase deploy --only firestore:rules`.
+- Deploy the Firestore rules (the repository's `firebase.json` points at `firestore.rules`): `firebase deploy --only firestore:rules --project $PROJECT`. The rules file applies to the default database; if you use a named database (see `DB` above), deploy with `firebase deploy --only firestore:rules` after adding that database to `firebase.json`, or paste the rules in the console.
 - In the Composio dashboard, set your own branding and OAuth apps so people see "OpenLobs", not a third party, when connecting.

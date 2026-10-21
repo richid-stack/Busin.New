@@ -31,6 +31,8 @@ export default defineHandler(async (event) => {
     } catch (err) {
       // A payment that is not ours (another product on the same Paystack account) is acknowledged and ignored.
       if (err instanceof BillingError && err.status === 404) return { ok: true, ignored: true }
+      // Retrying cannot fix a payment that does not match what was asked for: it is recorded, and Paystack is told it was received.
+      if (err instanceof BillingError && err.status === 409) return { ok: true, mismatch: true }
       throw err
     }
   }

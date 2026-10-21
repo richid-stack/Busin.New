@@ -258,7 +258,7 @@ async function handleSubmit() {
         </div>
 
         <p class="text-center text-[11px] text-dimmed leading-relaxed">
-          By continuing you agree to our
+          By continuing you confirm you are 18 or older and agree to our
           <a href="/terms" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-muted">Terms</a>
           and
           <a href="/privacy" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-muted">Privacy policy</a>.

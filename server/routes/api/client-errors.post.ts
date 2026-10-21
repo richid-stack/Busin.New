@@ -1,7 +1,7 @@
 import { defineHandler, HTTPError } from 'nitro'
-import { getHeader, getRequestIP, readValidatedBody } from 'nitro/h3'
+import { readValidatedBody } from 'nitro/h3'
 import { z } from 'zod'
-import { enforceRateLimit } from '../../utils/rateLimit'
+import { enforceRateLimit, rateLimitSubject } from '../../utils/rateLimit'
 import { formatBrowserError, writeEntry } from '../../services/monitoring/report'
 
 /**
@@ -9,7 +9,7 @@ import { formatBrowserError, writeEntry } from '../../services/monitoring/report
  * (a broken sign-in page is worth knowing about), so it is small, rate limited and logs a warning only.
  */
 export default defineHandler(async (event) => {
-  enforceRateLimit(event, 'client-errors', getRequestIP(event, { xForwardedFor: true }) || 'unknown', 20, 10 * 60_000)
+  enforceRateLimit(event, 'client-errors', rateLimitSubject(event), 20, 10 * 60_000)
 
   const body = await readValidatedBody(event, z.object({
     message: z.string().max(2000),
@@ -20,6 +20,6 @@ export default defineHandler(async (event) => {
     throw new HTTPError({ statusCode: 400, statusMessage: 'Invalid report' })
   })
 
-  writeEntry(formatBrowserError(body, getHeader(event, 'user-agent')))
+  writeEntry(formatBrowserError(body))
   return { ok: true }
 })

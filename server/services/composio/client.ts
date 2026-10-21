@@ -355,7 +355,7 @@ export async function getComposioUserConnections(userId: string): Promise<Compos
   try {
     return await listComposioUserConnections(userId)
   } catch (err) {
-    console.warn(`[ComposioService] Failed to list connections for user ${userId}:`, err)
+    console.warn(`[ComposioService] Failed to list connections:`, (err as Error)?.message)
     return []
   }
 }

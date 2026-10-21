@@ -30,6 +30,17 @@ function getSessionPassword() {
 
 type SessionUser = NonNullable<UserSession['user']>
 
+const VERIFIED = new Map<string, { decoded: any, until: number }>()
+async function verifyCached(token: string) {
+  const now = Date.now()
+  const hit = VERIFIED.get(token)
+  if (hit && hit.until > now && hit.decoded.exp * 1000 > now) return hit.decoded
+  const decoded = await getFirebaseAuth().verifyIdToken(token, true)
+  if (VERIFIED.size > 500) VERIFIED.clear()
+  VERIFIED.set(token, { decoded, until: now + 60_000 })
+  return decoded
+}
+
 /**
  * Verifies the Firebase ID token sent as `Authorization: Bearer <token>`.
  * Returns null when no token is sent, throws 401 when the token is invalid.
@@ -42,7 +53,9 @@ export async function getVerifiedUser(event: H3Event): Promise<SessionUser | nul
   if (!match?.[1]) return null
 
   try {
-    const decoded = await getFirebaseAuth().verifyIdToken(match[1])
+    // The second argument also rejects tokens that were revoked (an account being deleted signs everyone out).
+    // A passed check is remembered for a minute, so this is not an extra lookup on every request.
+    const decoded = await verifyCached(match[1])
     const email = decoded.email || undefined
     return {
       id: decoded.uid,
@@ -100,7 +113,7 @@ export async function requireRecentSignIn(event: H3Event, maxAgeSeconds = 600): 
   const token = getHeader(event, 'authorization')?.match(/^Bearer\s+(.+)$/i)?.[1]
   let authTime = 0
   try {
-    authTime = Number((await getFirebaseAuth().verifyIdToken(token!)).auth_time) || 0
+    authTime = Number((await getFirebaseAuth().verifyIdToken(token!, true)).auth_time) || 0
   } catch {
     authTime = 0
   }

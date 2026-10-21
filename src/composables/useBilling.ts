@@ -7,6 +7,8 @@ import { useCsrf } from './useCsrf'
 export function useBilling() {
   const billing = ref<BillingInfo | null>(null)
   const notifications = ref<NotificationSettings | null>(null)
+  /** True when the plans could not be loaded, so the page can offer a retry instead of pretending nothing is for sale. */
+  const billingFailed = ref(false)
   const { csrf, headerName } = useCsrf()
 
   const headers = () => {
@@ -19,9 +21,9 @@ export function useBilling() {
   async function fetchBilling() {
     try {
       billing.value = await $fetch<BillingInfo>('/api/billing', { headers: headers() })
+      billingFailed.value = false
     } catch {
-      // Without it the card simply shows no buying options.
-      billing.value = { enabled: false, currency: 'GHS', options: [], payments: [] }
+      billingFailed.value = true
     }
   }
 
@@ -47,5 +49,5 @@ export function useBilling() {
     notifications.value = { ...notifications.value, ...next }
   }
 
-  return { billing, notifications, fetchBilling, startCheckout, verifyPayment, fetchNotifications, saveNotifications }
+  return { billing, billingFailed, notifications, fetchBilling, startCheckout, verifyPayment, fetchNotifications, saveNotifications }
 }

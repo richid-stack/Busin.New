@@ -157,7 +157,7 @@ await remDb.collection('user_plans').doc('free1').set({ userId: 'free1', plan: '
 const day1 = new Date('2026-10-20T08:00:00Z')
 const rs = await processRenewalReminders(nr(day1))
 assert(mails.length === 1 && mails[0].to === 'soon@x.com' && /ends soon/.test(mails[0].subject), 'only the plan ending within 3 days gets a reminder')
-assert(rs.sent === 1 && rs.checked === 4, 'plans far away are not even read')
+assert(rs.sent === 1 && rs.checked === 3, 'plans far away or already ended are not even read')
 await processRenewalReminders(nr(new Date('2026-10-20T20:00:00Z')))
 assert(mails.length === 1, 'the same plan end date is reminded only once')
 await remDb.collection('user_plans').doc('soon').update({ endsAt: '2026-11-22T00:00:00.000Z' })

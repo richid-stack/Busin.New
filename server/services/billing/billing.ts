@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
 import { receiptEmail, sendEmail } from '../email/email'
 import type { EmailMessage } from '../email/email'
+import { isDeleting, DELETIONS } from '../account/tombstone'
 import { paystackInitialize, paystackVerify, PaystackError } from './paystack'
 import type { PaystackDeps } from './paystack'
 
@@ -73,6 +74,11 @@ export async function startCheckout(deps: BillingDeps, input: { userId: string, 
   if (!option) throw new BillingError('That plan is not available.', 400)
   if (!input.email) throw new BillingError('Your account has no email address, which payments need. Sign in with an account that has one.', 400)
 
+  const planSnap = await deps.db.collection(PLANS).doc(input.userId).get()
+  const existing = planSnap.exists ? planSnap.data() : null
+  if (existing?.plan === 'pro' && !existing.endsAt) throw new BillingError('Your Pro plan has no end date, so there is nothing to buy.', 409)
+  if (await isDeleting(input.userId, deps.db)) throw new BillingError('This account is being deleted.', 409)
+
   const reference = `ol_${randomUUID().replace(/-/g, '')}`
   const currency = billingCurrency(deps.env)
   const amount = Math.round(option.price * 100)
@@ -103,6 +109,8 @@ export type ApplyResult =
   | { status: 'already', endsAt: string }
   | { status: 'pending' }
   | { status: 'failed' }
+  /** Paid, but there is no account (or no change to make) to give it to. Recorded for a manual refund. */
+  | { status: 'refund_needed' }
 
 /**
  * Turns a payment into Pro time. Safe to call any number of times and from both the person's return
@@ -116,6 +124,9 @@ export async function applyPayment(deps: BillingDeps, reference: string, opts: {
   // The same answer for "no such payment" and "someone else's", so references cannot be probed.
   if (!payment || (opts.requireUserId && payment.userId !== opts.requireUserId)) throw new BillingError('Unknown payment.', 404)
   if (payment.status === 'paid') return { status: 'already', endsAt: String(payment.endsAt) }
+  if (payment.status === 'refund_needed') return { status: 'refund_needed' }
+  // The account was erased after this payment was started: the record has no owner any more.
+  if (!payment.userId) return await flagForRefund(deps, ref, payment, 'account erased')
 
   let verified
   try {
@@ -133,13 +144,21 @@ export async function applyPayment(deps: BillingDeps, reference: string, opts: {
   }
 
   const now = deps.now()
+  if (await isDeleting(payment.userId, deps.db)) return await flagForRefund(deps, ref, payment, 'account being deleted')
   const planRef = deps.db.collection(PLANS).doc(payment.userId)
+  const deletionRef = deps.db.collection(DELETIONS).doc(payment.userId)
   const state: { outcome: ApplyResult } = { outcome: { status: 'pending' } }
   await deps.db.runTransaction(async (tx: any) => {
-    const [paySnap, planSnap] = await Promise.all([tx.get(ref), tx.get(planRef)])
+    const [paySnap, planSnap, deletionSnap] = await Promise.all([tx.get(ref), tx.get(planRef), tx.get(deletionRef)])
     const fresh = paySnap.data()
     if (fresh?.status === 'paid') { state.outcome = { status: 'already', endsAt: String(fresh.endsAt) }; return }
     const plan = planSnap.exists ? planSnap.data() : {}
+    // Nothing is written for an account that is going away, and a permanent Pro plan is never turned into a timed one.
+    if (deletionSnap.exists || (plan.plan === 'pro' && !plan.endsAt)) {
+      tx.set(ref, { ...fresh, status: 'refund_needed', paidAt: now.toISOString(), channel: verified.channel, reason: deletionSnap.exists ? 'account being deleted' : 'plan has no end date' })
+      state.outcome = { status: 'refund_needed' }
+      return
+    }
     const current = plan.plan === 'pro' && plan.endsAt && new Date(plan.endsAt) > now ? new Date(plan.endsAt) : now
     const endsAt = addMonths(current, Number(payment.months)).toISOString()
     tx.set(ref, { ...fresh, status: 'paid', paidAt: now.toISOString(), channel: verified.channel, endsAt })
@@ -148,12 +167,40 @@ export async function applyPayment(deps: BillingDeps, reference: string, opts: {
   })
   const outcome = state.outcome
 
-  if (outcome.status === 'applied') {
-    const mail = receiptEmail({ name: payment.name, months: payment.months, amountMinor: payment.amount, currency: payment.currency, reference, endsAt: outcome.endsAt, appUrl: deps.env.APP_URL })
-    // A receipt is a courtesy: the plan is already active whether or not the email goes.
-    await deps.send({ ...mail, to: payment.email, idempotencyKey: `receipt-${reference}` }).catch(() => {})
-  }
+  if (outcome.status === 'applied') await sendReceipt(deps, ref, { ...payment, reference, endsAt: outcome.endsAt })
+  else if (outcome.status === 'refund_needed') console.warn(`[billing] Payment ${reference} was paid but could not be applied. It needs a manual refund.`)
   return outcome
+}
+
+async function flagForRefund(deps: BillingDeps, ref: any, payment: any, reason: string): Promise<ApplyResult> {
+  await ref.update({ status: 'refund_needed', reason, checkedAt: deps.now().toISOString() }).catch(() => {})
+  console.warn(`[billing] Payment ${payment.reference} could not be applied (${reason}). It needs a manual refund.`)
+  return { status: 'refund_needed' }
+}
+
+/** Sends the receipt and records that it went, so an unsent one can be found and retried. The plan never depends on it. */
+async function sendReceipt(deps: BillingDeps, ref: any, payment: any): Promise<boolean> {
+  if (!payment.email) return false
+  const mail = receiptEmail({ name: payment.name, months: payment.months, amountMinor: payment.amount, currency: payment.currency, reference: payment.reference, endsAt: payment.endsAt, appUrl: deps.env.APP_URL })
+  const result = await deps.send({ ...mail, to: payment.email, idempotencyKey: `receipt-${payment.reference}` }).catch(() => ({ sent: false }))
+  if (!result.sent) return false
+  await ref.update({ receiptSentAt: deps.now().toISOString() }).catch(() => {})
+  return true
+}
+
+/** Run daily: paid payments whose receipt never went out are sent again (the idempotency key stops duplicates). */
+export async function retryUnsentReceipts(deps: BillingDeps, limit = 50): Promise<{ checked: number, sent: number }> {
+  const snap = await deps.db.collection(PAYMENTS).where('status', '==', 'paid').get()
+  let checked = 0
+  let sent = 0
+  for (const doc of snap.docs as any[]) {
+    const p = doc.data()
+    if (p.receiptSentAt || !p.userId || !p.email) continue
+    if (checked >= limit) break
+    checked++
+    if (await sendReceipt(deps, doc.ref, p)) sent++
+  }
+  return { checked, sent }
 }
 
 export interface PaymentSummary { reference: string, amount: number, currency: string, months: number, paidAt: string }

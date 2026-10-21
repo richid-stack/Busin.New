@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { isDeleting } from '../services/account/tombstone'
 import { Timestamp } from 'firebase-admin/firestore'
 import { getFirebaseDb } from './firebaseAdmin'
 
@@ -556,6 +557,9 @@ export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWor
     id: runId,
     createdAt: now
   }
+
+  // A run that finishes after its owner asked for deletion must not write anything back.
+  if (await isDeleting(run.userId)) return runDoc
 
   await getFirebaseDb().collection('workflows').doc(workflowId).collection('runs').doc(runId).set(sanitizeForFirestore({
     id: runDoc.id,
