@@ -2,17 +2,19 @@
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { useMemory } from '../composables/useMemory'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
+import { useUserSession } from '../composables/useUserSession'
 import type { MemoryItem } from '../types/memory'
 
 const ModalConfirm = defineAsyncComponent(() => import('../components/ModalConfirm.vue'))
 
 const toast = useToast()
 const overlay = useOverlay()
-const { openAuthModal, isAuthenticated } = useFirebaseAuth()
+const { openAuthModal } = useFirebaseAuth()
+const { loggedIn } = useUserSession()
 const { items, enabled, limits, loading, loaded, unauthorized, loadError, fetchMemory, addItem, editItem, removeItem, clearAll, setEnabled } = useMemory()
 
 onMounted(fetchMemory)
-watch(isAuthenticated, fetchMemory)
+watch(loggedIn, fetchMemory)
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
@@ -167,12 +169,12 @@ const PILLARS = [
             class="flex-1"
             size="lg"
             :maxlength="limits.maxChars"
-            :disabled="atLimit"
-            :placeholder="atLimit ? 'Memory is full. Delete something to add more.' : 'Add a note about you'"
+            :disabled="atLimit || !enabled"
+            :placeholder="!enabled ? 'Memory is off. Switch it on to add notes.' : atLimit ? 'Memory is full. Delete something to add more.' : 'Add a note about you'"
             aria-label="New memory"
             autocomplete="off"
           />
-          <UButton type="submit" label="Add" icon="i-lucide-plus" color="neutral" size="lg" :loading="adding" :disabled="!draft.trim() || atLimit" />
+          <UButton type="submit" label="Add" icon="i-lucide-plus" color="neutral" size="lg" :loading="adding" :disabled="!draft.trim() || atLimit || !enabled" />
         </form>
         <p v-if="addError" class="text-xs text-error mb-2" role="alert">{{ addError }}</p>
         <p v-else class="text-xs text-dimmed mb-6">Please do not save passwords, keys or card numbers here.</p>
@@ -201,7 +203,7 @@ const PILLARS = [
                 <p class="text-[11px] text-dimmed mt-1">{{ item.source === 'assistant' ? 'Saved from a chat' : 'Added by you' }}</p>
               </div>
               <div class="flex shrink-0 gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity">
-                <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" :aria-label="`Edit: ${item.text}`" @click="startEdit(item)" />
+                <UButton v-if="enabled" icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" :aria-label="`Edit: ${item.text}`" @click="startEdit(item)" />
                 <UButton icon="i-lucide-trash" size="xs" color="error" variant="ghost" :aria-label="`Delete: ${item.text}`" @click="remove(item)" />
               </div>
             </div>

@@ -14,7 +14,7 @@ export default defineHandler(async (event) => {
   const existing = await getMemory(id)
   if (!existing || existing.userId !== user.id) throw new HTTPError({ statusCode: 404, statusMessage: 'Memory not found' })
   try {
-    return { id: existing.id, source: existing.source, createdAt: existing.createdAt, text: await updateMemory(id, text) }
+    return { id: existing.id, source: existing.source, createdAt: existing.createdAt, text: await updateMemory(user.id, id, text) }
   } catch (err) {
     if (err instanceof MemoryError) throw new HTTPError({ statusCode: 400, statusMessage: err.message })
     throw err

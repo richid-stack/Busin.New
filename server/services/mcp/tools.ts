@@ -13,6 +13,9 @@ export const MCP_LIMITS = {
 
 export class McpError extends Error {}
 
+/** A limit or a clash that depends on what else the person has, reported as a conflict (409). */
+export class McpConflict extends McpError {}
+
 export interface McpToolDef {
   name: string
   description: string
@@ -108,15 +111,18 @@ export function modelToolName(slug: string, tool: string, taken: Set<string>): s
 }
 
 /** Checks a request to approve tools against what the server offers right now and the caps. */
-export function planApproval(offered: McpToolDef[], wanted: string[], otherServersApproved: number): Record<string, ApprovedTool> {
+export function planApproval(offered: McpToolDef[], wanted: Array<{ name: string, fingerprint: string }>, otherServersApproved: number): Record<string, ApprovedTool> {
   const byName = new Map(offered.map(t => [t.name, t]))
-  const names = [...new Set(wanted)]
+  // What is stored is what the person was shown: each tool comes with the fingerprint of the version they reviewed.
+  const seen = new Map(wanted.map(w => [w.name, w.fingerprint]))
+  const names = [...seen.keys()]
   if (names.length > MCP_LIMITS.maxApprovedPerServer) throw new McpError(`Approve at most ${MCP_LIMITS.maxApprovedPerServer} tools per server.`)
   if (names.length + otherServersApproved > MCP_LIMITS.maxApprovedPerUser) throw new McpError(`You can have ${MCP_LIMITS.maxApprovedPerUser} approved MCP tools in total. Remove some from another server first.`)
   const out: Record<string, ApprovedTool> = {}
   for (const name of names) {
     const def = byName.get(name)
     if (!def) throw new McpError(`The server does not offer a tool called "${name}" right now.`)
+    if (fingerprintTool(def) !== seen.get(name)) throw new McpError(`"${name}" changed since you opened the review. Open it again and read the new version before approving.`)
     out[name] = { fingerprint: fingerprintTool(def), description: def.description, inputSchema: def.inputSchema }
   }
   return out

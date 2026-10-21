@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { assertNotDeleting, isDeleting, AccountDeletingError } from '../services/account/tombstone'
 import { Timestamp } from 'firebase-admin/firestore'
 import { getFirebaseDb } from './firebaseAdmin'
 
@@ -153,6 +154,7 @@ export async function createChat(data: {
   initialMessage?: string
   attachments?: Array<{ name?: string; contentType?: string; url: string }>
 }): Promise<FirestoreChat> {
+  await assertNotDeleting(data.userId)
   const db = getFirebaseDb()
   const chatId = data.id || crypto.randomUUID()
   const now = new Date()
@@ -275,6 +277,10 @@ export async function saveChatMessages(
   existingCreatedAt: Map<string, Date> = new Map()
 ) {
   const db = getFirebaseDb()
+  // Nothing is saved under a chat that has been deleted, or for a person whose account is being deleted:
+  // a reply that finishes after the final sweep must not leave messages behind.
+  const chatDoc = await db.collection('chats').doc(chatId).get()
+  if (!chatDoc.exists || await isDeleting(chatDoc.data()?.userId)) return false
   const base = Math.max(Date.now(), ...[...existingCreatedAt.values()].map(d => d.getTime() + 1))
   let offset = 0
 
@@ -298,6 +304,7 @@ export async function saveChatMessages(
     for (const w of writes.slice(i, i + 400)) batch.set(w.ref, w.data, { merge: true })
     await batch.commit()
   }
+  return true
 }
 
 export async function deleteChatMessages(chatId: string, messageIds: string[]) {
@@ -419,6 +426,7 @@ export async function createWorkflow(data: {
   status?: 'active' | 'draft' | 'paused'
   scheduleNextRunAt?: string | null
 }): Promise<FirestoreWorkflow> {
+  await assertNotDeleting(data.userId)
   const workflowId = data.id || crypto.randomUUID()
   const now = new Date()
 
@@ -556,6 +564,9 @@ export async function saveWorkflowRun(workflowId: string, run: Omit<FirestoreWor
     id: runId,
     createdAt: now
   }
+
+  // A run that finishes after its owner asked for deletion must not write anything back.
+  if (await isDeleting(run.userId)) throw new AccountDeletingError()
 
   await getFirebaseDb().collection('workflows').doc(workflowId).collection('runs').doc(runId).set(sanitizeForFirestore({
     id: runDoc.id,

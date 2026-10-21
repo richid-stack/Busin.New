@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { McpServerView, McpToolListing } from '../../types/mcp'
+import type { McpApproval, McpServerView, McpToolListing } from '../../types/mcp'
 
 const props = defineProps<{
   open: boolean
@@ -11,7 +11,7 @@ const props = defineProps<{
   error: string | null
   maxPerServer: number
 }>()
-const emit = defineEmits<{ 'update:open': [boolean], 'save': [string[]], 'retry': [] }>()
+const emit = defineEmits<{ 'update:open': [boolean], 'save': [McpApproval[]], 'retry': [] }>()
 
 const selected = ref<Set<string>>(new Set())
 const expanded = ref<string | null>(null)
@@ -24,6 +24,11 @@ watch(() => [props.open, props.tools] as const, () => {
 
 const open = computed({ get: () => props.open, set: v => emit('update:open', v) })
 const atLimit = computed(() => selected.value.size >= props.maxPerServer)
+
+/** Each choice goes back with the fingerprint of the version shown here, so only what was read can be approved. */
+function save() {
+  emit('save', props.tools.filter(t => selected.value.has(t.name)).map(t => ({ name: t.name, fingerprint: t.fingerprint })))
+}
 
 function toggle(name: string, on: boolean) {
   const next = new Set(selected.value)
@@ -123,7 +128,7 @@ const STATUS = {
         <span class="text-xs text-muted">{{ selected.size }} selected</span>
         <div class="flex gap-2">
           <UButton label="Cancel" color="neutral" variant="ghost" @click="open = false" />
-          <UButton label="Save approvals" icon="i-lucide-check" color="neutral" :loading="saving" :disabled="loading || Boolean(error)" @click="emit('save', [...selected])" />
+          <UButton label="Save approvals" icon="i-lucide-check" color="neutral" :loading="saving" :disabled="loading || Boolean(error)" @click="save" />
         </div>
       </div>
     </template>

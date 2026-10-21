@@ -1,3 +1,4 @@
+import { HTTPError } from 'nitro'
 import { formatBrowserError, formatServerError, isExpectedError, reportServerError, safePath, scrubSecrets } from '../server/services/monitoring/report'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
@@ -25,10 +26,12 @@ assert(safePath('https://app.example.com/chat/1?a=b#h') === '/chat/1', 'a full U
 assert(safePath(undefined) === '' && safePath('') === '', 'no path is fine')
 
 // ---- Which errors count ----
-assert(isExpectedError({ status: 404 }) && isExpectedError({ statusCode: 429 }) && isExpectedError({ status: 401 }), 'client errors are expected')
-assert(!isExpectedError({ status: 500 }) && !isExpectedError(new Error('boom')), 'server errors are not')
+assert(isExpectedError(new HTTPError({ statusCode: 404 })) && isExpectedError(new HTTPError({ statusCode: 429 })) && isExpectedError(new HTTPError({ statusCode: 401 })), "the app's own client errors are expected")
+assert(!isExpectedError(new HTTPError({ statusCode: 500 })) && !isExpectedError(new Error('boom')), 'server errors are not')
+assert(!isExpectedError(Object.assign(new Error('Unauthorized'), { statusCode: 401 })) && !isExpectedError({ status: 429 }), 'a 401 or 429 from an AI or payment provider is still reported')
+assert(!JSON.stringify(formatServerError(new Error('x'), { method: 'GET', path: '/a' })).includes('userAgent'), 'no browser details are logged')
 const lines: string[] = []
-assert(reportServerError({ status: 400 }, {}, l => lines.push(l)) === false && lines.length === 0, 'an expected error writes nothing')
+assert(reportServerError(new HTTPError({ statusCode: 400 }), {}, l => lines.push(l)) === false && lines.length === 0, 'an expected error writes nothing')
 assert(reportServerError(new Error('boom'), { method: 'POST', path: '/api/chats/1?x=y' }, l => lines.push(l)) === true && lines.length === 1, 'an unexpected error is written')
 
 // ---- Shape for Cloud Error Reporting ----
@@ -44,7 +47,7 @@ assert(formatServerError(new Error('x'), {}).context === undefined, 'no request,
 assert(formatServerError(new Error('a'.repeat(50_000))).message.length <= 8000, 'a huge error is cut down')
 
 // ---- Browser reports are warnings, never pages ----
-const b = formatBrowserError({ message: 'x is not a function', stack: 'at f (app.js:1:1)\ntoken=abcdefgh1234', page: '/settings?code=123', kind: 'error' }, 'UA')
+const b = formatBrowserError({ message: 'x is not a function', stack: 'at f (app.js:1:1)\ntoken=abcdefgh1234', page: '/settings?code=123', kind: 'error' })
 assert(b.severity === 'WARNING' && b.source === 'browser' && !b['@type'], 'a browser error is a warning and not an error event')
 assert(!b.message.includes('abcdefgh1234') && b.context!.httpRequest.url === '/settings', 'its secrets and query string are removed')
 assert(formatBrowserError({ message: 'm'.repeat(9000), stack: 's'.repeat(9000) }).message.length <= 8000, 'a huge browser report is cut down')

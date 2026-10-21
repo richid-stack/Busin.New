@@ -7,10 +7,10 @@ Goal: a one-page review the owner can read in two minutes on Monday morning.
 
 **Steps**
 1. Check which apps are connected with `integration_status`. Work only from what is connected, and say which sources you used.
-2. Gather what each can give: payments and failed payments from Paystack, sales or expenses from a Google Sheet, important unanswered email from Gmail, and upcoming meetings from Calendar. Use `integration_execute` for each, one task at a time.
+2. Gather what each can give: payments and failed payments from Paystack (ask for the week's date range and read every page until one says it is the last; if you cannot, label the money figures partial), sales or expenses from a Google Sheet, important unanswered email from Gmail, and upcoming meetings from Calendar. Use `integration_execute` for each, one task at a time.
 3. Compare to the previous week where you can find it. Use `calculator` for totals and changes, and show a percent change only when both numbers exist.
 4. Pick the few things that need a decision: late payers, a bad week for a product, a big upcoming cost, an email waiting on a reply.
-5. Offer to turn it into a recurring workflow with `workflow_create` so it runs the same way each week, with an approval step before anything is sent.
+5. If they want it every week, tell them how: in Workflow Studio, add a Schedule trigger (weekly, for example Monday at 8:00) in front of an AI step with this review as its prompt. Do not say a weekly review is set up unless they have done that, and do not add steps that send anything.
 
 **Output**
 - **The week in numbers**: money in, money out if available, and what changed.

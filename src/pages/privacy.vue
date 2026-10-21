@@ -20,7 +20,7 @@ useHead({ title: `Privacy policy · ${LEGAL.product}` })
       <li><strong>Keys you paste in:</strong> for services such as Paystack and Arkesel we keep the key you give us, encrypted, only to act for you in that service. We also record when a payment request or text message was sent (not its content) to apply daily limits.</li>
       <li><strong>Usage:</strong> how many credits and tokens you use, and when, to apply plan limits.</li>
       <li><strong>Payments:</strong> when you buy Pro, we keep the reference, amount, date and how long it covers. Card and mobile money details go to our payment provider, not to us.</li>
-      <li><strong>Technical logs:</strong> when something breaks we log the error, the page address (without anything after a “?”) and your browser type. We do not log your messages, files or sign-in details in these logs.</li>
+      <li><strong>Technical logs:</strong> when something breaks we log the error, the page address (without anything after a “?”). We do not keep your browser type, IP address or account in these logs. We do not log your messages, files or sign-in details in these logs.</li>
       <li><strong>Cookies:</strong> a session cookie and a security cookie that keep you signed in and protect against forged requests. We do not use advertising or tracking cookies.</li>
     </ul>
 

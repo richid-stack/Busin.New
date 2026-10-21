@@ -16,6 +16,8 @@ ENV NODE_ENV=production \
     PORT=8080
 # The build is self-contained: server code, bundled skills and the web app are all in .output.
 COPY --from=build /app/.output ./.output
+# The server reads the Firebase project and database id from this file at start-up (public values, no secrets).
+COPY --from=build /app/firebase-applet-config.json ./firebase-applet-config.json
 USER node
 EXPOSE 8080
 CMD ["node", ".output/server/index.mjs"]

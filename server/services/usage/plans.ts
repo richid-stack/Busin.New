@@ -2,7 +2,7 @@
  * What each plan may use. Usage is counted in credits: a normal message costs 1, a more expensive
  * model costs more. Days and months are UTC, which is Ghana time.
  */
-export type PlanId = 'guest' | 'free' | 'pro'
+export type PlanId = 'guest' | 'guest_address' | 'free' | 'pro'
 
 export interface PlanLimits {
   id: PlanId
@@ -12,6 +12,8 @@ export interface PlanLimits {
 }
 
 const num = (value: string | undefined, fallback: number) => {
+  // An unset or blank variable means "use the default", not zero (which would block everyone).
+  if (value === undefined || value.trim() === '') return fallback
   const n = Number(value)
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback
 }
@@ -20,6 +22,8 @@ const num = (value: string | undefined, fallback: number) => {
 export function planLimits(plan: PlanId): PlanLimits {
   switch (plan) {
     case 'guest': return { id: 'guest', label: 'Guest', daily: num(process.env.USAGE_GUEST_DAILY, 5), monthly: num(process.env.USAGE_GUEST_MONTHLY, 5) }
+    // A ceiling for everyone behind one network address (a mobile carrier can put many people behind one), so a new cookie cannot reset a guest's use but one person cannot use up the whole address.
+    case 'guest_address': return { id: 'guest_address', label: 'Guest (shared address)', daily: num(process.env.USAGE_GUEST_ADDRESS_DAILY, 60), monthly: num(process.env.USAGE_GUEST_ADDRESS_MONTHLY, 600) }
     case 'pro': return { id: 'pro', label: 'Pro', daily: num(process.env.USAGE_PRO_DAILY, 300), monthly: num(process.env.USAGE_PRO_MONTHLY, 5000) }
     default: return { id: 'free', label: 'Free', daily: num(process.env.USAGE_FREE_DAILY, 30), monthly: num(process.env.USAGE_FREE_MONTHLY, 400) }
   }

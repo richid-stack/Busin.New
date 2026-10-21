@@ -1,7 +1,8 @@
 import { useFirebaseDbForTests } from '../server/utils/firebaseAdmin'
 import { createFakeFirestore } from './fakeFirestore'
 import { dayKey, modelCost, monthKey, nextDayStart, nextMonthStart, planLimits } from '../server/services/usage/plans'
-import { UsageLimitError, chargeUsage, consumeCredits, getPlan, getUsage, recordTokens, refundCredits, setPlan } from '../server/services/usage/usage'
+import { trackToolWork } from '../server/services/integrations/execute'
+import { UsageLimitError, chargeGuest, chargeUsage, consumeCredits, getPlan, getUsage, recordTokens, refundCredits, setPlan } from '../server/services/usage/usage'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
 const limitError = async (fn: () => Promise<unknown>) => { try { await fn() } catch (e) { return e instanceof UsageLimitError ? e : null } return null }
@@ -14,6 +15,10 @@ process.env.USAGE_FREE_DAILY = '7'
 assert(planLimits('free').daily === 7, 'limits can be set from the environment')
 process.env.USAGE_FREE_DAILY = 'nonsense'
 assert(planLimits('free').daily === 30, 'a bad environment value falls back to the default')
+process.env.USAGE_FREE_DAILY = ''
+assert(planLimits('free').daily === 30, 'a blank environment value means the default, not zero')
+process.env.USAGE_FREE_DAILY = '   '
+assert(planLimits('free').monthly === 400 && planLimits('free').daily === 30, 'a whitespace-only value means the default')
 delete process.env.USAGE_FREE_DAILY
 assert(modelCost('anthropic/claude-haiku-4.5') === 3 && modelCost('something/else') === 1 && modelCost(null) === 1, 'model costs, default 1')
 const t = new Date('2026-10-19T23:59:00Z')
@@ -103,3 +108,41 @@ console.warn = warn
 assert(open === 'allowed', 'a storage outage lets the request through')
 useFirebaseDbForTests(db as any)
 assert(!!(await limitError(() => chargeUsage('g1', 5, { guest: true }))), 'a limit still stops people once storage is back')
+
+// ---- A refund goes back to the day the charge was taken ----
+{
+  const charged = await chargeUsage('refund-user', 2)
+  const before = (await getUsage('refund-user')).usedToday
+  await charged.refund()
+  const after = (await getUsage('refund-user')).usedToday
+  assert(before === 2 && after === 0, 'a refund returns the credits that were charged')
+  const past = new Date('2026-01-31T23:59:59Z')
+  await consumeCredits('late-user', 'free', 4, past)
+  await refundCredits('late-user', 4, past)
+  assert((await getUsage('late-user', past)).usedToday === 0 && (await getUsage('late-user', new Date('2026-02-01T00:00:01Z'))).usedToday === 0, 'a refund for last month’s charge does not touch the new month')
+}
+
+// ---- Guests: their own session and a larger shared address ceiling ----
+{
+  for (let i = 0; i < 5; i++) await chargeGuest('sess-a', 'ip_1.2.3.4', 1)
+  const blocked = await limitError(() => chargeGuest('sess-a', 'ip_1.2.3.4', 1))
+  assert(blocked?.reason === 'daily', 'a guest session is limited to its own small allowance')
+  const freshCookie = await limitError(() => chargeGuest('sess-b', 'ip_1.2.3.4', 1))
+  assert(freshCookie === null, 'another person on the same address still gets their own allowance')
+  for (let i = 0; i < 60; i++) { await chargeGuest(`s${i}`, 'ip_9.9.9.9', 1).catch(() => {}) }
+  const shared = await limitError(() => chargeGuest('sess-new', 'ip_9.9.9.9', 1))
+  assert(shared?.reason === 'daily', 'one address cannot use unlimited guest allowance by clearing cookies')
+  const refundedAfter = await chargeGuest('sess-r', 'ip_5.5.5.5', 1)
+  await refundedAfter.refund()
+  assert((await db.collection('usage').where('userId', '==', 'guest-sess-r').get()).docs[0]?.data().total === 0 && (await db.collection('usage').where('userId', '==', 'guest-addr-ip_5.5.5.5').get()).docs[0]?.data().total === 0, 'a refund returns both charges')
+}
+
+// ---- Tool work is tracked, so a refund cannot follow completed work ----
+{
+  let ran = 0
+  const t = trackToolWork({ send: { description: 'x', execute: async () => { ran++; return 'ok' } }, plain: { description: 'no execute' } as any })
+  assert(t.worked() === false, 'nothing has run yet')
+  await t.tools.send.execute()
+  assert(ran === 1 && t.worked() === true, 'once a tool has started the run counts as having done work')
+  assert('plain' in t.tools, 'tools without an execute function pass through')
+}

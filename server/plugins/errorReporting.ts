@@ -9,8 +9,7 @@ export default definePlugin((nitroApp) => {
     const event: any = context?.event
     reportServerError(error, {
       method: event?.req?.method ?? event?.method,
-      path: event?.url?.pathname ?? event?.req?.url ?? event?.path,
-      userAgent: event?.req?.headers?.get?.('user-agent') ?? undefined
+      path: event?.url?.pathname ?? event?.req?.url ?? event?.path
     })
   })
 

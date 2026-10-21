@@ -2,6 +2,7 @@ import { request as httpRequest } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { Readable, Transform } from 'node:stream'
 import { UnsafeUrlError, parseSafeUrl, safeLookup } from '../../utils/netSafety'
+import { hostAllowed } from './allowList'
 
 /**
  * A `fetch` for talking to a user's MCP server. MCP over HTTP streams its answers, so unlike the
@@ -33,6 +34,8 @@ export function createStreamingFetch(options: StreamFetchOptions = {}): typeof f
   const validate = options.validateUrl ?? ((raw: string) => {
     const url = parseSafeUrl(raw)
     if (url.protocol !== 'https:') throw new UnsafeUrlError('MCP servers must use https.')
+    // Checked on every connection, so narrowing MCP_ALLOWED_HOSTS also stops servers that were added earlier.
+    if (!hostAllowed(url.hostname)) throw new UnsafeUrlError('This deployment only allows MCP servers on an approved list, and that address is not on it.')
     return url
   })
   const lookup = options.lookup ?? safeLookup

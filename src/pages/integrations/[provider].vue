@@ -6,6 +6,7 @@ import { useClipboard } from '@vueuse/core'
 import { useIntegrations } from '../../composables/useIntegrations'
 import { useIntegrationConnect } from '../../composables/useIntegrationConnect'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import { useUserSession } from '../../composables/useUserSession'
 import ConnectWithKey from '../../components/integrations/ConnectWithKey.vue'
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
@@ -16,6 +17,7 @@ const toast = useToast()
 const overlay = useOverlay()
 const { copy } = useClipboard()
 const { openAuthModal, isAuthenticated } = useFirebaseAuth()
+const { loggedIn } = useUserSession()
 
 const provider = computed(() => String(route.params.provider || ''))
 const showcase = computed(() => showcaseFor(provider.value))
@@ -53,7 +55,7 @@ onMounted(() => {
   if (integrations.value.length === 0) fetchIntegrations()
 })
 
-watch(isAuthenticated, () => {
+watch(loggedIn, () => {
   fetchIntegrations()
 })
 

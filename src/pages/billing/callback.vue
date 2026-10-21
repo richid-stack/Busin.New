@@ -31,6 +31,9 @@ async function check(attempt = 0) {
       state.value = 'success'
     } else if (res.status === 'failed') {
       state.value = 'failed'
+    } else if (res.status === 'refund_needed') {
+      state.value = 'error'
+      message.value = `Your payment went through, but it could not be added to this account. Please contact us with the reference ${reference} and we will sort it out or refund you.`
     } else if (attempt < 4) {
       // Mobile money can take a moment after the phone approval.
       setTimeout(() => check(attempt + 1), 3000)

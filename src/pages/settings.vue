@@ -16,7 +16,7 @@ const colorMode = useColorMode()
 const { openAuthModal, firebaseUser, signInMethod, sendPasswordReset, updateDisplayName, signOutUser } = useFirebaseAuth()
 const { user, loggedIn, clearSession } = useUserSession()
 const { usage, usageError, loadingUsage, fetchUsage, downloadExport } = useAccount()
-const { billing, notifications, fetchBilling, startCheckout, fetchNotifications, saveNotifications } = useBilling()
+const { billing, billingFailed, notifications, fetchBilling, startCheckout, fetchNotifications, saveNotifications } = useBilling()
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
@@ -200,9 +200,14 @@ const LINKS = [
                   <span v-if="usage.unlimited" class="text-xs text-muted">No limits on this account</span>
                 </div>
                 <p v-if="usage.plan === 'pro' && usage.planEndsAt" class="text-xs text-muted">Pro until {{ day(usage.planEndsAt) }}</p>
-                <p v-else-if="usage.plan !== 'pro' && billing && !billing.enabled" class="text-xs text-muted">Pro plans are coming soon.</p>
+                <p v-else-if="usage.plan === 'pro'" class="text-xs text-muted">Pro, no end date</p>
+                <p v-else-if="billingFailed" class="text-xs text-muted">
+                  Plans could not be loaded.
+                  <button type="button" class="underline underline-offset-2 hover:text-highlighted" @click="fetchBilling">Retry</button>
+                </p>
+                <p v-else-if="billing && !billing.enabled" class="text-xs text-muted">Pro plans are coming soon.</p>
               </div>
-              <div v-if="billing?.enabled && !usage.unlimited" class="mb-5 rounded-xl border border-default bg-elevated/40 p-4">
+              <div v-if="billing?.enabled && !usage.unlimited && !(usage.plan === 'pro' && !usage.planEndsAt)" class="mb-5 rounded-xl border border-default bg-elevated/40 p-4">
                 <p class="text-sm font-medium text-highlighted">{{ usage.plan === 'pro' ? 'Add more Pro time' : 'Upgrade to Pro' }}</p>
                 <p class="text-xs text-muted mt-0.5 mb-3 leading-snug">Pay once by card or mobile money. Time you buy is added to what you have left, and nothing renews by itself.</p>
                 <div class="flex flex-wrap gap-2">

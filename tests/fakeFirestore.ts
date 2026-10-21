@@ -78,6 +78,16 @@ export function createFakeFirestore() {
   return {
     runTransaction,
     collection: collectionRef,
+    /** Writes collected and applied together on commit, like Firestore's WriteBatch. */
+    batch: () => {
+      const pending: Array<() => Promise<unknown>> = []
+      const b = {
+        set: (ref: any, d: Doc) => { pending.push(() => ref.set(d)); return b },
+        delete: (ref: any) => { pending.push(() => ref.delete()); return b },
+        commit: async () => { for (const w of pending) await w() }
+      }
+      return b
+    },
     /** Deletes a document and everything nested under it, like Firestore's own recursiveDelete. */
     recursiveDelete: async (ref: { path: string }) => {
       const [path, id] = [ref.path.slice(0, ref.path.lastIndexOf('/')), ref.path.slice(ref.path.lastIndexOf('/') + 1)]

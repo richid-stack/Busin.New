@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { assertNotDeleting, isDeleting } from '../services/account/tombstone'
 import { executeWorkflowDAG, type WorkflowRunResult } from './workflowEngine'
 import {
   saveWorkflowRun,
@@ -22,6 +23,7 @@ export async function postApprovalCard(
   workflow: FirestoreWorkflow,
   run: FirestoreWorkflowRun
 ) {
+  await assertNotDeleting(ownerId)
   const chats = await getUserChats(ownerId)
   let chat = chats.find(c => c.title === APPROVALS_CHAT_TITLE)
   if (!chat) {
@@ -56,6 +58,8 @@ export async function executeAndRecordRun(
   input: Record<string, any> | undefined,
   userId: string
 ): Promise<{ run: FirestoreWorkflowRun, result: WorkflowRunResult }> {
+  // Nothing runs for an account that is being deleted: the steps could call out and spend credits for a person who is leaving.
+  if (await isDeleting(userId)) throw new Error('This account is being deleted.')
   const result = await executeWorkflowDAG(workflow, input, userId)
 
   const run = await saveWorkflowRun(workflow.id, {

@@ -31,7 +31,7 @@ const router = useRouter()
 const route = useRoute()
 /** The saved agent the new chat starts with; null is the standard assistant. */
 const agentId = ref<string | null>(null)
-const { agents, loaded: agentsLoaded } = useAgents()
+const { agents, loaded: agentsLoaded, fetchAgents } = useAgents()
 const selectedAgent = computed(() => agents.value.find(a => a.id === agentId.value))
 // A link from the Agents page (?agent=...) preselects it, but only if it is one of the user's agents.
 watch([agentsLoaded, () => route.query.agent], () => {
@@ -79,6 +79,9 @@ async function ensureSignedIn(): Promise<boolean> {
 }
 
 // Once the visitor signs in, send what they had typed.
+// Agents are the signed-in person's own, so load them once the server session exists (also when someone signs in on this page).
+watch(loggedIn, (signedIn) => { if (signedIn) fetchAgents() }, { immediate: true })
+
 watch(loggedIn, (signedIn) => {
   if (!signedIn) return
   const pending = takePendingPrompt()

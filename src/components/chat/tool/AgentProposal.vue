@@ -7,7 +7,7 @@ import type { AgentInput } from '../../../types/agents'
 
 const props = defineProps<{ invocation: any }>()
 
-const { agents, options, loaded, fetchAgents, fetchOptions, createAgent } = useAgents()
+const { agents, options, loaded, loading, loadError, fetchAgents, fetchOptions, createAgent } = useAgents()
 const { openAuthModal, isAuthenticated } = useFirebaseAuth()
 
 const streaming = computed(() => isToolStreaming(props.invocation))
@@ -20,7 +20,13 @@ onMounted(() => {
 })
 
 // A reload forgets the click, so "already saved" is judged by what the person's agents really contain.
-const savedAgent = computed(() => (draft.value ? agents.value.find(a => a.name === draft.value!.name && a.instructions === draft.value!.instructions) : undefined))
+const sameAgent = (a: AgentInput, b: AgentInput) =>
+  a.name === b.name && a.instructions === b.instructions && a.description === b.description && a.model === b.model && a.maxSteps === b.maxSteps
+  && [...a.tools].sort().join() === [...b.tools].sort().join() && [...a.skills].sort().join() === [...b.skills].sort().join()
+// Only an agent that matches in every setting counts as this draft; one that differs in tools or steps is a different agent.
+const savedAgent = computed(() => (draft.value ? agents.value.find(a => sameAgent(a, draft.value!)) : undefined))
+// Until the person's agents are known, the card cannot say whether this one already exists, so it does not offer to save.
+const checking = computed(() => !loaded.value && loading.value)
 
 const saving = ref(false)
 const error = ref<string | null>(null)
@@ -34,9 +40,13 @@ async function save() {
   saving.value = true
   error.value = null
   try {
+    // Look again right before creating, so an agent saved a moment ago (or in another tab) is not duplicated.
+    await fetchAgents()
+    if (loadError.value) throw new Error(loadError.value)
+    if (savedAgent.value) return
     await createAgent(draft.value)
   } catch (err: any) {
-    error.value = err?.data?.statusMessage || err?.statusMessage || 'Could not save the agent. Try again.'
+    error.value = err?.data?.statusMessage || err?.statusMessage || err?.message || 'Could not save the agent. Try again.'
   } finally {
     saving.value = false
   }
@@ -90,7 +100,7 @@ async function save() {
           <UButton :to="{ path: '/', query: { agent: savedAgent.id } }" label="Chat with it" icon="i-lucide-message-circle" size="sm" color="neutral" />
           <UButton to="/agents" label="Edit in Agents" icon="i-lucide-pencil" size="sm" color="neutral" variant="subtle" />
         </template>
-        <UButton v-else label="Save agent" icon="i-lucide-check" size="sm" color="neutral" :loading="saving" @click="save" />
+        <UButton v-else label="Save agent" icon="i-lucide-check" size="sm" color="neutral" :loading="saving || checking" :disabled="checking" @click="save" />
       </div>
     </div>
 

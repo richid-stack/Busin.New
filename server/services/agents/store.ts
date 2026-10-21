@@ -1,4 +1,5 @@
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
+import { assertNotDeleting } from '../account/tombstone'
 import { DEFAULT_GROUPS, DEFAULT_STEPS, agentInputSchema } from './profile'
 import type { Agent, AgentInput } from './profile'
 
@@ -30,6 +31,7 @@ export async function getAgent(id: string): Promise<Agent | null> {
 }
 
 export async function createAgent(userId: string, input: AgentInput): Promise<Agent> {
+  await assertNotDeleting(userId)
   const now = new Date().toISOString()
   const ref = getFirebaseDb().collection(COLLECTION).doc()
   const doc = { ...input, userId, createdAt: now, updatedAt: now }

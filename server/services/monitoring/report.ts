@@ -7,6 +7,8 @@
  * query string or the signed-in person, because those can hold passwords, tokens and private chats.
  */
 
+import { HTTPError } from 'nitro'
+
 const SECRET_PATTERNS: RegExp[] = [
   /\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi,
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
@@ -37,22 +39,27 @@ export function safePath(raw: string | undefined | null): string {
 
 const MAX_TEXT = 8000
 
-export interface ErrorRequest { method?: string, path?: string, status?: number, userAgent?: string }
+export interface ErrorRequest { method?: string, path?: string, status?: number }
 
 export interface ErrorEntry {
   severity: 'ERROR' | 'WARNING'
   message: string
   serviceContext?: { service: string, version: string }
-  context?: { httpRequest: { method: string, url: string, userAgent?: string, responseStatusCode?: number } }
+  context?: { httpRequest: { method: string, url: string, responseStatusCode?: number } }
   source: 'server' | 'browser'
   '@type'?: string
 }
 
 const service = () => ({ service: process.env.K_SERVICE || 'openlobs', version: process.env.K_REVISION || process.env.npm_package_version || 'dev' })
 
-/** True for errors that are part of normal use (wrong password, not found, rate limited). */
+/**
+ * True for errors that are part of normal use (wrong password, not found, rate limited). Only the app's own
+ * HTTP errors count: a 401, 403 or 429 from an AI or payment provider means a bad key or an exhausted quota,
+ * which someone needs to hear about.
+ */
 export function isExpectedError(error: unknown): boolean {
-  const status = Number((error as any)?.status ?? (error as any)?.statusCode ?? 0)
+  if (!(error instanceof HTTPError)) return false
+  const status = Number(error.status ?? 0)
   return status >= 400 && status < 500
 }
 
@@ -66,7 +73,7 @@ export function formatServerError(error: unknown, req: ErrorRequest = {}): Error
     message: text,
     serviceContext: service(),
     context: req.path || req.method
-      ? { httpRequest: { method: req.method || 'GET', url: safePath(req.path), userAgent: req.userAgent?.slice(0, 200), responseStatusCode: req.status } }
+      ? { httpRequest: { method: req.method || 'GET', url: safePath(req.path), responseStatusCode: req.status } }
       : undefined,
     source: 'server'
   }
@@ -75,13 +82,13 @@ export function formatServerError(error: unknown, req: ErrorRequest = {}): Error
 export interface BrowserErrorInput { message: string, stack?: string, page?: string, kind?: string }
 
 /** A problem reported by someone's browser. Logged as a warning: it is outside input and must not page anyone. */
-export function formatBrowserError(input: BrowserErrorInput, userAgent?: string): ErrorEntry {
+export function formatBrowserError(input: BrowserErrorInput): ErrorEntry {
   const body = [input.kind ? `[${String(input.kind).slice(0, 30)}]` : '', String(input.message ?? '').slice(0, 500), String(input.stack ?? '').slice(0, 3000)].filter(Boolean).join('\n')
   return {
     severity: 'WARNING',
     message: `Browser error: ${scrubSecrets(body)}`.slice(0, MAX_TEXT),
     serviceContext: service(),
-    context: { httpRequest: { method: 'GET', url: safePath(input.page), userAgent: userAgent?.slice(0, 200) } },
+    context: { httpRequest: { method: 'GET', url: safePath(input.page) } },
     source: 'browser'
   }
 }

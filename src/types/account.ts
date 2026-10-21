@@ -14,4 +14,4 @@ export interface BillingOption { period: 'month' | 'year', months: number, label
 export interface PaymentSummary { reference: string, amount: number, currency: string, months: number, paidAt: string }
 export interface BillingInfo { enabled: boolean, currency: string, options: BillingOption[], payments: PaymentSummary[] }
 export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean, emailAvailable?: boolean, email?: string | null }
-export type VerifyResult = { status: 'applied' | 'already', endsAt: string } | { status: 'pending' | 'failed' }
+export type VerifyResult = { status: 'applied' | 'already', endsAt: string } | { status: 'pending' | 'failed' | 'refund_needed' }

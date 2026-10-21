@@ -35,9 +35,16 @@ export async function getNotificationSettings(db: any, userId: string): Promise<
 }
 
 export async function setNotificationSettings(db: any, userId: string, patch: Partial<NotificationSettings>): Promise<NotificationSettings> {
-  const next = { ...(await getNotificationSettings(db, userId)), ...patch }
-  await db.collection(SETTINGS).doc(userId).set({ userId, ...next, updatedAt: new Date().toISOString() })
-  return next
+  const ref = db.collection(SETTINGS).doc(userId)
+  // Two quick changes to different switches must both survive, so the read and the write are one transaction.
+  return await db.runTransaction(async (tx: any) => {
+    const doc = await tx.get(ref)
+    const d = doc.exists ? doc.data() : {}
+    const current = { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false }
+    const next = { ...current, ...patch }
+    tx.set(ref, { ...d, userId, ...next, updatedAt: new Date().toISOString() })
+    return next
+  })
 }
 
 export const REMINDER_DAYS = 3
@@ -51,7 +58,7 @@ export interface ReminderSummary { checked: number, sent: number, skipped: numbe
 export async function processRenewalReminders(deps: NotifyDeps, limit = 200): Promise<ReminderSummary> {
   const now = deps.now()
   const horizon = new Date(now.getTime() + REMINDER_DAYS * 86_400_000).toISOString()
-  const snap = await deps.db.collection('user_plans').where('endsAt', '<=', horizon).get()
+  const snap = await deps.db.collection('user_plans').where('endsAt', '<=', horizon).where('endsAt', '>', now.toISOString()).get()
   const summary: ReminderSummary = { checked: 0, sent: 0, skipped: 0 }
 
   for (const doc of (snap.docs as any[]).slice(0, limit)) {
@@ -73,6 +80,18 @@ export async function processRenewalReminders(deps: NotifyDeps, limit = 200): Pr
     }
   }
   return summary
+}
+
+/** What the failure email says, taken from a workflow and its failed run. Workflows have a `title`; log entries carry a `message`. */
+export function failureInfoFromRun(workflow: { id: string, userId: string, title?: string }, run: { logs?: any[] }): FailureInfo {
+  const failed = (run.logs || []).find((l: any) => l?.status === 'failed')
+  return {
+    userId: workflow.userId,
+    workflowId: workflow.id,
+    workflowName: String(workflow.title || 'Workflow'),
+    step: typeof failed?.nodeTitle === 'string' ? failed.nodeTitle : undefined,
+    error: typeof failed?.message === 'string' ? failed.message : undefined
+  }
 }
 
 export interface FailureInfo { userId: string, workflowId: string, workflowName: string, step?: string, error?: string }

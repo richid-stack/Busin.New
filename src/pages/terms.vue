@@ -15,7 +15,7 @@ useHead({ title: `Terms of use · ${LEGAL.product}` })
     <h2>2. Your account</h2>
     <ul>
       <li>Use accurate details and keep your sign-in safe. You are responsible for what happens on your account.</li>
-      <li>You must be 18 or older, or have a parent or guardian who agrees to these terms for you.</li>
+      <li>You must be 18 or older to use {{ LEGAL.product }}.</li>
       <li>Tell us if you think someone else has accessed your account.</li>
     </ul>
 

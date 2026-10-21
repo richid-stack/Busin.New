@@ -1,4 +1,6 @@
 import { getFirebaseAuth, getFirebaseDb } from '../../utils/firebaseAdmin'
+import { forgetVerifiedUser } from '../../utils/session'
+import { clearDeleting, markDeleting } from './tombstone'
 import { deleteComposioConnection, isComposioConfigured, listComposioUserConnections } from '../composio/client'
 
 /**
@@ -18,12 +20,61 @@ const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflo
 
 export const EXPORT_FORMAT = 1
 
+const LEGACY_SECRETS = ['accessToken', 'refreshToken', 'token', 'apiKey', 'secret', 'credentials', 'sealed', 'sealedToken', 'password']
+const SECRET_HEADER = /authorization|cookie|token|secret|key|password|signature/i
+
+const URL_SECRET = /([?&;](?:[\w-]*(?:key|token|secret|password|passwd|sig|signature|auth|credential)[\w-]*|code)=)[^&\s"'<>#]+/gi
+
+/** Replaces the value of any credential-looking query parameter inside text, keeping the rest of the address. */
+function scrubUrlSecrets(value: any): any {
+  if (typeof value === 'string') return value.replace(URL_SECRET, '$1[not exported]')
+  if (Array.isArray(value)) return value.map(scrubUrlSecrets)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, scrubUrlSecrets(v)]))
+  return value
+}
+
+/** Workflow settings that act as passwords: the webhook secret and the value of any request header. Names stay so the flow is still readable. */
+function redactWorkflow(workflow: any): any {
+  const out = { ...workflow }
+  delete out.webhookSecret
+  const clean = (value: any): any => {
+    if (Array.isArray(value)) return value.map(clean)
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => {
+        if (/^headers?$/i.test(k) && v && typeof v === 'object') {
+          return [k, Array.isArray(v) ? v.map((h: any) => (h && typeof h === 'object' ? { ...h, value: '[not exported]' } : h)) : Object.fromEntries(Object.keys(v as object).map(name => [name, '[not exported]']))]
+        }
+        if (SECRET_HEADER.test(k) && typeof v === 'string') return [k, '[not exported]']
+        return [k, clean(v)]
+      }))
+    }
+    return value
+  }
+  if (out.nodes) out.nodes = clean(out.nodes)
+  // Addresses can carry a key in their query string, in the settings and in what each run recorded.
+  return scrubUrlSecrets(out)
+}
+
+/** File names and sizes, read without the file contents (a select keeps the bytes out of memory). */
+async function listedFiles(db: any, userId: string) {
+  let query = db.collection('generated_files').where('userId', '==', userId)
+  if (typeof query.select === 'function') query = query.select('name', 'mime', 'size', 'createdAt', 'expiresAt', 'userId')
+  const snap = await query.get()
+  return (snap.docs as any[]).map((doc) => {
+    const data = plain(doc.data())
+    delete data.data
+    return { id: doc.id, ...data }
+  })
+}
+
 export interface AccountDeps {
   db: any
   /** Ids of the person's connected apps (Composio). */
   listConnections: (userId: string) => Promise<Array<{ id: string }>>
   disconnect: (userId: string, connectionId: string) => Promise<boolean>
   deleteAuthUser: (userId: string) => Promise<void>
+  /** Signs the person out everywhere: their existing sign-in tokens stop working. */
+  revokeSessions?: (userId: string) => Promise<void>
 }
 
 export function defaultAccountDeps(): AccountDeps {
@@ -31,7 +82,11 @@ export function defaultAccountDeps(): AccountDeps {
     db: getFirebaseDb(),
     listConnections: userId => (isComposioConfigured() ? listComposioUserConnections(userId) : Promise.resolve([])),
     disconnect: (userId, id) => deleteComposioConnection(userId, id, { ownershipVerified: true }),
-    deleteAuthUser: userId => getFirebaseAuth().deleteUser(userId)
+    deleteAuthUser: userId => getFirebaseAuth().deleteUser(userId),
+    revokeSessions: async (userId) => {
+      await getFirebaseAuth().revokeRefreshTokens(userId)
+      forgetVerifiedUser(userId)
+    }
   }
 }
 
@@ -63,6 +118,8 @@ export interface UserExport {
   files: unknown[]
   payments: unknown[]
   notifications: unknown
+  notificationLog: unknown[]
+  legacyIntegrations: unknown[]
   connectedApps: string[]
   connectedKeys: unknown[]
   connectorActivity: unknown[]
@@ -95,9 +152,9 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, ...data }
     })
 
-  const [chats, workflows, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit] = await Promise.all([
+  const [chats, workflows, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
     withNested('chats'),
-    withNested('workflows'),
+    withNested('workflows').then(list => list.map(redactWorkflow)),
     simple('agents'),
     simple('memories'),
     ownedDocs(db, 'mcp_servers', id).then(docs => docs.map((doc) => {
@@ -105,7 +162,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, name: d.name, url: d.url, enabled: d.enabled !== false, approvedTools: Object.keys(d.approved ?? {}), createdAt: plain(d.createdAt) }
     })),
     simple('usage'),
-    simple('generated_files', ['data']),
+    listedFiles(db, id),
     simple('payments'),
     db.collection('user_plans').doc(id).get(),
     db.collection('memory_settings').doc(id).get(),
@@ -113,7 +170,10 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     deps.listConnections(id).catch(() => []),
     // Which services have a key saved: when, and the last four characters. The key itself is never exported.
     simple('connector_credentials', ['sealed']),
-    simple('connector_audit')
+    simple('connector_audit'),
+    simple('notification_log'),
+    // Older app connections saved before the current connector layer: what they were, never any token they held.
+    simple('integrations', LEGACY_SECRETS)
   ])
 
   return {
@@ -132,6 +192,8 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true },
     connectedKeys: keyDocs,
     connectorActivity: connectorAudit,
+    notificationLog: notifLog,
+    legacyIntegrations: legacy,
     connectedApps: [...new Set((connections as any[]).map(c => c.toolkitSlug).filter(Boolean))]
   }
 }
@@ -147,27 +209,47 @@ export async function eraseUserData(deps: AccountDeps, userId: string): Promise<
   const { db } = deps
   const removed: Record<string, number> = {}
 
+  // First mark the account as going away and sign it out everywhere. From here, nothing that checks the
+  // marker (workflow runs, late payments) writes for this person, and their tokens stop working.
+  await markDeleting(db, userId)
+  // Until data is actually removed, a failure means "nothing happened": the marker comes off again.
+  const stopClean = async (message: string): Promise<never> => {
+    await clearDeleting(db, userId)
+    throw new AccountDeletionError(message)
+  }
+  try {
+    await deps.revokeSessions?.(userId)
+  } catch (err: any) {
+    if (err?.code !== 'auth/user-not-found') return await stopClean('Could not sign you out everywhere, so nothing was deleted. Please try again.')
+  }
+
   let connections: Array<{ id: string }>
   try {
     connections = await deps.listConnections(userId)
   } catch {
-    throw new AccountDeletionError('Could not reach the integrations service to disconnect your apps. Nothing was deleted; please try again.')
+    // An unreachable integrations service is not the same as "no connections": deleting now would leave live sign-ins behind.
+    return await stopClean('Could not reach the integrations service to disconnect your apps. Nothing was deleted; please try again.')
   }
   const results = await Promise.all(connections.map(c => deps.disconnect(userId, c.id).catch(() => false)))
   if (!results.every(Boolean)) {
-    throw new AccountDeletionError(`Could not disconnect ${results.filter(r => !r).length} of your connected apps. Nothing was deleted; please try again.`)
+    return await stopClean(`Could not disconnect ${results.filter(r => !r).length} of your connected apps. Nothing was deleted; please try again.`)
   }
   removed.connectedApps = connections.length
 
-  for (const collection of OWNED) {
-    const docs = await ownedDocs(db, collection, userId)
-    for (const doc of docs) {
-      if (NESTED[collection] && typeof db.recursiveDelete === 'function') await db.recursiveDelete(doc.ref)
-      else await doc.ref.delete()
+  const sweep = async () => {
+    for (const collection of OWNED) {
+      const docs = await ownedDocs(db, collection, userId)
+      for (const doc of docs) {
+        if (NESTED[collection] && typeof db.recursiveDelete === 'function') await db.recursiveDelete(doc.ref)
+        else await doc.ref.delete()
+      }
+      removed[collection] = (removed[collection] ?? 0) + docs.length
     }
-    removed[collection] = docs.length
   }
+  await sweep()
   for (const collection of PER_PERSON) await db.collection(collection).doc(userId).delete()
+  // A run that was already in flight when the marker went up may have written once more: sweep again.
+  await sweep()
 
   // Payment records are kept for the books (tax and disputes), but stop being about a person: the
   // name, email and account link go, the reference, amount and date stay.

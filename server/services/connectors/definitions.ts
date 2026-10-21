@@ -21,14 +21,29 @@ export const PAYSTACK: ConnectorDef = {
       method: 'GET', path: '/balance', effect: 'read', params: []
     },
     {
-      id: 'paystack_list_transactions', name: 'List transactions', description: 'List recent payments, newest first, optionally only successful, failed or abandoned ones.',
+      id: 'paystack_list_transactions', name: 'List transactions', description: 'List payments, newest first, one page at a time, optionally for a date range or only successful, failed or abandoned ones. The answer says how many pages there are and whether this is the last one.',
       method: 'GET', path: '/transaction', effect: 'read',
-      send: { perPage: 'perPage', page: 'page', status: 'status' },
+      send: { perPage: 'perPage', page: 'page', status: 'status', from: 'from', to: 'to' },
       params: [
-        { name: 'perPage', description: 'How many to return (1 to 50).', type: 'number', min: 1, max: 50, default: 20 },
+        { name: 'perPage', description: 'How many to return (1 to 50).', type: 'number', min: 1, max: 50, default: 50 },
         { name: 'page', description: 'Page number, starting at 1.', type: 'number', min: 1, max: 1000 },
-        { name: 'status', description: 'Only payments with this status.', type: 'enum', values: ['success', 'failed', 'abandoned'] }
-      ]
+        { name: 'status', description: 'Only payments with this status.', type: 'enum', values: ['success', 'failed', 'abandoned'] },
+        { name: 'from', description: 'Only payments on or after this date (YYYY-MM-DD).', type: 'string', maxLength: 30, pattern: /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/ },
+        { name: 'to', description: 'Only payments on or before this date (YYYY-MM-DD).', type: 'string', maxLength: 30, pattern: /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/ }
+      ],
+      // Short rows keep a full page inside the size limit, and the paging facts let a caller see whether the list is complete.
+      summarize: (b) => {
+        const meta = b?.meta ?? {}
+        const page = Number(meta.page ?? 1)
+        const pageCount = Number(meta.pageCount ?? 1)
+        return {
+          transactions: (Array.isArray(b?.data) ? b.data : []).map((t: any) => ({
+            reference: t.reference, amount: t.amount, currency: t.currency, status: t.status, paidAt: t.paid_at ?? t.paidAt ?? null, customerEmail: t.customer?.email ?? null
+          })),
+          page, pageCount, total: Number(meta.total ?? 0), perPage: Number(meta.perPage ?? 0),
+          lastPage: page >= pageCount
+        }
+      }
     },
     {
       id: 'paystack_verify_transaction', name: 'Check one payment', description: 'Check what happened to one payment, using its reference.',

@@ -2,19 +2,22 @@
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useMcpServers } from '../../composables/useMcpServers'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import { useUserSession } from '../../composables/useUserSession'
 import McpServerForm from '../../components/mcp/McpServerForm.vue'
 import McpToolReview from '../../components/mcp/McpToolReview.vue'
-import type { McpNewServer, McpServerView, McpToolListing } from '../../types/mcp'
+import type { McpApproval, McpNewServer, McpServerView, McpToolListing } from '../../types/mcp'
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
 
 const toast = useToast()
 const overlay = useOverlay()
-const { openAuthModal, isAuthenticated } = useFirebaseAuth()
+const { openAuthModal } = useFirebaseAuth()
+const { loggedIn } = useUserSession()
 const { servers, limits, loading, loaded, unauthorized, loadError, fetchServers, addServer, updateServer, removeServer, listTools, approveTools } = useMcpServers()
 
 onMounted(fetchServers)
-watch(isAuthenticated, fetchServers)
+// The server's own session decides what it will answer, so load (again) once that session exists, not when Firebase alone says signed in.
+watch(loggedIn, fetchServers)
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
@@ -55,31 +58,47 @@ const reviewLoading = ref(false)
 const reviewError = ref<string | null>(null)
 const savingApprovals = ref(false)
 
+// Each opened review gets a number. A late answer for an earlier review is dropped, and a save only closes the review it belongs to.
+let reviewCounter = 0
+const reviewId = ref(0)
+
 async function review(server: McpServerView) {
+  const mine = ++reviewCounter
+  reviewId.value = mine
   reviewing.value = server
   reviewTools.value = []
   reviewError.value = null
   reviewOpen.value = true
   reviewLoading.value = true
   try {
-    reviewTools.value = await listTools(server.id)
+    const tools = await listTools(server.id)
+    if (mine !== reviewId.value) return
+    reviewTools.value = tools
   } catch (err: any) {
+    if (mine !== reviewId.value) return
     reviewError.value = errorMessage(err, 'Could not reach the server.')
   } finally {
-    reviewLoading.value = false
+    if (mine === reviewId.value) reviewLoading.value = false
   }
 }
 
-async function saveApprovals(names: string[]) {
+async function saveApprovals(approvals: McpApproval[]) {
   if (!reviewing.value) return
+  const mine = reviewId.value
+  const serverId = reviewing.value.id
   savingApprovals.value = true
   reviewError.value = null
   try {
-    await approveTools(reviewing.value.id, names)
-    reviewOpen.value = false
-    toast.add({ title: names.length ? `${names.length} ${names.length === 1 ? 'tool' : 'tools'} approved` : 'No tools approved', icon: 'i-lucide-check', color: 'success' })
+    await approveTools(serverId, approvals)
+    if (mine === reviewId.value) reviewOpen.value = false
+    toast.add({ title: approvals.length ? `${approvals.length} ${approvals.length === 1 ? 'tool' : 'tools'} approved` : 'No tools approved', icon: 'i-lucide-check', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Could not save approvals', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
+    // The server may have changed a tool since it was shown: show the new version instead of the old one.
+    if (mine === reviewId.value && /changed since you opened/.test(errorMessage(err, ''))) {
+      const server = servers.value.find(s => s.id === serverId)
+      if (server) void review(server)
+    }
   } finally {
     savingApprovals.value = false
   }

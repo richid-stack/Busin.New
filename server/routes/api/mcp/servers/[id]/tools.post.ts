@@ -6,7 +6,7 @@ import { enforceRateLimit } from '../../../../../utils/rateLimit'
 import { getServer, updateServer } from '../../../../../services/mcp/store'
 import { endpointFor, viewServer } from '../../../../../services/mcp/server'
 import { listMcpTools } from '../../../../../services/mcp/client'
-import { McpError, detectToolDrift, toolStatus } from '../../../../../services/mcp/tools'
+import { McpError, detectToolDrift, fingerprintTool, toolStatus } from '../../../../../services/mcp/tools'
 
 /** Connects to the server, lists what it offers now and says, tool by tool, whether it matches what was approved. */
 export default defineHandler(async (event) => {
@@ -28,6 +28,8 @@ export default defineHandler(async (event) => {
       server: viewServer({ ...server, lastError: '', driftNote: note }),
       tools: tools.map(t => ({
         name: t.name,
+        // What the person reviews is identified by this, and approval must present it back.
+        fingerprint: fingerprintTool(t),
         description: t.description,
         inputSchema: t.inputSchema,
         annotations: t.annotations ?? null,

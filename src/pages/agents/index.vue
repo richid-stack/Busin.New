@@ -3,6 +3,7 @@ import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgents } from '../../composables/useAgents'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
+import { useUserSession } from '../../composables/useUserSession'
 import AgentEditor from '../../components/agents/AgentEditor.vue'
 import { MODELS } from '../../../shared/utils/models'
 import type { AgentInput, AgentProfile } from '../../types/agents'
@@ -12,11 +13,12 @@ const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalCo
 const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
-const { openAuthModal, isAuthenticated } = useFirebaseAuth()
+const { openAuthModal } = useFirebaseAuth()
+const { loggedIn } = useUserSession()
 const { agents, options, loading, loaded, unauthorized, loadError, fetchAgents, fetchOptions, createAgent, updateAgent, removeAgent } = useAgents()
 
 onMounted(() => { fetchAgents(); fetchOptions() })
-watch(isAuthenticated, () => { fetchAgents(); fetchOptions() })
+watch(loggedIn, () => { fetchAgents(); fetchOptions() })
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 

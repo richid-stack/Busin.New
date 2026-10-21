@@ -1,6 +1,7 @@
 import { jsonSchema, tool } from 'ai'
 import { runWithTools, type IntegrationRunResult } from '../integrations/execute'
 import { ConnectorError, callConnector, validateParams, scrubCreds } from './runtime'
+import { SecretBoxError } from '../../utils/secretBox'
 import { audit, defaultDb, getCredentials, takeDailyAllowance } from './store'
 import type { ActionDef, ConnectorDef, ParamDef } from './types'
 
@@ -9,6 +10,10 @@ export interface ConnectorRunResult { success: boolean, authRequired?: boolean, 
 export interface ConnectorDeps { db?: any, fetch?: typeof fetch, now?: () => Date }
 
 /** Runs one named action with explicit parameters. Nothing here asks a model to decide anything. */
+const unreadableKey = (def: ConnectorDef, err: unknown) => err instanceof SecretBoxError
+  ? `OpenLobs cannot read the saved ${def.name} key on this server (its storage key may have changed). Save the key again on the ${def.name} page.`
+  : `Could not read your ${def.name} key. Try again in a moment.`
+
 export async function runConnectorAction(userId: string, def: ConnectorDef, actionId: string, params: unknown, deps: ConnectorDeps = {}): Promise<ConnectorRunResult> {
   const action = def.actions.find(a => a.id === actionId)
   if (!action) return { success: false, output: null, message: `${def.name} has no action called "${actionId}". Available: ${def.actions.map(a => a.id).join(', ')}.` }
@@ -18,8 +23,8 @@ export async function runConnectorAction(userId: string, def: ConnectorDef, acti
   let creds: Record<string, string> | null
   try {
     creds = await getCredentials(db, userId, def.provider)
-  } catch {
-    return { success: false, output: null, message: `Could not read your ${def.name} key. Try again in a moment.` }
+  } catch (err) {
+    return { success: false, output: null, message: unreadableKey(def, err) }
   }
   if (!creds) {
     return { success: false, authRequired: true, authUrl: `/integrations/${def.provider}`, output: null, message: `Add your ${def.name} key to continue.` }
@@ -31,14 +36,16 @@ export async function runConnectorAction(userId: string, def: ConnectorDef, acti
     values = validateParams(action, params)
     taken = await takeDailyAllowance(db, userId, def, action, values, now)
     const output = await callConnector(def, action, values, creds, { fetch: deps.fetch })
-    if (action.effect === 'write') await audit(db, userId, def, action, true, taken.units, 'done', now)
-    return { success: true, output, message: `${action.name} done on ${def.name}.` }
+    const recorded = action.effect === 'write' ? await audit(db, userId, def, action, true, taken.units, 'done', now) : true
+    return { success: true, output, message: `${action.name} done on ${def.name}.${recorded ? '' : ' Its activity record could not be saved.'}` }
   } catch (err: any) {
-    // The call failed, so the allowance it took is given back.
-    await taken?.release()
-    const message = err instanceof ConnectorError ? err.message : `${def.name} could not be reached. Try again in a moment.`
-    if (action.effect === 'write' && taken) await audit(db, userId, def, action, false, taken.units, scrubCreds(message, creds), now)
-    return { success: false, output: null, message, ...(err instanceof ConnectorError && err.kind === 'auth' ? { authRequired: true, authUrl: `/integrations/${def.provider}` } : {}) }
+    const known = err instanceof ConnectorError
+    // The allowance is given back only when the service clearly did not act. When the call may have reached it
+    // (a timeout, a dropped connection, a server error), it stays used so a retry cannot repeat a send for free.
+    if (!(known && err.maybeSent) && !(!known && taken && action.effect === 'write')) await taken?.release()
+    const message = known ? err.message : `${def.name} could not be reached. Try again in a moment.`
+    if (action.effect === 'write' && taken) await audit(db, userId, def, action, false, taken.units, scrubCreds(`${known && err.maybeSent ? 'unknown outcome: ' : ''}${message}`, creds), now)
+    return { success: false, output: null, message, ...(known && err.kind === 'auth' ? { authRequired: true, authUrl: `/integrations/${def.provider}` } : {}) }
   }
 }
 
@@ -69,7 +76,13 @@ export function connectorTools(userId: string, def: ConnectorDef, deps: Connecto
 
 /** Natural-language path: the model may only pick from this connector's declared actions. */
 export async function runConnectorInstruction(userId: string, def: ConnectorDef, instruction: string, deps: ConnectorDeps & { abortSignal?: AbortSignal } = {}): Promise<IntegrationRunResult | (ConnectorRunResult & { toolCalls: number })> {
-  const creds = await getCredentials(deps.db ?? defaultDb(), userId, def.provider).catch(() => null)
+  let creds: Record<string, string> | null
+  try {
+    creds = await getCredentials(deps.db ?? defaultDb(), userId, def.provider)
+  } catch (err) {
+    // A key that exists but cannot be read needs saving again; "add a key" would be the wrong advice.
+    return { success: false, output: null, toolCalls: 0, message: unreadableKey(def, err) }
+  }
   if (!creds) {
     return { success: false, authRequired: true, authUrl: `/integrations/${def.provider}`, output: null, toolCalls: 0, message: `Add your ${def.name} key to continue.` }
   }
