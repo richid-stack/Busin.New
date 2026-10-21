@@ -1,4 +1,5 @@
 import { getFirebaseAuth, getFirebaseDb } from '../../utils/firebaseAdmin'
+import { forgetVerifiedUser } from '../../utils/session'
 import { clearDeleting, markDeleting } from './tombstone'
 import { deleteComposioConnection, isComposioConfigured, listComposioUserConnections } from '../composio/client'
 
@@ -22,6 +23,16 @@ export const EXPORT_FORMAT = 1
 const LEGACY_SECRETS = ['accessToken', 'refreshToken', 'token', 'apiKey', 'secret', 'credentials', 'sealed', 'sealedToken', 'password']
 const SECRET_HEADER = /authorization|cookie|token|secret|key|password|signature/i
 
+const URL_SECRET = /([?&;](?:[\w-]*(?:key|token|secret|password|passwd|sig|signature|auth|credential)[\w-]*|code)=)[^&\s"'<>#]+/gi
+
+/** Replaces the value of any credential-looking query parameter inside text, keeping the rest of the address. */
+function scrubUrlSecrets(value: any): any {
+  if (typeof value === 'string') return value.replace(URL_SECRET, '$1[not exported]')
+  if (Array.isArray(value)) return value.map(scrubUrlSecrets)
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, scrubUrlSecrets(v)]))
+  return value
+}
+
 /** Workflow settings that act as passwords: the webhook secret and the value of any request header. Names stay so the flow is still readable. */
 function redactWorkflow(workflow: any): any {
   const out = { ...workflow }
@@ -40,7 +51,8 @@ function redactWorkflow(workflow: any): any {
     return value
   }
   if (out.nodes) out.nodes = clean(out.nodes)
-  return out
+  // Addresses can carry a key in their query string, in the settings and in what each run recorded.
+  return scrubUrlSecrets(out)
 }
 
 /** File names and sizes, read without the file contents (a select keeps the bytes out of memory). */
@@ -71,7 +83,10 @@ export function defaultAccountDeps(): AccountDeps {
     listConnections: userId => (isComposioConfigured() ? listComposioUserConnections(userId) : Promise.resolve([])),
     disconnect: (userId, id) => deleteComposioConnection(userId, id, { ownershipVerified: true }),
     deleteAuthUser: userId => getFirebaseAuth().deleteUser(userId),
-    revokeSessions: userId => getFirebaseAuth().revokeRefreshTokens(userId)
+    revokeSessions: async (userId) => {
+      await getFirebaseAuth().revokeRefreshTokens(userId)
+      forgetVerifiedUser(userId)
+    }
   }
 }
 

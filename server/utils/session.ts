@@ -31,13 +31,18 @@ function getSessionPassword() {
 type SessionUser = NonNullable<UserSession['user']>
 
 const VERIFIED = new Map<string, { decoded: any, until: number }>()
+/** Forgets every remembered sign-in check for one person, so a revoked session stops working at once on this server. */
+export function forgetVerifiedUser(uid: string) {
+  for (const [token, hit] of VERIFIED) if (hit.decoded?.uid === uid) VERIFIED.delete(token)
+}
+
 async function verifyCached(token: string) {
   const now = Date.now()
   const hit = VERIFIED.get(token)
   if (hit && hit.until > now && hit.decoded.exp * 1000 > now) return hit.decoded
   const decoded = await getFirebaseAuth().verifyIdToken(token, true)
   if (VERIFIED.size > 500) VERIFIED.clear()
-  VERIFIED.set(token, { decoded, until: now + 60_000 })
+  VERIFIED.set(token, { decoded, until: now + 30_000 })
   return decoded
 }
 
@@ -54,7 +59,7 @@ export async function getVerifiedUser(event: H3Event): Promise<SessionUser | nul
 
   try {
     // The second argument also rejects tokens that were revoked (an account being deleted signs everyone out).
-    // A passed check is remembered for a minute, so this is not an extra lookup on every request.
+    // A passed check is remembered for 30 seconds, so this is not an extra lookup on every request.
     const decoded = await verifyCached(match[1])
     const email = decoded.email || undefined
     return {

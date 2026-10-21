@@ -188,19 +188,37 @@ async function sendReceipt(deps: BillingDeps, ref: any, payment: any): Promise<b
   return true
 }
 
-/** Run daily: paid payments whose receipt never went out are sent again (the idempotency key stops duplicates). */
+/** How long after a payment a missing receipt is still worth retrying, how often, and how many times. */
+const RECEIPT_WINDOW_DAYS = 7
+const RECEIPT_MAX_ATTEMPTS = 5
+const RECEIPT_RETRY_AFTER_HOURS = 20
+
+/**
+ * Run daily: recent paid payments whose receipt never went out are sent again (the idempotency key stops duplicates).
+ * Only payments from the last week are looked at, because older ones were paid before receipts were tracked and
+ * may well have been sent. A payment that keeps failing is tried at most a few times, so it cannot use up the whole batch.
+ */
 export async function retryUnsentReceipts(deps: BillingDeps, limit = 50): Promise<{ checked: number, sent: number }> {
-  const snap = await deps.db.collection(PAYMENTS).where('status', '==', 'paid').get()
-  let checked = 0
+  const now = deps.now()
+  const since = new Date(now.getTime() - RECEIPT_WINDOW_DAYS * 86_400_000).toISOString()
+  const retryBefore = new Date(now.getTime() - RECEIPT_RETRY_AFTER_HOURS * 3_600_000).toISOString()
+  const snap = await deps.db.collection(PAYMENTS).where('paidAt', '>=', since).get()
+  const due = (snap.docs as any[])
+    .filter((d) => {
+      const p = d.data()
+      return p.status === 'paid' && !p.receiptSentAt && p.userId && p.email
+        && Number(p.receiptAttempts ?? 0) < RECEIPT_MAX_ATTEMPTS
+        && (!p.receiptLastAttemptAt || String(p.receiptLastAttemptAt) <= retryBefore)
+    })
+    // Payments tried least often, then least recently, go first.
+    .sort((a, b) => (Number(a.data().receiptAttempts ?? 0) - Number(b.data().receiptAttempts ?? 0)) || String(b.data().paidAt).localeCompare(String(a.data().paidAt)))
+    .slice(0, limit)
   let sent = 0
-  for (const doc of snap.docs as any[]) {
-    const p = doc.data()
-    if (p.receiptSentAt || !p.userId || !p.email) continue
-    if (checked >= limit) break
-    checked++
-    if (await sendReceipt(deps, doc.ref, p)) sent++
+  for (const doc of due) {
+    if (await sendReceipt(deps, doc.ref, doc.data())) sent++
+    else await doc.ref.update({ receiptAttempts: Number(doc.data().receiptAttempts ?? 0) + 1, receiptLastAttemptAt: now.toISOString() }).catch(() => {})
   }
-  return { checked, sent }
+  return { checked: due.length, sent }
 }
 
 export interface PaymentSummary { reference: string, amount: number, currency: string, months: number, paidAt: string }

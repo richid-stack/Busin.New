@@ -1,4 +1,5 @@
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
+import { assertNotDeleting } from '../account/tombstone'
 import { MAX_MEMORIES, MemoryError, cleanMemoryText, sameMemory } from './memory'
 import type { MemoryItem } from './memory'
 
@@ -32,6 +33,7 @@ const OFF = 'Memory is switched off, so nothing new is saved. Switch it on to ad
  * cannot all pass against the same list.
  */
 export async function addMemory(userId: string, rawText: string, source: MemoryItem['source']): Promise<{ item: MemoryItem, existed: boolean }> {
+  await assertNotDeleting(userId)
   const text = cleanMemoryText(rawText)
   if (!(await isMemoryEnabled(userId))) throw new MemoryError(OFF)
   const db = getFirebaseDb()

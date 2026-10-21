@@ -1,6 +1,6 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { MemoryError, findMemoryMatches, groundedInUserText, hasForgetIntent, hasRememberIntent } from '../../services/memory/memory'
+import { MemoryError, findMemoryMatches, groundedInUserText, hasForgetIntent, hasRememberIntent, referencesEarlierTalk, sharesWordWith } from '../../services/memory/memory'
 import { addMemory, deleteMemory, listMemories } from '../../services/memory/store'
 import { withToolLimits } from './limits'
 
@@ -42,12 +42,14 @@ export const createForgetTool = (userId: string, userText: string) => tool({
       if (!hasForgetIntent(userText)) {
         return { status: 'failed' as const, error: 'The user did not ask to forget anything in their message, so nothing was deleted.' }
       }
-      if (!groundedInUserText(userText, query)) {
-        return { status: 'failed' as const, error: 'The user did not ask to forget that, so nothing was deleted.' }
-      }
       const matches = findMemoryMatches(await listMemories(userId), query)
       if (!matches.length) return { status: 'failed' as const, error: 'No remembered fact matches that. Tell the user, and do not guess.' }
       const [best, second] = matches
+      // Deleting removes only the person's own note, and only a single clear match goes. It must still be something their
+      // message is about, in their words or by pointing back at it, so text from a page cannot pick a note to remove.
+      if (!sharesWordWith(userText, query) && !sharesWordWith(userText, best!.item.text) && !referencesEarlierTalk(userText)) {
+        return { status: 'failed' as const, error: 'The user did not ask to forget that, so nothing was deleted.' }
+      }
       if (second && second.score >= best!.score) {
         return { status: 'ambiguous' as const, candidates: matches.slice(0, 5).map(m => m.item.text), error: 'More than one memory matches. Ask the user which one, and delete nothing yet.' }
       }

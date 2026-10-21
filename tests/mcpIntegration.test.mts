@@ -11,7 +11,7 @@ import { seal } from '../server/utils/secretBox'
 import { createStreamingFetch } from '../server/services/mcp/streamFetch'
 import { listMcpTools, callMcpToolChecked } from '../server/services/mcp/client'
 import { boundStructured, buildMcpTools } from '../server/services/mcp/chatTools'
-import { createServer as createStoredServer, getServer, listServers, updateServer, deleteServer, approvedCount, setApprovals } from '../server/services/mcp/store'
+import { createServer as createStoredServer, getServer, listServers, updateServer, deleteServer, approvedCount, setApprovals, updateServerFor } from '../server/services/mcp/store'
 import { endpointFor, revokeOnSignInChange } from '../server/services/mcp/server'
 import { MCP_LIMITS, McpConflict, fingerprintTool, planApproval } from '../server/services/mcp/tools'
 import { createAgent, getAgent, listAgents, updateAgent, deleteAgent } from '../server/services/agents/store'
@@ -93,6 +93,21 @@ assert(Object.keys(rev.approved ?? { x: 1 }).length === 0 && /switched off/.test
 assert(Object.keys(revokeOnSignInChange({ headerName: 'Authorization', approved: approvedStored.approved }, { headerName: 'X-Api-Key' })).length === 2, 'a different header does too')
 assert(Object.keys(revokeOnSignInChange({ headerName: 'Authorization', approved: approvedStored.approved }, { headerName: 'Authorization' })).length === 0, 'the same header changes nothing')
 assert(Object.keys(revokeOnSignInChange({ headerName: 'Authorization', approved: {} }, { sealedToken: 'new' })).length === 0, 'nothing to revoke when nothing was approved')
+// A token change and an approval at the same moment: whichever order they land in, the approvals end up off.
+const raceServer = (await listServers('carol'))[0]!
+const racePlan = (others: number) => planApproval(offeredMany, [fp('x0')], others)
+await setApprovals('carol', raceServer.id, () => ({}))
+const settled = await Promise.allSettled([
+  updateServerFor('carol', raceServer.id, current => ({ sealedToken: 'newtoken', ...revokeOnSignInChange(current, { sealedToken: 'newtoken' }) })),
+  setApprovals('carol', raceServer.id, others => racePlan(others))
+])
+const afterRace = await getServer(raceServer.id)
+assert(settled.every(r => r.status === 'fulfilled') && afterRace?.sealedToken === 'newtoken', 'both writes finish')
+let notOwner: any = null
+try { await updateServerFor('alice', raceServer.id, () => ({ name: 'x' })) } catch (e) { notOwner = e }
+assert(notOwner?.message === 'Server not found', "someone else's server cannot be updated")
+const sequential = await updateServerFor('carol', raceServer.id, current => ({ sealedToken: 'another', ...revokeOnSignInChange(current, { sealedToken: 'another' }) }))
+assert(Object.keys(sequential.approved).length === 0 && /switched off/.test(sequential.driftNote), 'a token change made against the stored server clears whatever is approved at that moment')
 assert(JSON.stringify(boundStructured(Array.from({ length: 50000 }, (_, i) => i))).length < 3000 && (boundStructured({ a: 1 }) as any).a === 1, 'big structured results are replaced by a short notice, small ones pass')
 
 // A server that lists its tools over two pages: an approved tool on page two must still be runnable.

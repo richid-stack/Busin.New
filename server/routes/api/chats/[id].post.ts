@@ -29,7 +29,7 @@ import { isMemoryEnabled, listMemories } from '../../../services/memory/store'
 import { memoryPrompt } from '../../../services/memory/memory'
 import { createForgetTool, createRememberTool } from '../../../utils/tools/memory'
 import { createProposeAgentTool } from '../../../utils/tools/proposeAgent'
-import { UsageLimitError, chargeUsage, recordTokens } from '../../../services/usage/usage'
+import { UsageLimitError, chargeGuest, chargeUsage, recordTokens } from '../../../services/usage/usage'
 import { modelCost } from '../../../services/usage/plans'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
@@ -159,8 +159,13 @@ export default defineHandler(async (event) => {
 
   // Every message draws from the person's credits. A limit that is reached answers with a plain 429 and
   // a message the chat shows as it is; a call that fails before doing any work gives the credits back.
-  // Guests are counted by their address, not their cookie, so a new session does not bring a new allowance.
-  const charge = await chargeUsage(signedIn ? userId : `guest-${rateLimitSubject(event).replace(/[^A-Za-z0-9._-]/g, '_')}`, modelCost(modelId), { guest: !signedIn }).catch((err) => {
+  // Guests are counted by their session and, with a larger ceiling, by their address, so clearing cookies does not
+  // bring a fresh allowance and a shared mobile address is not stuck with one person's share.
+  const chargeAmount = modelCost(modelId)
+  const charged = signedIn
+    ? chargeUsage(userId, chargeAmount)
+    : chargeGuest(userId, rateLimitSubject(event).replace(/[^A-Za-z0-9._-]/g, '_'), chargeAmount)
+  const charge = await charged.catch((err) => {
     if (err instanceof UsageLimitError) throw createError({ statusCode: 429, statusMessage: err.message })
     throw err
   })

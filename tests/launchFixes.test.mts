@@ -5,7 +5,11 @@ import type { BillingDeps } from '../server/services/billing/billing'
 import { failureInfoFromRun, getNotificationSettings, setNotificationSettings } from '../server/services/notifications/notify'
 import { AccountDeletionError, collectUserData, eraseUserData } from '../server/services/account/account'
 import { isDeleting } from '../server/services/account/tombstone'
-import { saveWorkflowRun } from '../server/utils/firebase'
+import { saveWorkflowRun, saveChatMessages, createChat } from '../server/utils/firebase'
+import { AccountDeletingError } from '../server/services/account/tombstone'
+import { postApprovalCard } from '../server/utils/workflowRuns'
+import { createAgent } from '../server/services/agents/store'
+import { addMemory } from '../server/services/memory/store'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
 const rejects = async (fn: () => Promise<unknown>) => { try { await fn() } catch (e) { return e } return null }
@@ -28,7 +32,7 @@ const fakeFetch = (async (url: string, init: any = {}) => {
 }) as unknown as typeof fetch
 const mails: any[] = []
 let sendOk = true
-const clock = new Date('2026-10-20T10:00:00Z')
+let clock = new Date('2026-10-20T10:00:00Z')
 const deps = (): BillingDeps => ({ db: db as any, paystack: { fetch: fakeFetch, secret: 'sk_test_abc' }, now: () => clock, send: async (m) => { if (!sendOk) return { sent: false }; mails.push(m); return { sent: true } }, env })
 const buy = (userId: string, period: 'month' | 'year' = 'month') => startCheckout(deps(), { userId, email: `${userId}@x.com`, name: userId, period, appUrl: 'x' })
 
@@ -67,6 +71,24 @@ const again = await retryUnsentReceipts(deps())
 assert(again.sent === 1 && mails.length === 1 && mails[0].idempotencyKey === `receipt-${r.reference}` && !!db.raw('payments').get(r.reference)?.receiptSentAt, 'the receipt is sent later, with the same idempotency key')
 assert((await retryUnsentReceipts(deps())).sent === 0 && mails.length === 1, 'a receipt already sent is not sent again')
 
+// Old payments (before receipts were tracked) are never re-sent, and a failing one backs off instead of blocking the rest
+await db.collection('payments').doc('ol_old').set({ reference: 'ol_old', userId: 'o1', email: 'o1@x.com', status: 'paid', paidAt: '2026-08-01T00:00:00.000Z', months: 1, amount: 6000, currency: 'GHS', endsAt: '2026-09-01T00:00:00.000Z' })
+for (const n of [1, 2, 3]) await db.collection('payments').doc(`ol_fail${n}`).set({ reference: `ol_fail${n}`, userId: `f${n}`, email: `f${n}@x.com`, status: 'paid', paidAt: `2026-10-19T0${n}:00:00.000Z`, months: 1, amount: 6000, currency: 'GHS', endsAt: '2026-11-19T00:00:00.000Z' })
+mails.length = 0
+sendOk = false
+const roundOne = await retryUnsentReceipts(deps(), 2)
+assert(roundOne.checked === 2 && roundOne.sent === 0 && !mails.some(m => /ol_old/.test(m.idempotencyKey ?? '')), 'only the batch size is tried, and a payment from before tracking is left alone')
+const tried = ['ol_fail1', 'ol_fail2', 'ol_fail3'].filter(r => db.raw('payments').get(r)?.receiptAttempts === 1)
+assert(tried.length === 2, 'each failed attempt is counted on its payment')
+assert((await retryUnsentReceipts(deps(), 2)).checked === 1, 'payments tried a moment ago wait, so the one not yet tried gets its turn')
+assert((await retryUnsentReceipts(deps(), 2)).checked === 0, 'nothing is retried again within the same day')
+sendOk = true
+clock = new Date('2026-10-21T08:00:00Z')
+const later = await retryUnsentReceipts(deps(), 10)
+assert(later.sent === 3 && ['ol_fail1', 'ol_fail2', 'ol_fail3'].every(r => !!db.raw('payments').get(r)?.receiptSentAt), 'the next day they are sent')
+for (let i = 0; i < 6; i++) await db.collection('payments').doc('ol_hopeless').set({ reference: 'ol_hopeless', userId: 'h', email: 'h@x.com', status: 'paid', paidAt: '2026-10-20T00:00:00.000Z', receiptAttempts: 5, months: 1, amount: 1, currency: 'GHS', endsAt: 'x' })
+assert((await retryUnsentReceipts(deps())).checked === 0, 'a payment that has failed five times is left for a person to look at')
+
 // ---- Notifications ----
 const info = failureInfoFromRun({ id: 'wf1', userId: 'u', title: 'Morning briefing' }, { logs: [{ status: 'completed', nodeTitle: 'A' }, { status: 'failed', nodeTitle: 'Fetch inbox', message: 'Not connected' }] })
 assert(info.workflowName === 'Morning briefing' && info.step === 'Fetch inbox' && info.error === 'Not connected', 'the failure email uses the workflow title and the log message')
@@ -75,7 +97,8 @@ const ns = await getNotificationSettings(db as any, 'n1')
 assert(ns.emailRenewals === false && ns.emailWorkflowFailures === false, 'two quick changes to different switches both stick')
 
 // ---- Account export ----
-await db.collection('workflows').doc('w1').set({ userId: 'x1', title: 'Flow', webhookSecret: 'WHSEC', nodes: [{ id: 'n', type: 'http', data: { config: { headers: { Authorization: 'Bearer HUSH', 'X-Plan': 'free' }, url: 'https://a.example' } } }] })
+await db.collection('workflows').doc('w1').set({ userId: 'x1', title: 'Flow', webhookSecret: 'WHSEC', nodes: [{ id: 'n', type: 'http', data: { config: { headers: { Authorization: 'Bearer HUSH', 'X-Plan': 'free' }, url: 'https://a.example/v1?api_key=URLKEY123&page=2' } } }] })
+await db.collection('workflows').doc('w1').collection('runs').doc('r1').set({ userId: 'x1', status: 'completed', output: { fetch: { url: 'https://a.example/v1?token=RUNTOKEN9&q=hi' } } })
 await db.collection('integrations').doc('x1_slack').set({ userId: 'x1', provider: 'slack', accessToken: 'LEGACY-TOKEN', status: 'connected' })
 await db.collection('notification_log').doc('workflow-failed__w1__2026-10-20').set({ userId: 'x1', kind: 'workflow-failed' })
 await db.collection('generated_files').doc('f1').set({ userId: 'x1', name: 'r.xlsx', size: 3, data: Buffer.from('abc') })
@@ -83,6 +106,7 @@ const calls: string[] = []
 const adeps = (over: any = {}) => ({ db: db as any, listConnections: async () => [{ id: 'c1' }], disconnect: async () => { calls.push('disconnect'); return true }, deleteAuthUser: async () => { calls.push('auth') }, revokeSessions: async () => { calls.push('revoke') }, ...over })
 const out = JSON.stringify(await collectUserData(adeps() as any, { id: 'x1', name: 'X' }))
 assert(!out.includes('WHSEC') && !out.includes('HUSH') && out.includes('X-Plan'), 'workflow secrets and header values are not exported, header names are')
+assert(!out.includes('URLKEY123') && !out.includes('RUNTOKEN9') && out.includes('page=2') && out.includes('q=hi') && out.includes('api_key=[not exported]'), 'keys in addresses are removed from settings and run records, the rest of the address stays')
 assert(!out.includes('LEGACY-TOKEN') && out.includes('x1_slack') && out.includes('workflow-failed'), 'legacy app connections (without tokens) and the notification log are exported')
 assert(!out.includes('"data":"') && out.includes('r.xlsx'), 'files are listed without their bytes')
 
@@ -96,6 +120,15 @@ await eraseUserData(adeps() as any, 'x1')
 assert(calls.join() === 'revoke,disconnect,auth', 'sessions are revoked first, then apps disconnected, then the sign-in account removed')
 assert(await isDeleting('x1', db) && !db.raw('workflows').has('w1') && !db.raw('integrations').has('x1_slack'), 'the marker stays and the data is gone')
 
-// A run that finishes after the marker went up writes nothing
-await saveWorkflowRun('w-late', { userId: 'x1', status: 'completed', input: {}, output: {}, logs: [], durationMs: 1 } as any)
-assert(!db.raw('workflows').has('w-late') && ![...db.raw('workflows').values()].some(w => w.userId === 'x1'), 'a workflow run finishing during deletion is not saved')
+// A run that finishes after the marker went up writes nothing, and says so
+const lateRun = await rejects(() => saveWorkflowRun('w-late', { userId: 'x1', status: 'completed', input: {}, output: {}, logs: [], durationMs: 1 } as any))
+assert(lateRun instanceof AccountDeletingError && !db.raw('workflows').has('w-late') && ![...db.raw('workflows').values()].some(w => w.userId === 'x1'), 'a workflow run finishing during deletion is refused, not silently dropped')
+assert((await rejects(() => postApprovalCard('x1', { id: 'w', title: 'T' } as any, { id: 'r', approvalPrompt: 'p' } as any))) instanceof AccountDeletingError && ![...db.raw('chats').values()].some(c => c.userId === 'x1'), 'no approval chat is created for an account that is being deleted')
+
+// A reply that finishes after the sweep leaves nothing behind
+await db.collection('chats').doc('c-gone').set({ userId: 'x2', title: 'live' })
+assert(await saveChatMessages('c-gone', [{ id: 'm1', role: 'assistant', parts: [] }]) === true && db.raw('chats/c-gone/messages').has('m1'), 'a normal reply is saved')
+await db.collection('account_deletions').doc('x2').set({ userId: 'x2', startedAt: clock.toISOString() })
+assert(await saveChatMessages('c-gone', [{ id: 'm2', role: 'assistant', parts: [] }]) === false && !db.raw('chats/c-gone/messages').has('m2'), 'a reply finishing while its owner is being deleted is not saved')
+assert(await saveChatMessages('c-never', [{ id: 'm3', role: 'assistant', parts: [] }]) === false && !db.raw('chats/c-never/messages').has('m3'), 'nothing is written under a chat that no longer exists')
+assert((await rejects(() => createChat({ userId: 'x2', title: 'new' } as any))) instanceof AccountDeletingError && (await rejects(() => createAgent('x2', { name: 'A' } as any))) instanceof AccountDeletingError && (await rejects(() => addMemory('x2', 'likes tea', 'user' as any))) instanceof AccountDeletingError, 'new chats, agents and notes are refused for an account that is being deleted')

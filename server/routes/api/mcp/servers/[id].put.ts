@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { requireUser } from '../../../../utils/session'
 import { enforceRateLimit } from '../../../../utils/rateLimit'
 import { seal, SecretBoxError } from '../../../../utils/secretBox'
-import { getServer, updateServer } from '../../../../services/mcp/store'
+import { getServer, updateServerFor, type ServerPatch } from '../../../../services/mcp/store'
+import { McpError } from '../../../../services/mcp/tools'
 import { revokeOnSignInChange, serverInputSchema, viewServer } from '../../../../services/mcp/server'
 
 // The address cannot be changed: an approved server must not be quietly pointed somewhere else.
@@ -22,7 +23,7 @@ export default defineHandler(async (event) => {
   const server = await getServer(id)
   if (!server || server.userId !== user.id) throw new HTTPError({ statusCode: 404, statusMessage: 'Server not found' })
 
-  const patch: Parameters<typeof updateServer>[1] = {}
+  const patch: ServerPatch = {}
   if (input.name !== undefined) patch.name = input.name
   if (input.headerName !== undefined) patch.headerName = input.headerName
   if (input.enabled !== undefined) patch.enabled = input.enabled
@@ -35,8 +36,12 @@ export default defineHandler(async (event) => {
   }
   // A new token or header is a different sign-in, and may reach different tools under the same names. The approvals
   // are switched off until the person reads the tools again, and the note on the card says why.
-  Object.assign(patch, revokeOnSignInChange(server, patch))
-
-  await updateServer(id, patch)
-  return viewServer({ ...server, ...patch })
+  // The decision is made inside the transaction, from the server as stored at that moment.
+  try {
+    const updated = await updateServerFor(user.id, id, current => ({ ...patch, ...revokeOnSignInChange(current, patch) }))
+    return viewServer(updated)
+  } catch (err) {
+    if (err instanceof McpError) throw new HTTPError({ statusCode: 404, statusMessage: 'Server not found' })
+    throw err
+  }
 })

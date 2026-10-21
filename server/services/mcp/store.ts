@@ -1,4 +1,5 @@
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
+import { assertNotDeleting } from '../account/tombstone'
 import type { ApprovedTool } from './tools'
 import type { McpServer } from './server'
 import { MCP_LIMITS, McpConflict, McpError } from './tools'
@@ -41,6 +42,7 @@ export async function getServer(id: string): Promise<McpServer | null> {
  * transaction, so simultaneous requests cannot all pass against the same count.
  */
 export async function createServer(userId: string, input: Pick<McpServer, 'name' | 'url' | 'headerName' | 'sealedToken'>): Promise<McpServer> {
+  await assertNotDeleting(userId)
   const now = new Date().toISOString()
   const db = getFirebaseDb()
   const ref = db.collection(COLLECTION).doc()
@@ -73,9 +75,29 @@ export async function setApprovals(userId: string, id: string, plan: (othersAppr
   })
 }
 
+export type ServerPatch = Partial<Pick<McpServer, 'name' | 'headerName' | 'sealedToken' | 'enabled' | 'approved' | 'lastError' | 'driftNote'>>
+
 /** Only these fields can change after creation; the address is fixed so an approved server cannot be pointed elsewhere. */
 export async function updateServer(id: string, patch: Partial<Pick<McpServer, 'name' | 'headerName' | 'sealedToken' | 'enabled' | 'approved' | 'lastError' | 'driftNote'>>): Promise<void> {
   await getFirebaseDb().collection(COLLECTION).doc(id).update({ ...patch, updatedAt: new Date().toISOString() })
+}
+
+/**
+ * Changes a server's settings against the server as it is stored right now, in one transaction. A new sign-in
+ * switches approvals off based on what is stored at that moment, so an approval saved a moment earlier cannot
+ * survive a token change.
+ */
+export async function updateServerFor(userId: string, id: string, build: (current: McpServer) => ServerPatch): Promise<McpServer> {
+  const db = getFirebaseDb()
+  const ref = db.collection(COLLECTION).doc(id)
+  return await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists || snap.data()!.userId !== userId) throw new McpError('Server not found')
+    const current = fromDoc(id, snap.data()!)
+    const patch = { ...build(current), updatedAt: new Date().toISOString() }
+    tx.update(ref, patch)
+    return fromDoc(id, { ...snap.data()!, ...patch })
+  })
 }
 
 export async function deleteServer(id: string): Promise<void> {

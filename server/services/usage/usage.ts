@@ -140,3 +140,33 @@ export async function chargeUsage(userId: string, cost: number, opts: { guest?: 
     return noop
   }
 }
+
+/**
+ * Charges a signed-out visitor twice over: against their own session (the small guest allowance) and against
+ * their network address (a larger shared ceiling). Clearing cookies does not bring a fresh allowance, and a
+ * busy shared address is not limited to one person's share.
+ */
+export async function chargeGuest(sessionId: string, addressKey: string, cost: number): Promise<{ refund: () => Promise<void> }> {
+  const own = await chargeUsage(`guest-${sessionId}`, cost, { guest: true })
+  try {
+    const shared = await chargeUsageAs(`guest-addr-${addressKey}`, 'guest_address', cost)
+    return { refund: async () => { await own.refund(); await shared.refund() } }
+  } catch (err) {
+    await own.refund()
+    throw err
+  }
+}
+
+async function chargeUsageAs(key: string, plan: PlanId, cost: number): Promise<{ refund: () => Promise<void> }> {
+  const noop = { refund: async () => {} }
+  if (cost <= 0) return noop
+  try {
+    const chargedAt = new Date()
+    await consumeCredits(key, plan, cost, chargedAt)
+    return { refund: () => refundCredits(key, cost, chargedAt).catch(err => console.warn('Usage refund failed:', err?.message)) }
+  } catch (err) {
+    if (err instanceof UsageLimitError) throw err
+    console.warn('Usage counting unavailable, allowing the request:', (err as Error)?.message)
+    return noop
+  }
+}

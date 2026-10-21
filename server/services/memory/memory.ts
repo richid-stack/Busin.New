@@ -61,8 +61,26 @@ export function groundedInUserText(userText: string, text: string): boolean {
   const wanted = stems(text)
   if (!wanted.size) return false
   const said = stems(userText)
-  const hits = [...wanted].filter(w => said.has(w)).length
-  return hits / wanted.size >= 0.6
+  // Words a fact is usually rephrased with ("I like tea" -> "Likes tea"). Everything else must be the person's own.
+  const missing = [...wanted].filter(w => !said.has(w) && !REPHRASED.has(w))
+  // Numbers and names are the content of a fact; they can never be swapped for another.
+  const figures = normalize(text).split(' ').filter(w => /\d/.test(w))
+  const saidWords = new Set(normalize(userText).split(' '))
+  if (figures.some(f => !saidWords.has(f))) return false
+  // "Favourite colour is red" must not become "favourite colour is blue": one new content word is already a different fact.
+  return missing.length === 0
+}
+
+const REPHRASED = new Set(['work', 'like', 'love', 'live', 'want', 'name', 'call', 'pref', 'favo', 'enjo', 'uses', 'base', 'born', 'spea', 'know', 'need', 'owns', 'main'])
+
+/** The person points at a memory without describing it ("forget that", "forget what I told you about my job"). */
+export const referencesEarlierTalk = (userText: string) =>
+  /\b(forget|remove|delete|erase|clear)\s+(that|it|this|those|these|the last (one|thing))\b/i.test(userText) || /\b(what|everything|anything|that)\s+(i|I)\s+(said|told|mentioned|asked)\b/i.test(userText)
+
+/** True when the person's message shares at least one content word with a remembered note. */
+export const sharesWordWith = (userText: string, note: string) => {
+  const said = stems(userText)
+  return [...stems(note)].some(w => said.has(w))
 }
 
 export const hasRememberIntent = (userText: string) => REMEMBER_INTENT.test(userText)

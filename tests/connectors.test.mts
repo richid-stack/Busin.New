@@ -3,7 +3,7 @@ import { createFakeFirestore } from './fakeFirestore'
 import { PAYSTACK, ARKESEL, CONNECTORS, getConnector } from '../server/services/connectors/definitions'
 import { ConnectorError, buildRequest, callConnector, validateParams, bound, scrubCreds } from '../server/services/connectors/runtime'
 import { cleanCredentials, saveCredentials, getCredentials, deleteCredentials, connectionViews } from '../server/services/connectors/store'
-import { runConnectorAction, connectorTools, verifyKey } from '../server/services/connectors/execute'
+import { runConnectorAction, runConnectorInstruction, connectorTools, verifyKey } from '../server/services/connectors/execute'
 import { ALL_INTEGRATIONS_CATALOG, getResolvedUserIntegrations, executeIntegratedAction } from '../server/services/integrations/registry'
 import { SecretBoxError } from '../server/utils/secretBox'
 import { untrustedBlock } from '../server/services/integrations/untrusted'
@@ -28,8 +28,13 @@ assert(CONNECTORS.every(c => c.actions.filter(a => a.effect === 'write').every(a
 
 // ---- Parameter checks ----
 const list = act(PAYSTACK, 'paystack_list_transactions')
-assert(JSON.stringify(validateParams(list, {})) === '{"perPage":20}', 'defaults are filled in')
+assert(JSON.stringify(validateParams(list, {})) === '{"perPage":50}', 'defaults are filled in')
 assert(validateParams(list, { perPage: '5', status: 'success' }).perPage === 5, 'numbers given as text are accepted')
+assert(validateParams(list, { from: '2026-10-01', to: '2026-10-07' }).from === '2026-10-01', 'a date range can be asked for')
+assert(throwsInvalid(() => validateParams(list, { from: 'last week' }), /./), 'a loose date is refused')
+const summary: any = list.summarize!({ data: [{ reference: 'r1', amount: 15050, currency: 'GHS', status: 'success', paid_at: '2026-10-02T10:00:00Z', customer: { email: 'a@x.com' }, authorization: { secret: 'x' }, log: { big: 'x'.repeat(500) } }], meta: { total: 120, page: 2, pageCount: 3, perPage: 50 } })
+assert(summary.transactions.length === 1 && summary.transactions[0].customerEmail === 'a@x.com' && !JSON.stringify(summary).includes('authorization') && summary.lastPage === false && summary.pageCount === 3, 'a page is reduced to short rows and says whether it is the last')
+assert(list.summarize!({ data: [], meta: { total: 0, page: 1, pageCount: 1, perPage: 50 } }).lastPage === true, 'the last page is flagged')
 assert(throwsInvalid(() => validateParams(list, { perPage: 500 }), /between/), 'out-of-range numbers are refused')
 assert(throwsInvalid(() => validateParams(list, { perPage: 1.5 }), /whole number/), 'fractions are refused for whole numbers')
 assert(throwsInvalid(() => validateParams(list, { status: 'refunded' }), /one of/), 'values outside an enum are refused')
@@ -108,7 +113,11 @@ db.raw('connector_credentials').set('bob__paystack', { ...stored, userId: 'bob' 
 let copied: any = null
 try { await getCredentials(db as any, 'bob', 'paystack') } catch (e) { copied = e }
 assert(copied instanceof SecretBoxError, "a key copied onto another account cannot be opened, and that is reported, not hidden")
+const viaText: any = await runConnectorInstruction('bob', PAYSTACK, 'check my balance', { db: db as any })
+assert(viaText.success === false && !viaText.authRequired && /Save the key again/.test(viaText.message), 'a saved key that cannot be read says to save it again, in the text path too')
 db.raw('connector_credentials').delete('bob__paystack')
+const noKeyText: any = await runConnectorInstruction('bob', PAYSTACK, 'check my balance', { db: db as any })
+assert(noKeyText.authRequired === true && /Add your/.test(noKeyText.message), 'a person with no key is told to add one')
 const views = await connectionViews(db as any, 'alice')
 assert(views.get('paystack')?.hint === '…7890' && !JSON.stringify([...views]).includes(KEY), 'the list of connections never has the key')
 

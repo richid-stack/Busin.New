@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { isDeleting } from '../services/account/tombstone'
+import { assertNotDeleting, isDeleting } from '../services/account/tombstone'
 import { executeWorkflowDAG, type WorkflowRunResult } from './workflowEngine'
 import {
   saveWorkflowRun,
@@ -23,6 +23,7 @@ export async function postApprovalCard(
   workflow: FirestoreWorkflow,
   run: FirestoreWorkflowRun
 ) {
+  await assertNotDeleting(ownerId)
   const chats = await getUserChats(ownerId)
   let chat = chats.find(c => c.title === APPROVALS_CHAT_TITLE)
   if (!chat) {

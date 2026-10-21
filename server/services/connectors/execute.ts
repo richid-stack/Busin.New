@@ -10,6 +10,10 @@ export interface ConnectorRunResult { success: boolean, authRequired?: boolean, 
 export interface ConnectorDeps { db?: any, fetch?: typeof fetch, now?: () => Date }
 
 /** Runs one named action with explicit parameters. Nothing here asks a model to decide anything. */
+const unreadableKey = (def: ConnectorDef, err: unknown) => err instanceof SecretBoxError
+  ? `OpenLobs cannot read the saved ${def.name} key on this server (its storage key may have changed). Save the key again on the ${def.name} page.`
+  : `Could not read your ${def.name} key. Try again in a moment.`
+
 export async function runConnectorAction(userId: string, def: ConnectorDef, actionId: string, params: unknown, deps: ConnectorDeps = {}): Promise<ConnectorRunResult> {
   const action = def.actions.find(a => a.id === actionId)
   if (!action) return { success: false, output: null, message: `${def.name} has no action called "${actionId}". Available: ${def.actions.map(a => a.id).join(', ')}.` }
@@ -20,7 +24,7 @@ export async function runConnectorAction(userId: string, def: ConnectorDef, acti
   try {
     creds = await getCredentials(db, userId, def.provider)
   } catch (err) {
-    return { success: false, output: null, message: err instanceof SecretBoxError ? `OpenLobs cannot read the saved ${def.name} key on this server (its storage key may have changed). Save the key again on the ${def.name} page.` : `Could not read your ${def.name} key. Try again in a moment.` }
+    return { success: false, output: null, message: unreadableKey(def, err) }
   }
   if (!creds) {
     return { success: false, authRequired: true, authUrl: `/integrations/${def.provider}`, output: null, message: `Add your ${def.name} key to continue.` }
@@ -72,7 +76,13 @@ export function connectorTools(userId: string, def: ConnectorDef, deps: Connecto
 
 /** Natural-language path: the model may only pick from this connector's declared actions. */
 export async function runConnectorInstruction(userId: string, def: ConnectorDef, instruction: string, deps: ConnectorDeps & { abortSignal?: AbortSignal } = {}): Promise<IntegrationRunResult | (ConnectorRunResult & { toolCalls: number })> {
-  const creds = await getCredentials(deps.db ?? defaultDb(), userId, def.provider).catch(() => null)
+  let creds: Record<string, string> | null
+  try {
+    creds = await getCredentials(deps.db ?? defaultDb(), userId, def.provider)
+  } catch (err) {
+    // A key that exists but cannot be read needs saving again; "add a key" would be the wrong advice.
+    return { success: false, output: null, toolCalls: 0, message: unreadableKey(def, err) }
+  }
   if (!creds) {
     return { success: false, authRequired: true, authUrl: `/integrations/${def.provider}`, output: null, toolCalls: 0, message: `Add your ${def.name} key to continue.` }
   }

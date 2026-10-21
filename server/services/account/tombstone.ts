@@ -21,3 +21,12 @@ export async function isDeleting(userId: string | null | undefined, db: any = ge
 export async function clearDeleting(db: any, userId: string): Promise<void> {
   await db.collection(DELETIONS).doc(userId).delete().catch(() => {})
 }
+
+export class AccountDeletingError extends Error {
+  constructor() { super('This account is being deleted.') }
+}
+
+/** Throws when the person has asked for deletion. Used before anything is created for them. */
+export async function assertNotDeleting(userId: string | null | undefined, db: any = getFirebaseDb()): Promise<void> {
+  if (await isDeleting(userId, db)) throw new AccountDeletingError()
+}
