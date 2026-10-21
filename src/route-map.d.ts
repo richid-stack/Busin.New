@@ -73,6 +73,13 @@ declare module 'vue-router/auto-routes' {
       { provider: ParamValue<false> },
       | never
     >,
+    '/tmpfilecard': RouteRecordInfo<
+      '/tmpfilecard',
+      '/tmpfilecard',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/workflows/': RouteRecordInfo<
       '/workflows/',
       '/workflows',
@@ -147,6 +154,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'provider'
+    }
+    'src/pages/tmpfilecard.vue': {
+      routes:
+        | '/tmpfilecard'
+      views:
+        | never
+      pathParamNames:
+        | never
     }
     'src/pages/workflows/index.vue': {
       routes:
