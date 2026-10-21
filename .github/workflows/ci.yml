@@ -33,11 +33,12 @@ jobs:
       - name: Test
         run: npm test
 
+      # The build writes auto-imports.d.ts and components.d.ts, which the type check reads, so it runs first.
+      - name: Build
+        run: npx vite build
+
       - name: Typecheck app
         run: npm run typecheck
 
       - name: Typecheck server
         run: npm run typecheck:server
-
-      - name: Build
-        run: npx vite build
