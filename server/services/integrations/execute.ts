@@ -1,4 +1,6 @@
 import { generateText, isStepCount } from 'ai'
+import { UsageLimitError, chargeUsage } from '../usage/usage'
+import { modelCost } from '../usage/plans'
 import { Composio } from '@composio/core'
 import { VercelProvider } from '@composio/vercel'
 import { getComposioApiKey, getActiveComposioConnection, createComposioConnectionLink } from '../composio/client'
@@ -74,6 +76,14 @@ export async function runIntegrationInstruction(opts: {
   const modelId = pickAvailableModel()
   if (!modelId) {
     return { success: false, output: null, toolCalls: 0, message: 'No AI provider is configured on the server, so the action could not be planned.' }
+  }
+
+  // Planning an action is a model call, so it costs credits like any other.
+  try {
+    await chargeUsage(userId, modelCost(modelId))
+  } catch (err) {
+    if (err instanceof UsageLimitError) return { success: false, output: null, toolCalls: 0, message: err.message }
+    throw err
   }
 
   const tools = await client.tools.get(userId, { toolkits: [composioToolkitSlug(provider)] }) as Record<string, any>

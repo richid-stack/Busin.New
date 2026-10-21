@@ -29,6 +29,8 @@ import { isMemoryEnabled, listMemories } from '../../../services/memory/store'
 import { memoryPrompt } from '../../../services/memory/memory'
 import { createForgetTool, createRememberTool } from '../../../utils/tools/memory'
 import { createProposeAgentTool } from '../../../utils/tools/proposeAgent'
+import { UsageLimitError, chargeUsage, recordTokens } from '../../../services/usage/usage'
+import { modelCost } from '../../../services/usage/plans'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
 import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
@@ -192,6 +194,13 @@ export default defineHandler(async (event) => {
   const modelId = agent?.model ?? model
   const languageModel = getLanguageModel(modelId)
 
+  // Every message draws from the person's credits. A limit that is reached answers with a plain 429 and
+  // a message the chat shows as it is; a call that fails before doing any work gives the credits back.
+  const charge = await chargeUsage(userId, modelCost(modelId), { guest: !signedIn }).catch((err) => {
+    if (err instanceof UsageLimitError) throw createError({ statusCode: 429, statusMessage: err.message })
+    throw err
+  })
+
    
   let assistantFinishEvent: any = null
 
@@ -319,6 +328,7 @@ ${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activ
           experimental_transform: smoothStream(),
           onFinish: async (event) => {
             assistantFinishEvent = event
+            if (signedIn) recordTokens(userId, event.totalUsage?.inputTokens ?? 0, event.totalUsage?.outputTokens ?? 0).catch(() => {})
           }
         })
 
@@ -337,6 +347,7 @@ ${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activ
         }))
 
       } catch (err) {
+        await charge.refund()
         writer.write({ type: 'error', errorText: describeModelError(err) })
       }
     },

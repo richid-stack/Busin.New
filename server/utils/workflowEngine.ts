@@ -6,6 +6,8 @@ import { runSandboxedCode } from './sandbox'
 import { LOOP_LIMITS, NodeConfigError, loopCap, loopItems, mapWithConcurrency, runHttpNode, runSetNode, runWebFetchNode, spendOutbound } from './workflowNodes'
 import type { HttpConfig, NodeDeps, SetField, WebFetchConfig } from './workflowNodes'
 import { UnsafeUrlError } from './netSafety'
+import { UsageLimitError, chargeUsage } from '../services/usage/usage'
+import { modelCost } from '../services/usage/plans'
 import jexl from 'jexl'
 import { interpolateDeep, interpolateVariables, snapshotContext, snapshotOutputs, stripBraces } from './workflowTemplate'
 
@@ -201,6 +203,14 @@ async function runAgent(data: { model?: string, prompt?: string }, inputs: Recor
   const modelId = pickAvailableModel(data.model)
   if (!modelId) {
     throw new NodeConfigError('No AI provider is configured. Add GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY or ANTHROPIC_API_KEY.')
+  }
+
+  // Workflow AI steps use the same credits as chat, so a scheduled workflow cannot quietly use up the quota.
+  try {
+    await chargeUsage(userId, modelCost(modelId))
+  } catch (err) {
+    if (err instanceof UsageLimitError) throw new NodeConfigError(err.message)
+    throw err
   }
 
   const instructions = interpolateVariables(

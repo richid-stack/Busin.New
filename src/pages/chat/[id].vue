@@ -153,6 +153,18 @@ const { messages, status, error, sendMessage, regenerate, stop } = useChat({
       }
     }
 
+    // Plan limit reached: the server's message already says which limit and when it resets.
+    if (typeof message === 'string' && /used your (daily|monthly) limit/i.test(message)) {
+      toast.add({
+        title: 'Credit limit reached',
+        description: message,
+        icon: 'i-lucide-gauge',
+        color: 'warning',
+        duration: 12000
+      })
+      return
+    }
+
     // Our own per-user throttle (HTTP 429 from the server): just ask them to wait.
     if (typeof message === 'string' && /too many requests/i.test(message)) {
       toast.add({
