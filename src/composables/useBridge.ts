@@ -45,6 +45,7 @@ export const useBridge = createSharedComposable(() => {
   const newCode = () => $fetch<PairingCode>('/api/bridge/pairings', { method: 'POST', headers: headers() })
 
   const startTest = (id: string) => $fetch<BridgeJobItem>(`/api/bridge/devices/${encodeURIComponent(id)}/test`, { method: 'POST', headers: headers() })
+  const startLook = (id: string, body: { url: string, width?: number, height?: number }) => $fetch<BridgeJobItem>(`/api/bridge/devices/${encodeURIComponent(id)}/look`, { method: 'POST', headers: headers(), body })
   const getJob = (id: string) => $fetch<BridgeJobItem>(`/api/bridge/jobs/${encodeURIComponent(id)}`, { headers: headers() })
   const cancelJob = (id: string) => $fetch<BridgeJobItem>(`/api/bridge/jobs/${encodeURIComponent(id)}/cancel`, { method: 'POST', headers: headers() })
 
@@ -63,5 +64,5 @@ export const useBridge = createSharedComposable(() => {
     unauthorized.value = false
   })
 
-  return { computers, loading, loaded, unauthorized, loadError, fetchComputers, newCode, startTest, getJob, cancelJob, disconnect }
+  return { computers, loading, loaded, unauthorized, loadError, fetchComputers, newCode, startTest, startLook, getJob, cancelJob, disconnect }
 })

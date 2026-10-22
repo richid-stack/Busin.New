@@ -1,4 +1,6 @@
 import os from 'node:os'
+import { look, parseLookInput } from './browser'
+import type { LookDeps } from './browser'
 
 /**
  * The OpenLobs Bridge, without the command line around it, so it can be tested.
@@ -9,9 +11,10 @@ import os from 'node:os'
  *  3. A job can be stopped, and the Bridge says out loud what it is doing.
  */
 
-export const BRIDGE_VERSION = '0.1.0'
+export const BRIDGE_VERSION = '0.2.0'
 
-export interface Config { server: string, deviceId: string, token: string, name: string }
+/** `allow` lists what the person has allowed on this computer (see PERMISSIONS). A ping is always allowed. */
+export interface Config { server: string, deviceId: string, token: string, name: string, allow?: string[] }
 
 export interface Deps {
   fetch: typeof fetch
@@ -20,6 +23,8 @@ export interface Deps {
   log: (line: string) => void
   platform: () => 'windows' | 'mac' | 'linux' | 'other'
   osRelease: () => string
+  /** Replaceable in tests: the browser and the address lookup used by browser jobs. */
+  browser?: LookDeps
 }
 
 export const defaultDeps = (log: (line: string) => void = line => console.log(line)): Deps => ({
@@ -34,19 +39,50 @@ export const defaultDeps = (log: (line: string) => void = line => console.log(li
   osRelease: () => `${os.type()} ${os.release()}`
 })
 
-export type Handler = (input: Record<string, unknown>, ctx: { deps: Deps, signal: AbortSignal }) => Promise<Record<string, unknown>>
+export interface HandlerContext {
+  deps: Deps
+  signal: AbortSignal
+  /** The jobs this computer is willing to do right now. */
+  active: string[]
+  /** Sends a picture for this job to OpenLobs. */
+  upload: (bytes: Uint8Array, mediaType: 'image/jpeg' | 'image/png') => Promise<void>
+}
+export type Handler = (input: Record<string, unknown>, ctx: HandlerContext) => Promise<Record<string, unknown>>
+
+/** What the person can switch on for this computer. Each one unlocks specific jobs and nothing else. */
+export const PERMISSIONS: Record<string, { label: string, kinds: string[] }> = {
+  browser: { label: 'Look at web pages in Edge or Chrome (read-only, in an empty browser with no logins)', kinds: ['browser_look'] }
+}
+export const ALWAYS_ALLOWED = ['ping']
+
+/** The jobs this computer will do right now: a ping, plus whatever the person allowed. */
+export function activeKinds(config: Pick<Config, 'allow'>): string[] {
+  const kinds = [...ALWAYS_ALLOWED]
+  for (const name of config.allow ?? []) if (Object.prototype.hasOwnProperty.call(PERMISSIONS, name)) kinds.push(...PERMISSIONS[name]!.kinds)
+  return kinds
+}
 
 /** Everything this Bridge is willing to do. To teach it something new, add it here, on purpose. */
 export const HANDLERS: Record<string, { label: string, run: Handler }> = {
   ping: {
     label: 'Answer a test ping',
-    run: async (_input, { deps }) => ({
+    run: async (_input, { deps, active }) => ({
       bridgeVersion: BRIDGE_VERSION,
       platform: deps.platform(),
       osVersion: deps.osRelease().slice(0, 120),
       time: deps.now().toISOString(),
-      capabilities: Object.keys(HANDLERS)
+      capabilities: active
     })
+  },
+  browser_look: {
+    label: 'Look at a web page and take a picture',
+    run: async (input, { deps, signal, upload }) => {
+      let parsed
+      try { parsed = parseLookInput(input) } catch (err: any) { throw new Error(err.message) }
+      const out = await look(parsed, signal, deps.browser)
+      await upload(out.image, out.mediaType)
+      return { ...out.facts }
+    }
   }
 }
 
@@ -101,7 +137,8 @@ export interface Running { controller: AbortController, kind: string }
  * disconnected, so the caller stops for good.
  */
 export async function pollOnce(config: Config, deps: Deps, running: Map<string, Running>, signal?: AbortSignal): Promise<boolean> {
-  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: Object.keys(HANDLERS) }, signal)
+  const active = activeKinds(config)
+  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: activeKinds(config) }, signal)
   if (answer?.revoked) return false
 
   for (const id of Array.isArray(answer?.cancel) ? answer.cancel : []) {
@@ -116,11 +153,18 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
     const kind = String(job?.kind ?? '')
     if (!id) continue
     const report = (body: Record<string, unknown>) => call(config, deps, `/api/bridge/jobs/${encodeURIComponent(id)}/result`, body).catch(err => deps.log(`Could not report on "${kind}": ${err.message}`))
-    const handler = Object.prototype.hasOwnProperty.call(HANDLERS, kind) ? HANDLERS[kind] : undefined
+    const known = Object.prototype.hasOwnProperty.call(HANDLERS, kind)
+    const handler = known ? HANDLERS[kind] : undefined
     if (!handler) {
       // The server asked for something this Bridge does not do. Refuse, and say so.
       deps.log(`Refused "${kind.slice(0, 40)}": this Bridge does not do that.`)
       started.push(report({ ok: false, error: 'This Bridge does not do that.' }))
+      continue
+    }
+    if (!active.includes(kind)) {
+      // The Bridge can do it, but the person has not allowed it on this computer. Their word beats the server's.
+      deps.log(`Refused "${kind}": you have not allowed this on this computer.`)
+      started.push(report({ ok: false, error: 'This computer has not been allowed to do that.' }))
       continue
     }
     const controller = new AbortController()
@@ -128,7 +172,10 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
     deps.log(`Running "${kind}" (${handler.label})...`)
     started.push((async () => {
       try {
-        const result = await handler.run(typeof job.input === 'object' && job.input ? job.input : {}, { deps, signal: controller.signal })
+        const upload = async (bytes: Uint8Array, mediaType: 'image/jpeg' | 'image/png') => {
+          await call(config, deps, `/api/bridge/jobs/${encodeURIComponent(id)}/file`, { mediaType, imageBase64: Buffer.from(bytes).toString('base64') }, controller.signal)
+        }
+        const result = await handler.run(typeof job.input === 'object' && job.input ? job.input : {}, { deps, signal: controller.signal, active, upload })
         if (controller.signal.aborted) { await report({ ok: false, cancelled: true }); deps.log(`Stopped "${kind}".`) }
         else { await report({ ok: true, result }); deps.log(`Finished "${kind}".`) }
       } catch (err: any) {
@@ -144,13 +191,15 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
 }
 
 /** Keeps asking until stopped or disconnected. Network trouble backs off (1 s, doubling, up to 60 s) instead of hammering. */
-export async function run(config: Config, deps: Deps, signal: AbortSignal): Promise<'stopped' | 'disconnected'> {
+export async function run(config: Config, deps: Deps, signal: AbortSignal, reload?: () => Config | null): Promise<'stopped' | 'disconnected'> {
   const running = new Map<string, Running>()
   let wait = 1000
   deps.log(`Connected as "${config.name}". Waiting for OpenLobs. Press Ctrl+C to stop.`)
   while (!signal.aborted) {
     try {
-      if (!(await pollOnce(config, deps, running, signal))) { deps.log('This computer was disconnected from OpenLobs.'); return 'disconnected' }
+      // What is allowed can change while the Bridge runs (npm run bridge -- allow browser), so read it fresh each round.
+      const current: Config = { ...config, allow: reload?.()?.allow ?? config.allow }
+      if (!(await pollOnce(current, deps, running, signal))) { deps.log('This computer was disconnected from OpenLobs.'); return 'disconnected' }
       wait = 1000
     } catch (err: any) {
       if (signal.aborted) break
