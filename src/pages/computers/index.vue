@@ -9,7 +9,7 @@ import { timeAgo } from '../../utils/taskTime'
 
 const { openAuthModal } = useFirebaseAuth()
 const { loggedIn } = useUserSession()
-const { computers, loading, loaded, unauthorized, loadError, fetchComputers, newCode, startTest, getJob, cancelJob, disconnect } = useBridge()
+const { computers, loading, loaded, unauthorized, loadError, fetchComputers, newCode, startTest, startLook, getJob, cancelJob, disconnect } = useBridge()
 
 onMounted(fetchComputers)
 watch(loggedIn, fetchComputers)
@@ -77,10 +77,16 @@ const setState = (id: string, patch: Partial<TestState>) => { tests.value = { ..
 function pollTests() {
   clearInterval(testTimer)
   testTimer = setInterval(async () => {
-    const open = Object.entries(tests.value).filter(([, s]) => s.job && OPEN_JOB.includes(s.job.status))
+    const open = [
+      ...Object.entries(tests.value).filter(([, s]) => s.job && OPEN_JOB.includes(s.job.status)).map(([id, s]) => ({ id, s, look: false })),
+      ...Object.entries(looks.value).filter(([, s]) => s.job && OPEN_JOB.includes(s.job.status)).map(([id, s]) => ({ id, s, look: true }))
+    ]
     if (!open.length) { clearInterval(testTimer); return }
-    for (const [id, s] of open) {
-      try { setState(id, { job: await getJob(s.job!.id) }) } catch { /* try again on the next beat */ }
+    for (const { id, s, look } of open) {
+      try {
+        const job = await getJob(s.job!.id)
+        if (look) setLook(id, { job }); else setState(id, { job })
+      } catch { /* try again on the next beat */ }
     }
   }, 1500)
 }
@@ -115,6 +121,60 @@ function testLine(id: string): { tone: 'busy' | 'ok' | 'bad', text: string } | n
   if (j.status === 'cancelled') return { tone: 'bad', text: 'Test cancelled.' }
   if (j.status === 'expired') return { tone: 'bad', text: 'No answer. Check that the Bridge is running on that computer.' }
   return { tone: 'bad', text: j.error || 'The computer could not answer.' }
+}
+
+// ---- Look at a page ----
+interface LookState { open: boolean, url: string, phone: boolean, job: BridgeJobItem | null, starting: boolean, error: string | null }
+const looks = ref<Record<string, LookState>>({})
+const lookOf = (id: string): LookState => looks.value[id] ?? { open: false, url: '', phone: false, job: null, starting: false, error: null }
+const setLook = (id: string, patch: Partial<LookState>) => { looks.value = { ...looks.value, [id]: { ...lookOf(id), ...patch } } }
+const canLook = (c: ComputerItem) => c.capabilities.includes('browser_look')
+
+async function look(c: ComputerItem) {
+  const state = lookOf(c.id)
+  let url = state.url.trim()
+  if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `${/^(localhost|127\.|\[::1\])/i.test(url) ? 'http' : 'https'}://${url}`
+  setLook(c.id, { starting: true, error: null, job: null })
+  try {
+    const body = state.phone ? { url, width: 390, height: 844 } : { url }
+    setLook(c.id, { job: await startLook(c.id, body), starting: false })
+    pollTests()
+  } catch (err: any) {
+    setLook(c.id, { starting: false, error: err?.data?.statusMessage || err?.statusMessage || 'Could not start the look.' })
+  }
+}
+
+async function stopLook(id: string) {
+  const job = lookOf(id).job
+  if (!job) return
+  try { setLook(id, { job: await cancelJob(job.id) }) } catch { /* the job may already have finished */ }
+}
+
+function lookLine(id: string): { tone: 'busy' | 'ok' | 'bad', text: string } | null {
+  const s = lookOf(id)
+  if (s.error) return { tone: 'bad', text: s.error }
+  const j = s.job
+  if (!j) return null
+  if (j.status === 'queued') return { tone: 'busy', text: 'Waiting for the computer to pick it up…' }
+  if (j.status === 'sent') return { tone: 'busy', text: 'Opening the page on that computer…' }
+  if (j.status === 'cancelled') return { tone: 'bad', text: 'Cancelled.' }
+  if (j.status === 'expired') return { tone: 'bad', text: 'No answer. Check that the Bridge is running on that computer.' }
+  if (j.status === 'failed') return { tone: 'bad', text: j.error || 'The computer could not look at that page.' }
+  return null
+}
+
+const lookResult = (id: string) => {
+  const j = lookOf(id).job
+  if (!j || j.status !== 'done' || !j.result) return null
+  const r = j.result as Record<string, any>
+  return {
+    fileId: String(r.fileId || ''),
+    title: String(r.title || ''),
+    finalUrl: String(r.finalUrl || ''),
+    status: typeof r.status === 'number' ? r.status : null,
+    errors: Array.isArray(r.consoleErrors) ? r.consoleErrors.map(String) : [],
+    failed: Array.isArray(r.failedRequests) ? r.failedRequests.map(String) : []
+  }
 }
 
 // ---- Disconnect ----
@@ -173,7 +233,7 @@ async function remove(c: ComputerItem) {
 
             <ul v-if="computers.length" class="divide-y divide-default border-t border-default">
               <li v-for="c in computers" :key="c.id" class="px-4 sm:px-5 py-4">
-                <div class="flex items-start gap-3">
+                <div class="flex flex-wrap sm:flex-nowrap items-start gap-x-3 gap-y-2">
                   <span class="mt-1.5 size-2 rounded-full shrink-0" :class="c.online ? 'bg-success' : 'bg-accented'" :title="c.online ? 'Online' : 'Offline'" />
                   <div class="min-w-0 flex-1">
                     <p class="text-sm font-medium text-highlighted truncate">{{ c.name }}</p>
@@ -183,9 +243,10 @@ async function remove(c: ComputerItem) {
                       · Bridge {{ c.bridgeVersion }}
                     </p>
                   </div>
-                  <div class="flex items-center gap-1.5 shrink-0">
+                  <div class="flex flex-wrap items-center gap-1.5 w-full sm:w-auto pl-5 sm:pl-0 sm:shrink-0">
                     <UButton v-if="stateOf(c.id).job && OPEN_JOB.includes(stateOf(c.id).job!.status)" label="Stop" size="xs" color="neutral" variant="ghost" @click="stopTest(c.id)" />
                     <UButton v-else label="Test" icon="i-lucide-activity" size="xs" color="neutral" variant="subtle" :loading="stateOf(c.id).starting" :disabled="!c.online" @click="test(c)" />
+                    <UButton v-if="canLook(c)" label="Look at a page" icon="i-lucide-globe" size="xs" color="neutral" variant="subtle" :disabled="!c.online" @click="setLook(c.id, { open: !lookOf(c.id).open })" />
                     <UButton
                       :label="confirming === c.id ? 'Confirm' : 'Disconnect'"
                       size="xs"
@@ -197,6 +258,33 @@ async function remove(c: ComputerItem) {
                     />
                   </div>
                 </div>
+                <p class="mt-1 ml-5 text-xs text-dimmed">
+                  <template v-if="canLook(c)">Allowed here: test ping, look at web pages.</template>
+                  <template v-else>Allowed here: test ping. To let OpenLobs look at web pages, run <code class="text-highlighted">npm run bridge -- allow browser</code> on that computer.</template>
+                </p>
+                <form v-if="lookOf(c.id).open && canLook(c)" class="mt-3 ml-5 space-y-3" @submit.prevent="look(c)">
+                  <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                    <UInput v-model="lookOf(c.id).url" class="flex-1 min-w-[12rem]" size="sm" placeholder="localhost:5173 or example.com" :maxlength="2000" aria-label="Page address" @update:model-value="(v: string) => setLook(c.id, { url: v })" />
+                    <USelect :model-value="lookOf(c.id).phone ? 'phone' : 'laptop'" :items="[{ label: 'Laptop size', value: 'laptop' }, { label: 'Phone size', value: 'phone' }]" size="sm" class="w-36" aria-label="Screen size" @update:model-value="(v: string) => setLook(c.id, { phone: v === 'phone' })" />
+                    <UButton v-if="lookOf(c.id).job && OPEN_JOB.includes(lookOf(c.id).job!.status)" label="Stop" size="sm" color="neutral" variant="ghost" @click="stopLook(c.id)" />
+                    <UButton v-else type="submit" label="Look" size="sm" color="neutral" :loading="lookOf(c.id).starting" :disabled="!lookOf(c.id).url.trim()" />
+                  </div>
+                  <p class="text-xs text-dimmed">Opens the page in a fresh, empty browser on that computer: no logins, nothing clicked or typed. Pages on your own computer work; private-network addresses do not.</p>
+                  <p v-if="lookLine(c.id)" class="text-xs" :class="lookLine(c.id)!.tone === 'bad' ? 'text-error' : 'text-muted'" role="status">{{ lookLine(c.id)!.text }}</p>
+                  <div v-if="lookResult(c.id)" class="space-y-2">
+                    <img :src="`/api/files/${encodeURIComponent(lookResult(c.id)!.fileId)}`" :alt="`Screenshot of ${lookResult(c.id)!.title || 'the page'}`" class="max-h-96 w-auto max-w-full rounded-lg border border-default">
+                    <p class="text-xs text-muted">
+                      <span class="text-highlighted">{{ lookResult(c.id)!.title || 'Untitled page' }}</span>
+                      <template v-if="lookResult(c.id)!.status"> · answered {{ lookResult(c.id)!.status }}</template>
+                      · {{ lookResult(c.id)!.finalUrl }}
+                    </p>
+                    <ul v-if="lookResult(c.id)!.errors.length || lookResult(c.id)!.failed.length" class="text-xs text-warning space-y-0.5 list-disc pl-4">
+                      <li v-for="(e, i) in lookResult(c.id)!.errors" :key="`e${i}`">{{ e }}</li>
+                      <li v-for="(e, i) in lookResult(c.id)!.failed" :key="`f${i}`">{{ e }}</li>
+                    </ul>
+                    <p v-else class="text-xs text-success">No page errors or failed loads.</p>
+                  </div>
+                </form>
                 <p v-if="testLine(c.id)" class="mt-2 ml-5 text-xs" :class="{ 'text-muted': testLine(c.id)!.tone === 'busy', 'text-success': testLine(c.id)!.tone === 'ok', 'text-error': testLine(c.id)!.tone === 'bad' }" role="status">
                   {{ testLine(c.id)!.text }}
                 </p>
@@ -246,7 +334,7 @@ async function remove(c: ComputerItem) {
             <h2 class="text-sm font-semibold text-highlighted mb-2">What the Bridge can and cannot do</h2>
             <ul class="space-y-1.5 text-sm text-muted list-disc pl-5">
               <li>It only calls out to OpenLobs. It opens no port on your computer.</li>
-              <li>Right now it can answer one harmless ping. Nothing else, and nothing runs on its own.</li>
+              <li>It can answer a ping, and, only if you allow it on that computer, open a web page in an empty browser and send back a picture. It never clicks or types.</li>
               <li>You can stop it any time, or disconnect it here. The connection ends at once.</li>
             </ul>
           </section>

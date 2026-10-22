@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { findImage } from '../../services/documents/attachments'
 import { parseDataUrl } from '../../services/documents/dataUrl'
 import { DocumentError } from '../../services/documents/errors'
+import { bridgeProvider } from '../../services/bridge/provider'
+import { bridgeStore } from '../../services/bridge/store'
 import { fileStore } from '../../services/files'
 import { InspectError } from '../../services/inspect/browser'
 import { runInspection } from '../../services/inspect/inspect'
@@ -21,7 +23,7 @@ const MAX_IMAGE_BYTES = 900_000
  */
 export function createInspectDesignTool(userId: string, messages: UIMessage[]) {
   return tool({
-    description: 'Look at a web page or a picture and judge it against requirements, as a careful designer would. Use it to check a design, a page you or the user built, or an uploaded screenshot. It returns a verdict and a list of specific defects with fixes. After fixing things, call it again with the earlier defects in "previous" to see which are fixed. Give a public web address, or leave "url" out to use the latest picture the user attached.',
+    description: 'Look at a web page or a picture and judge it against requirements, as a careful designer would. Use it to check a design, a page you or the user built, or an uploaded screenshot. It returns a verdict and a list of specific defects with fixes. After fixing things, call it again with the earlier defects in "previous" to see which are fixed. Give a public web address, or leave "url" out to use the latest picture the user attached. Set onMyComputer to look with the user\'s own connected computer instead: it can open a site running on that computer (like http://localhost:5173) and also reports page errors. It only works if the user connected a computer and allowed browser looks on it; if it fails, tell them what the error says.',
     inputSchema: z.object({
       requirements: z.string().min(10).max(4000).describe('What the screen must look like or do: layout, content, style, anything it is judged against'),
       url: z.string().max(2000).optional().describe('Public web address to screenshot. Leave out to check an attached picture.'),
@@ -29,13 +31,16 @@ export function createInspectDesignTool(userId: string, messages: UIMessage[]) {
       previous: z.array(z.object({ id: z.string().max(40), area: z.string().max(120).optional(), problem: z.string().max(400) })).max(15).optional().describe('Defects from the last look, to check whether they are fixed'),
       fullPage: z.boolean().default(false).describe('Capture the whole page height (up to a limit), not just the first screen'),
       width: z.number().int().min(320).max(1920).optional().describe('Viewport width in pixels; 390 for a phone, 1280 for a laptop'),
-      colorScheme: z.enum(['light', 'dark']).optional()
+      colorScheme: z.enum(['light', 'dark']).optional(),
+      onMyComputer: z.boolean().default(false).describe('Open the page in the browser on the user\'s connected computer rather than in the cloud. Needed for localhost and other pages only that computer can reach. Requires url.'),
+      computer: z.string().max(60).optional().describe('Name of the connected computer to use. Leave out to use whichever is online.')
     }),
     execute: withToolLimits(
       { name: 'inspect_design', userId, perMinute: 6, timeoutMs: 70_000, maxResultChars: 8_000 },
       async (input, signal) => {
         try {
           let image: { bytes: Uint8Array, mediaType: string, name?: string } | undefined
+          if (input.onMyComputer && !input.url) return { status: 'failed' as const, error: 'Looking with the user\'s computer needs a web address. Ask the user which page to open.' }
           if (!input.url) {
             const attached = findImage(messages, input.attachment)
             if (!attached) return { status: 'failed' as const, error: 'There is no web address and no attached picture to look at. Ask the user for one.' }
@@ -44,7 +49,7 @@ export function createInspectDesignTool(userId: string, messages: UIMessage[]) {
           }
           const result = await runInspection(
             { userId, requirements: input.requirements, url: input.url, image, previous: input.previous, fullPage: input.fullPage, width: input.width, colorScheme: input.colorScheme },
-            { provider: defaultProvider(), save: i => fileStore().save(i), signal }
+            { provider: input.onMyComputer ? bridgeProvider({ store: bridgeStore(), files: fileStore(), userId, computer: input.computer }) : defaultProvider(), save: i => fileStore().save(i), signal }
           )
           return {
             status: 'ok' as const,
@@ -56,6 +61,7 @@ export function createInspectDesignTool(userId: string, messages: UIMessage[]) {
             progress: result.progress,
             progressNote: result.progressNote,
             source: result.source,
+            pageFacts: result.pageFacts,
             screenshotFileId: result.screenshotFileId,
             notice: UNTRUSTED_NOTICE
           }

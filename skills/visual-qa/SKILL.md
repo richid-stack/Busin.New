@@ -7,7 +7,7 @@ Goal: a page that looks right, with evidence, not a claim that it does.
 
 **Steps**
 1. Write down what "right" means before looking: the layout, content, style and anything the user said. Ask for what is missing in one message. Put it in plain sentences; this is the requirements text.
-2. Look with `inspect_design`: give the public web address, or leave it out to check the picture the user attached. Check the phone size (width 390) as well as the laptop size when the page is meant to work on both.
+2. Look with `inspect_design`: give the public web address, or leave it out to check the picture the user attached. For a site running on the user's own computer (like `http://localhost:5173`), set `onMyComputer`: it needs a connected computer that allowed browser looks, and it also returns page errors and failed loads, which you should fix too. Check the phone size (width 390) as well as the laptop size when the page is meant to work on both.
 3. Read the defects. Fix the blockers and major ones first, one at a time, in whatever way you can (change the code or content you control, or tell the user exactly what to change).
 4. Look again with `inspect_design`, passing the earlier defects in `previous`. It says which are fixed, which are still there and which are unclear. Do not call something fixed unless the new look says so.
 5. Stop when there are no blocker or major defects, or after three rounds. If problems remain, say so plainly instead of trying again forever.
