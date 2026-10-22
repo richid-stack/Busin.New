@@ -23,16 +23,16 @@ const output = computed(() => props.invocation.output as Output | undefined)
 const failed = computed(() => !streaming.value && (!output.value || output.value.status === 'failed'))
 
 const VERDICTS = {
-  pass: { label: 'Looks right', icon: 'i-lucide-circle-check', tone: 'text-success bg-success/10 ring-success/25' },
-  fail: { label: 'Needs fixes', icon: 'i-lucide-circle-alert', tone: 'text-error bg-error/10 ring-error/25' },
-  unsure: { label: 'Not sure', icon: 'i-lucide-circle-help', tone: 'text-warning bg-warning/10 ring-warning/25' }
+  pass: { label: 'Looks right', icon: 'i-lucide-circle-check', tone: 'text-success' },
+  fail: { label: 'Needs fixes', icon: 'i-lucide-circle-alert', tone: 'text-error' },
+  unsure: { label: 'Not sure', icon: 'i-lucide-circle-help', tone: 'text-warning' }
 } as const
 const verdict = computed(() => VERDICTS[output.value?.verdict ?? 'unsure'])
 
 const SEVERITY = {
-  blocker: { label: 'Blocker', tone: 'text-error bg-error/10' },
-  major: { label: 'Major', tone: 'text-warning bg-warning/10' },
-  minor: { label: 'Minor', tone: 'text-muted bg-elevated' }
+  blocker: { label: 'Blocker', dot: 'bg-error' },
+  major: { label: 'Major', dot: 'bg-warning' },
+  minor: { label: 'Minor', dot: 'bg-neutral-400' }
 } as const
 
 // The saved screenshot needs the sign-in token, so it is fetched and shown from a local copy.
@@ -57,6 +57,7 @@ watch(() => output.value?.screenshotFileId, async (id) => {
 onBeforeUnmount(() => { if (objectUrl) URL.revokeObjectURL(objectUrl) })
 
 const open = ref(true)
+const showImage = ref(false)
 </script>
 
 <template>
@@ -78,108 +79,101 @@ const open = ref(true)
 
   <div
     v-else
-    class="my-2 max-w-xl overflow-hidden rounded-xl border border-default bg-elevated/50"
+    class="my-2 max-w-xl rounded-xl border border-default"
   >
-    <div class="flex items-center gap-3 p-3">
-      <div
-        class="flex size-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset"
+    <button
+      type="button"
+      class="flex w-full items-center gap-3 px-4 py-3 text-left"
+      :aria-expanded="open"
+      @click="open = !open"
+    >
+      <UIcon
+        :name="verdict.icon"
+        class="size-5 shrink-0"
         :class="verdict.tone"
-      >
-        <UIcon
-          :name="verdict.icon"
-          class="size-5"
-        />
-      </div>
-      <div class="min-w-0 flex-1">
-        <p class="text-sm font-medium text-highlighted">
-          {{ verdict.label }}<span class="text-muted font-normal"> · {{ output?.score }}/100</span>
-        </p>
-        <p
-          v-if="output?.source"
-          class="truncate text-xs text-muted"
-        >
-          {{ output.source }}
-        </p>
-      </div>
-      <UButton
-        :icon="open ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        :aria-label="open ? 'Hide details' : 'Show details'"
-        :aria-expanded="open"
-        @click="open = !open"
       />
-    </div>
+      <span class="min-w-0 flex-1">
+        <span class="block text-sm font-medium text-highlighted">
+          {{ verdict.label }}<span class="font-normal text-muted"> · {{ output?.score }}/100</span>
+        </span>
+        <span
+          v-if="output?.source"
+          class="block truncate text-xs text-muted"
+        >{{ output.source }}</span>
+      </span>
+      <UIcon
+        name="i-lucide-chevron-down"
+        class="size-4 shrink-0 text-muted transition-transform"
+        :class="open ? 'rotate-180' : ''"
+      />
+    </button>
 
     <div
       v-if="open"
-      class="space-y-3 border-t border-default p-3"
+      class="border-t border-default px-4 py-3"
     >
       <p class="text-sm text-default">
         {{ output?.summary }}
       </p>
-
-      <img
-        v-if="imageUrl"
-        :src="imageUrl"
-        alt="Screenshot that was checked"
-        class="max-h-72 w-full rounded-lg border border-default object-cover object-top"
-      >
-      <p
-        v-else-if="imageFailed"
-        class="text-xs text-muted"
-      >
-        The screenshot is no longer available.
-      </p>
-
       <p
         v-if="output?.progressNote"
-        class="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary"
+        class="mt-1 text-xs text-muted"
       >
         {{ output.progressNote }}
       </p>
 
       <ul
         v-if="output?.defects?.length"
-        class="space-y-2"
+        class="mt-3 divide-y divide-default"
       >
         <li
           v-for="d in output.defects"
           :key="d.id"
-          class="rounded-lg border border-default bg-default p-2.5"
+          class="flex gap-2.5 py-2.5 first:pt-0 last:pb-0"
         >
-          <div class="flex flex-wrap items-center gap-2">
-            <span
-              class="rounded-md px-1.5 py-0.5 text-[11px] font-medium"
-              :class="SEVERITY[d.severity]?.tone"
-            >{{ SEVERITY[d.severity]?.label }}</span>
-            <span class="text-xs text-muted">{{ d.area }}</span>
+          <span
+            class="mt-1.5 size-2 shrink-0 rounded-full"
+            :class="SEVERITY[d.severity]?.dot"
+            :title="SEVERITY[d.severity]?.label"
+          />
+          <div class="min-w-0 text-sm">
+            <p class="text-default">
+              <span class="font-medium text-highlighted">{{ d.area }}.</span> {{ d.problem }}
+              <span class="sr-only"> ({{ SEVERITY[d.severity]?.label }})</span>
+            </p>
+            <p class="mt-0.5 text-xs text-muted">
+              {{ d.fix }}
+            </p>
           </div>
-          <p class="mt-1 text-sm text-default">
-            {{ d.problem }}
-          </p>
-          <p class="mt-1 text-xs text-muted">
-            <span class="font-medium text-default">Fix:</span> {{ d.fix }}
-          </p>
         </li>
       </ul>
       <p
         v-else
-        class="text-xs text-muted"
+        class="mt-3 text-xs text-muted"
       >
-        No problems were found against the requirements.
+        No problems found against the requirements.
       </p>
 
+      <template v-if="imageUrl">
+        <button
+          type="button"
+          class="mt-3 text-xs text-muted hover:text-default"
+          @click="showImage = !showImage"
+        >
+          {{ showImage ? 'Hide screenshot' : 'Show screenshot' }}
+        </button>
+        <img
+          v-if="showImage"
+          :src="imageUrl"
+          alt="Screenshot that was checked"
+          class="mt-2 max-h-64 w-full rounded-lg object-cover object-top ring-1 ring-default"
+        >
+      </template>
       <p
-        v-if="output?.progress?.length"
-        class="text-xs text-muted"
+        v-else-if="imageFailed"
+        class="mt-3 text-xs text-muted"
       >
-        Earlier problems:
-        <template
-          v-for="(p, i) in output.progress"
-          :key="p.id"
-        ><span v-if="i">, </span>{{ p.id }} {{ p.status === 'fixed' ? 'fixed' : p.status === 'still_present' ? 'still there' : 'unclear' }}</template>
+        The screenshot is no longer available.
       </p>
     </div>
   </div>
