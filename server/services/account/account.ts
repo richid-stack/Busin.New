@@ -156,7 +156,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
   const [chats, workflows, tasks, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
     withNested('chats'),
     withNested('workflows').then(list => list.map(redactWorkflow)),
-    withNested('tasks').then(list => list.map((t: any) => { const { leaseToken: _l, leaseUntil: _u, ...rest } = t; return rest })),
+    withNested('tasks').then(list => list.map((t: any) => { const rest = { ...t }; delete rest.leaseToken; delete rest.leaseUntil; return rest })),
     simple('agents'),
     simple('memories'),
     ownedDocs(db, 'mcp_servers', id).then(docs => docs.map((doc) => {
