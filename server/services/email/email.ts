@@ -101,3 +101,18 @@ export function workflowFailedEmail(i: { name?: string, workflowName: string, st
   const text = `A scheduled workflow failed\n\nHi ${i.name || 'there'}, the scheduled run of "${i.workflowName}" did not finish.\n${i.error ? `${i.step ? `${i.step}: ` : ''}${i.error.slice(0, 300)}\n` : ''}${i.appUrl && i.workflowId ? `\n${i.appUrl}/workflows/${encodeURIComponent(i.workflowId)}\n` : ''}\nSwitch these off in Settings → Notifications.`
   return { subject: `Workflow failed: ${i.workflowName}`.slice(0, 150), html, text }
 }
+
+const TASK_HEADLINE: Record<string, string> = { done: 'Your task is done', partial: 'Your task is partly done', failed: 'Your task could not be done', needs_review: 'Your task needs your review' }
+
+export function taskFinishedEmail(i: { name?: string, goal: string, outcome: string, status: string, appUrl?: string, taskId?: string }): Omit<EmailMessage, 'to'> {
+  const headline = TASK_HEADLINE[i.status] || 'Your task has finished'
+  const goal = i.goal.length > 200 ? `${i.goal.slice(0, 200)}…` : i.goal
+  const link = i.appUrl && i.taskId ? `${i.appUrl}/tasks/${encodeURIComponent(i.taskId)}` : ''
+  const html = layout(headline, [
+    p(`Hi ${escapeHtml(i.name || 'there')}, <strong>${escapeHtml(goal)}</strong>`),
+    p(escapeHtml(i.outcome)),
+    link ? button(link, 'See the result') : ''
+  ].join(''), 'We only email when a task took a couple of minutes or more. You can switch these off in Settings → Notifications.')
+  const text = `${headline}\n\nHi ${i.name || 'there'}, ${goal}\n${i.outcome}\n${link ? `\n${link}\n` : ''}\nSwitch these off in Settings → Notifications.`
+  return { subject: `${headline}: ${goal}`.slice(0, 150), html, text }
+}

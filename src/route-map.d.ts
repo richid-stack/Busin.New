@@ -115,6 +115,20 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/tasks/': RouteRecordInfo<
+      '/tasks/',
+      '/tasks',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/tasks/[id]': RouteRecordInfo<
+      '/tasks/[id]',
+      '/tasks/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/terms': RouteRecordInfo<
       '/terms',
       '/terms',
@@ -244,6 +258,22 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | never
+    }
+    'src/pages/tasks/index.vue': {
+      routes:
+        | '/tasks/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/tasks/[id].vue': {
+      routes:
+        | '/tasks/[id]'
+      views:
+        | never
+      pathParamNames:
+        | 'id'
     }
     'src/pages/terms.vue': {
       routes:

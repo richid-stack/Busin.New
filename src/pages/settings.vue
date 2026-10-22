@@ -73,7 +73,7 @@ async function buy(period: 'month' | 'year') {
 }
 
 // ---- Notifications ----
-async function setNotification(key: 'emailRenewals' | 'emailWorkflowFailures', value: boolean) {
+async function setNotification(key: 'emailRenewals' | 'emailWorkflowFailures' | 'emailTaskResults', value: boolean) {
   try {
     await saveNotifications({ [key]: value })
   } catch (err: any) {
@@ -324,6 +324,13 @@ const LINKS = [
                 <p class="text-xs text-muted leading-snug">An email when a scheduled run fails, at most once a day for each workflow.</p>
               </div>
               <USwitch :model-value="notifications?.emailWorkflowFailures !== false" :disabled="!notifications" aria-label="Email when a scheduled workflow fails" @update:model-value="setNotification('emailWorkflowFailures', Boolean($event))" />
+            </div>
+            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Task finished</p>
+                <p class="text-xs text-muted leading-snug">An email when a task that took a couple of minutes or more ends, so you can leave it running.</p>
+              </div>
+              <USwitch :model-value="notifications?.emailTaskResults !== false" :disabled="!notifications" aria-label="Email when a task finishes" @update:model-value="setNotification('emailTaskResults', Boolean($event))" />
             </div>
             <p class="px-4 sm:px-5 py-3 text-xs text-dimmed leading-snug">
               <template v-if="notifications && notifications.emailAvailable === false">Email sending is not switched on for this server yet, so these will start once it is.</template>

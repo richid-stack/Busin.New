@@ -118,6 +118,10 @@ defineShortcuts({
             to: '/memory',
             icon: 'i-lucide-brain'
           }, {
+            label: 'Tasks',
+            to: '/tasks',
+            icon: 'i-lucide-list-checks'
+          }, {
             label: 'Workflow Studio',
             to: '/workflows',
             icon: 'i-lucide-workflow'
