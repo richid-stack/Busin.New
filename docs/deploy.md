@@ -119,6 +119,25 @@ gcloud scheduler jobs create http openlobs-billing --location $REGION --schedule
 
 5. Do a real test: pay a small amount by card and by mobile money, check Pro starts, the receipt arrives and the payment shows in Settings. Refunds and disputes are handled in the Paystack dashboard (the app does not take Pro away by itself when a payment is reversed).
 
+## 5c. Visual checks (optional)
+
+Visual checks need a small screenshot worker, a separate Cloud Run service so a browser crash or a hostile page cannot take the app down. Without it, chat can still judge screenshots people attach.
+
+```bash
+SECRET=$(openssl rand -hex 32)
+gcloud iam service-accounts create openlobs-inspector --display-name "OpenLobs screenshot worker"   # no roles on purpose
+docker build -f Dockerfile.inspector -t $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-inspector .
+docker push $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-inspector
+gcloud run deploy openlobs-inspector --image $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-inspector \
+  --region $REGION --service-account openlobs-inspector@$PROJECT.iam.gserviceaccount.com \
+  --memory 2Gi --cpu 1 --concurrency 1 --max-instances 2 --timeout 60 --allow-unauthenticated \
+  --set-env-vars INSPECTOR_SECRET=$SECRET
+```
+
+The worker has no roles, so even a page that tricked the browser into reaching the metadata server would get nothing useful. It is public so the app can call it, but it answers only requests that carry `INSPECTOR_SECRET`, takes one picture at a time, and refuses private addresses (checked again for every request the page makes). Then give the app the address and the same secret (store the secret in Secret Manager like the others) as `INSPECTOR_URL` and `INSPECTOR_SECRET`, and redeploy. Check it with `curl $WORKER_URL/health`. The pictures it takes are kept in the same 30-day file store as created files.
+
+Not tested by the authors: the exact base image tag (`mcr.microsoft.com/playwright:v1.56.0-noble`) and the commands above; check them on first deploy.
+
 ## 6. Created files expire on their own
 
 Files OpenLobs creates are kept for 30 days (`expiresAt`). The app hides expired files, but Firestore only deletes them if a TTL policy is on:

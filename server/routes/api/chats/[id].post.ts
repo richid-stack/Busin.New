@@ -16,6 +16,7 @@ import { createWebSearchTool } from '../../../utils/tools/webSearch'
 import { createWebFetchTool } from '../../../utils/tools/webFetch'
 import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
 import { createReadDocumentTool } from '../../../utils/tools/readDocument'
+import { createInspectDesignTool } from '../../../utils/tools/inspectDesign'
 import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
 import { prepareMessagesForModel, supportsNativePdf } from '../../../services/documents/attachments'
 import { skills } from '../../../services/skills/registry'
@@ -247,7 +248,8 @@ export default defineHandler(async (event) => {
           integration_execute: createIntegrationExecuteTool(userId),
           create_document: createDocumentTool(userId),
           create_spreadsheet: createSpreadsheetTool(userId),
-          create_presentation: createPresentationTool(userId)
+          create_presentation: createPresentationTool(userId),
+          inspect_design: createInspectDesignTool(userId, messages)
         }
       : {})
   }
