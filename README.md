@@ -56,6 +56,8 @@ A task (the **Tasks** page, `/api/tasks`) is a goal plus the ways you will know 
 - **Retries:** if something is not met and attempts remain (default 2, at most 3), the next attempt is told exactly what the check found. Limits: attempts, steps (3-15), minutes (1-10), 3 tasks running or waiting per person, one credit per attempt (refunded if the model fails).
 - **Tools:** only those in `server/services/tasks/registry.ts` that may run without you watching (reading, searching, making files, looking at pages). Anything that acts in your accounts, workflows and MCP servers are left out for now. A test fails if a chat tool is missing from the registry.
 - **Durability:** tasks are claimed with a lease, so a worker that stops is replaced by the next timer call; Stop reaches the running model call; late writes from a replaced worker are refused.
+- **From chat:** the assistant can draft a task (`task_propose`) as a card with a Start button; nothing runs until you press it.
+- **Email:** a task that ran two minutes or more emails you when it ends (Settings, Notifications; off switch; once per task; never for cancelled ones).
 - Tasks and their logs are part of the account export and erase.
 
 ## Visual checks

@@ -192,7 +192,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     mcpServers: servers,
     files,
     payments,
-    notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true },
+    notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true },
     connectedKeys: keyDocs,
     connectorActivity: connectorAudit,
     notificationLog: notifLog,

@@ -7,6 +7,8 @@ import { modelCost } from '../usage/plans'
 import { getLanguageModel, pickAvailableModel } from '../../utils/models'
 import { runTask } from './orchestrator'
 import type { RunDeps } from './orchestrator'
+import { notifyTaskFinished, defaultNotifyDeps } from '../notifications/notify'
+import type { Task } from './model'
 import { taskStore } from './store'
 import type { TaskStore } from './store'
 import { buildTaskTools } from './tools'
@@ -38,6 +40,8 @@ export function liveDeps(store: TaskStore = taskStore()): RunDeps {
   }
 }
 
+const emailWhenFinished = (task: Task) => notifyTaskFinished(defaultNotifyDeps(), task)
+
 export interface QueueSummary { started: number, finished: number }
 
 /**
@@ -45,7 +49,7 @@ export interface QueueSummary { started: number, finished: number }
  * Called by the timer endpoint and, as a nudge, right after a task is created. Safe to call from
  * several places at once: each task is claimed by exactly one worker.
  */
-export async function processQueue(opts: { budgetMs?: number, maxTasks?: number, deps?: RunDeps } = {}): Promise<QueueSummary> {
+export async function processQueue(opts: { budgetMs?: number, maxTasks?: number, deps?: RunDeps, onFinished?: (task: Task) => Promise<unknown> } = {}): Promise<QueueSummary> {
   const deps = opts.deps ?? liveDeps()
   const startedAt = Date.now()
   const summary: QueueSummary = { started: 0, finished: 0 }
@@ -53,7 +57,12 @@ export async function processQueue(opts: { budgetMs?: number, maxTasks?: number,
     const claimed = await deps.store.claimNext()
     if (!claimed) break
     summary.started++
-    await runTask(claimed.task, claimed.lease, deps).then(() => { summary.finished++ }).catch(err => console.error('[task] worker error:', err?.message))
+    await runTask(claimed.task, claimed.lease, deps)
+      .then(async (task) => {
+        summary.finished++
+        // An email is a courtesy: it never changes how the task ended.
+        await (opts.onFinished ?? emailWhenFinished)(task).catch(err => console.warn('[task] result email not sent:', err?.message))
+      }).catch(err => console.error('[task] worker error:', err?.message))
   }
   return summary
 }

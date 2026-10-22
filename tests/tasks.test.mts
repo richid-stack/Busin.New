@@ -257,3 +257,45 @@ const start = async (h: ReturnType<typeof harness>, over: Record<string, unknown
   await st.addEvent(t.id, 'note', 'hello')
   assert(fdb.raw('tasks').size === 1 && fdb.raw(`tasks/${t.id}/events`).size >= 1, 'tasks and their logs are stored where the account tools look')
 }
+
+// ---- Starting a task from chat: a draft only ----
+{
+  const { createProposeTaskTool } = await import('../server/utils/tools/proposeTask')
+  const t: any = createProposeTaskTool('u1')
+  const ok = await t.execute({ goal: 'Research three scholarships and make a Word summary.', criteria: [{ text: 'A Word summary exists', kind: 'file', format: 'docx' }] }, {})
+  assert(ok.status === 'proposed' && ok.draft.criteria.length === 1 && /Nothing runs until/.test(ok.note), 'the chat tool drafts a task and says nothing has started')
+  const bad = await t.execute({ goal: 'Check my page looks right on a phone.', criteria: [{ text: 'Looks right', kind: 'visual' }] }, {})
+  assert(bad.status === 'failed' && /address/.test(bad.error), 'a draft the task form would refuse is refused, with the reason')
+}
+
+// ---- Emails when a task finishes ----
+{
+  const { notifyTaskFinished, setNotificationSettings, getNotificationSettings } = await import('../server/services/notifications/notify')
+  const ndb = createFakeFirestore()
+  const mails: any[] = []
+  const deps = { db: ndb as any, now: () => new Date('2026-10-22T12:00:00Z'), send: async (m: any) => { mails.push(m); return { sent: true } }, contact: async () => ({ email: 'a@example.com', name: 'Ama' }), appUrl: 'https://app.example' }
+  const finished = { id: 'tk1', userId: 'n1', goal: 'Research three scholarships and make a Word summary.', status: 'done', outcome: 'Done. All 1 criterion was checked and met.', startedAt: '2026-10-22T11:50:00Z', finishedAt: '2026-10-22T11:55:00Z' }
+  assert((await getNotificationSettings(ndb as any, 'n1')).emailTaskResults === true, 'task emails are on by default')
+  assert(await notifyTaskFinished(deps, finished) === true && mails.length === 1 && /tasks\/tk1/.test(mails[0].text) && /Done\./.test(mails[0].text) && /Your task is done/.test(mails[0].subject), 'a task that ran for minutes emails its owner with the outcome and a link')
+  assert(await notifyTaskFinished(deps, finished) === false && mails.length === 1, 'the same task never emails twice')
+  assert(await notifyTaskFinished(deps, { ...finished, id: 'tk2', finishedAt: '2026-10-22T11:50:30Z' }) === false, 'a task that was over in seconds does not email: the person was watching')
+  assert(await notifyTaskFinished(deps, { ...finished, id: 'tk3', status: 'cancelled' }) === false, 'a cancelled task does not email')
+  await setNotificationSettings(ndb as any, 'n2', { emailTaskResults: false })
+  assert(await notifyTaskFinished(deps, { ...finished, id: 'tk4', userId: 'n2' }) === false, 'switched off means no email')
+  assert(await notifyTaskFinished({ ...deps, contact: async () => null }, { ...finished, id: 'tk5' }) === false, 'no address means no email')
+  assert(await notifyTaskFinished({ ...deps, send: async () => ({ sent: false }) }, { ...finished, id: 'tk6' }) === false && !ndb.raw('notification_log').has('task-finished__tk6'), 'a failed send is not logged, so it can be tried again')
+  assert(await notifyTaskFinished(deps, { ...finished, id: 'tk7', status: 'partial', outcome: 'Partly done: 1 of 2 met.' }) === true && /partly done/i.test(mails.at(-1).subject), 'partly done says so in the subject')
+  const escaped = await notifyTaskFinished(deps, { ...finished, id: 'tk8', goal: '<script>alert(1)</script> and more words here' })
+  assert(escaped === true && !/<script>/.test(mails.at(-1).html), 'the goal is escaped in the email')
+}
+
+// ---- The queue sends the email after the task, and a failing email changes nothing ----
+{
+  const { processQueue } = await import('../server/services/tasks/run')
+  const h = harness({ generate: async (args) => { await args.onStepFinish(makeFile()); return { text: 'ok' } } })
+  await h.st.create('alice', taskInputSchema.parse({ goal: 'Write a short report about solar power.', criteria: [{ text: 'A Word report exists', kind: 'file', format: 'docx' }] }))
+  const seen: string[] = []
+  const summary = await processQueue({ deps: h.deps, maxTasks: 3, onFinished: async (t) => { seen.push(t.status); throw new Error('mail down') } })
+  assert(summary.started === 1 && summary.finished === 1 && seen.join() === 'done' && (await h.st.list('alice'))[0]!.status === 'done', 'the queue runs a waiting task, reports it finished, and an email error does not undo it')
+  assert((await processQueue({ deps: h.deps })).started === 0, 'an empty queue does nothing')
+}

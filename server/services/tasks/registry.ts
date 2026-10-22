@@ -37,6 +37,7 @@ export const CAPABILITIES: Capability[] = [
   cap('plan', 'Outline a plan', 'read', 10_000, []),
   cap('weather', 'Check the weather', 'read', 15_000, []),
   cap('calculator', 'Calculate', 'read', 5_000, []),
+  cap('task_propose', 'Offer a background task', 'act', 5_000, []),
   cap('remember', 'Save a memory', 'act', 10_000, []),
   cap('forget_memory', 'Forget a memory', 'act', 10_000, []),
   cap('integration_status', 'Check connected apps', 'read', 15_000, []),
