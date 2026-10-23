@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
-import { JOB_PERMISSION, LIMITS, OPEN_JOB, PAIRING_ALPHABET, PERMISSION_LABEL, TOKEN_PREFIX, browserLookResultSchema, isJobKind, parseJobInput, pingResultSchema } from './model'
+import { JOB_PERMISSION, LIMITS, OPEN_JOB, PAIRING_ALPHABET, PERMISSION_LABEL, TOKEN_PREFIX, RESULT_SCHEMA, isJobKind, maxResultChars, parseJobInput } from './model'
 import type { Device, DeviceEvent, EventKind, Job, JobKind, Platform } from './model'
 
 export class BridgeError extends Error {
@@ -147,7 +147,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       // The person decides on the computer itself what it may be asked to do. Asking for more than that is refused here, and again there.
       const needs = JOB_PERMISSION[kind]
       if (needs && !device.capabilities.includes(kind)) {
-        throw new BridgeError(`This computer has not been allowed to "${PERMISSION_LABEL[needs].toLowerCase()}". On that computer, run: npm run bridge -- allow ${needs}`, 'conflict')
+        throw new BridgeError(`This computer has not been allowed to "${PERMISSION_LABEL[needs].toLowerCase()}". On that computer, run: bridge allow ${needs}${needs === 'excel' ? ' --folder "C:\\path\\to\\folder"' : ''}`, 'conflict')
       }
       try { input = parseJobInput(kind, input) } catch (err: any) { throw new BridgeError(err.message, 'invalid') }
       const mine = (await db.collection('bridge_jobs').where('deviceId', '==', deviceId).get()).docs.map((d: any) => jobFrom(d.id, d.data()))
@@ -199,12 +199,12 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
         else if (!report.ok) patch = { status: 'failed', finishedAt: at, error: clip(report.error || 'The computer reported a failure.', 300) }
         else {
           // Whatever a computer sends back is checked against what that job is allowed to return, and is only ever shown as text.
-          const parsed = cur.kind === 'ping' ? pingResultSchema.safeParse(report.result ?? {}) : browserLookResultSchema.safeParse(report.result ?? {})
+          const parsed = RESULT_SCHEMA[cur.kind].safeParse(report.result ?? {})
           if (!parsed.success) patch = { status: 'failed', finishedAt: at, error: 'The computer sent back something that was not in the expected form.' }
-          else if (JSON.stringify(parsed.data).length > LIMITS.maxResultChars) patch = { status: 'failed', finishedAt: at, error: 'The result was too large.' }
+          else if (JSON.stringify(parsed.data).length > maxResultChars(cur.kind)) patch = { status: 'failed', finishedAt: at, error: 'The result was too large.' }
           else if (cur.kind === 'browser_look' && !cur.fileId) patch = { status: 'failed', finishedAt: at, error: 'The computer did not send a picture.' }
           // The picture is the one this computer uploaded for this job, taken from the job itself and not from the report.
-          else patch = { status: 'done', finishedAt: at, result: cur.kind === 'browser_look' ? { ...parsed.data, fileId: cur.fileId } : parsed.data }
+          else patch = { status: 'done', finishedAt: at, result: cur.kind === 'browser_look' ? { ...(parsed.data as Record<string, unknown>), fileId: cur.fileId } : parsed.data as Record<string, unknown> }
         }
         tx.update(jobRef(jobId), patch)
         return { ...cur, ...patch } as Job

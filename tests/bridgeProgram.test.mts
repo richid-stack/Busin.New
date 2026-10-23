@@ -1,6 +1,7 @@
 import { execFile, execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { findEngine } from '../bridge/sheets/engine'
 import { startBridgeTestServer, waitFor } from './helpers/bridgeTestServer.mts'
 
 /**
@@ -14,8 +15,8 @@ fs.mkdirSync(path.join(root, 'dist'), { recursive: true })
 const work = fs.mkdtempSync(path.join(root, 'dist', 'olb-prog-'))
 const bundle = path.join(work, 'bridge.mjs')
 execFileSync('node', [path.join(root, 'bridge/installer/build.mjs'), '--bundle-only', bundle], { cwd: root, stdio: 'pipe' })
-assert(fs.existsSync(bundle) && fs.statSync(bundle).size > 5000 && fs.statSync(bundle).size < 500_000, 'the Bridge bundles into one small file')
-assert(!/from ['"]\.\.?\//.test(fs.readFileSync(bundle, 'utf8')), 'the bundle has no other local files to find')
+assert(fs.existsSync(bundle) && fs.statSync(bundle).size > 5000 && fs.statSync(bundle).size < 3_000_000, 'the Bridge bundles into one file')
+assert(!/^\s*(import|export)[^;\n]*from ['"]\.\.?\//m.test(fs.readFileSync(bundle, 'utf8')), 'the bundle has no other local files to find')
 
 // Run it with its own home so it never touches a real configuration.
 const home = path.join(work, 'home')
@@ -51,7 +52,7 @@ try {
 
   const ping = await server.store.enqueue('tester', dev.id, 'ping')
   await waitFor('ping', async () => (await server.store.getJob('tester', ping.id)).status === 'done')
-  assert((((await server.store.getJob('tester', ping.id)).result) as any).bridgeVersion === '0.2.0', 'the program answers a ping')
+  assert((((await server.store.getJob('tester', ping.id)).result) as any).bridgeVersion === '0.3.0', 'the program answers a ping')
 
   const look = await server.store.enqueue('tester', dev.id, 'browser_look', { url: `${server.url}/page`, width: 500, height: 340 })
   await waitFor('browser look', async () => ['done', 'failed'].includes((await server.store.getJob('tester', look.id)).status), 60_000)
@@ -69,6 +70,12 @@ try {
   await bridge('deny', 'browser')
   await waitFor('the permission to be withdrawn', async () => !(await server.store.getDevice('tester', dev.id)).capabilities.includes('browser_look'), 20_000)
   assert(true, 'a running Bridge notices when the owner turns a permission off')
+
+  // The bundled program can do spreadsheet work with a real spreadsheet program, when this machine has one.
+  if (await findEngine()) {
+    const out = await bridge('selftest')
+    assert(/Everything works/.test(out), 'the bundled program passes its own spreadsheet check (real LibreOffice)')
+  } else console.log('SKIP the spreadsheet check (no LibreOffice here)')
 
   assert(/Disconnected/.test(await bridge('disconnect')) && !fs.existsSync(cfgFile), 'disconnect removes the pairing here')
   assert((await server.store.listDevices('tester')).length === 0, 'and OpenLobs forgets the computer')

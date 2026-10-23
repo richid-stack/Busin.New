@@ -1,8 +1,8 @@
 ; OpenLobs Bridge: Windows installer (Inno Setup 6).
-; Build:  iscc /DAppVersion=0.2.0 /DDefaultServer=https://your-openlobs bridge\installer\openlobs-bridge.iss
+; Build:  iscc /DAppVersion=0.3.0 /DDefaultServer=https://your-openlobs bridge\installer\openlobs-bridge.iss
 ; Silent: OpenLobs-Bridge-Setup.exe /VERYSILENT /SERVER=https://your-openlobs /CODE=ABCD2345 /ALLOWBROWSER=1
 #ifndef AppVersion
-  #define AppVersion "0.2.0"
+  #define AppVersion "0.3.0"
 #endif
 #ifndef DefaultServer
   #define DefaultServer ""
@@ -33,6 +33,9 @@ Source: "..\..\dist\bridge-app\*"; DestDir: "{app}"; Flags: recursesubdirs ignor
 Name: "{userprograms}\OpenLobs Bridge\Bridge status"; Filename: "{cmd}"; Parameters: "/k ""{app}\bridge.cmd"" status"
 Name: "{userprograms}\OpenLobs Bridge\Connect to OpenLobs"; Filename: "{cmd}"; Parameters: "/k ""{app}\bridge.cmd"" connect"
 Name: "{userprograms}\OpenLobs Bridge\Allow looking at web pages"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow browser & pause"
+Name: "{userprograms}\OpenLobs Bridge\Allow spreadsheet work in one folder"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow excel & pause"
+Name: "{userprograms}\OpenLobs Bridge\Stop allowing spreadsheet work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny excel & pause"
+Name: "{userprograms}\OpenLobs Bridge\Check that spreadsheets work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" selftest & pause"
 Name: "{userprograms}\OpenLobs Bridge\Stop allowing web page looks"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny browser & pause"
 Name: "{userprograms}\OpenLobs Bridge\Start the Bridge"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\bridge-hidden.vbs"""
 Name: "{userprograms}\OpenLobs Bridge\Recent activity"; Filename: "{win}\notepad.exe"; Parameters: """{userappdata}\OpenLobsBridge\bridge.log"""
@@ -128,6 +131,9 @@ begin
     end;
     if PermissionPage.Values[0] then RunBridge('allow browser', 'allow.txt', Code);
     { Start it now, hidden. From now on it starts when you sign in. }
+    Exec(ExpandConstant('{sys}\wscript.exe'), '"' + ExpandConstant('{app}\bridge-hidden.vbs') + '"', '', SW_HIDE, ewNoWait, Code);
+  end else if FileExists(ExpandConstant('{userappdata}\OpenLobsBridge\config.json')) then begin
+    { An update over an existing install: it is already paired, so start it again right away. }
     Exec(ExpandConstant('{sys}\wscript.exe'), '"' + ExpandConstant('{app}\bridge-hidden.vbs') + '"', '', SW_HIDE, ewNoWait, Code);
   end;
 end;

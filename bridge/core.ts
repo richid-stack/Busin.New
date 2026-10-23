@@ -1,6 +1,8 @@
 import os from 'node:os'
 import { look, parseLookInput } from './browser'
 import type { LookDeps } from './browser'
+import { workbookApply, workbookInspect, workbookList } from './sheets/jobs'
+import type { SheetDeps } from './sheets/jobs'
 
 /**
  * The OpenLobs Bridge, without the command line around it, so it can be tested.
@@ -11,10 +13,10 @@ import type { LookDeps } from './browser'
  *  3. A job can be stopped, and the Bridge says out loud what it is doing.
  */
 
-export const BRIDGE_VERSION = '0.2.0'
+export const BRIDGE_VERSION = '0.3.0'
 
 /** `allow` lists what the person has allowed on this computer (see PERMISSIONS). A ping is always allowed. */
-export interface Config { server: string, deviceId: string, token: string, name: string, allow?: string[] }
+export interface Config { server: string, deviceId: string, token: string, name: string, allow?: string[], /** The one folder spreadsheet jobs may use. Chosen on this computer. */ workspace?: string }
 
 export interface Deps {
   fetch: typeof fetch
@@ -25,6 +27,8 @@ export interface Deps {
   osRelease: () => string
   /** Replaceable in tests: the browser and the address lookup used by browser jobs. */
   browser?: LookDeps
+  /** Replaceable in tests: which spreadsheet program is used. */
+  sheets?: SheetDeps
 }
 
 export const defaultDeps = (log: (line: string) => void = line => console.log(line)): Deps => ({
@@ -46,19 +50,27 @@ export interface HandlerContext {
   active: string[]
   /** Sends a picture for this job to OpenLobs. */
   upload: (bytes: Uint8Array, mediaType: 'image/jpeg' | 'image/png') => Promise<void>
+  /** The folder the person chose for spreadsheets, if any. */
+  workspace: string | null
 }
 export type Handler = (input: Record<string, unknown>, ctx: HandlerContext) => Promise<Record<string, unknown>>
 
 /** What the person can switch on for this computer. Each one unlocks specific jobs and nothing else. */
 export const PERMISSIONS: Record<string, { label: string, kinds: string[] }> = {
-  browser: { label: 'Look at web pages in Edge or Chrome (read-only, in an empty browser with no logins)', kinds: ['browser_look'] }
+  browser: { label: 'Look at web pages in Edge or Chrome (read-only, in an empty browser with no logins)', kinds: ['browser_look'] },
+  excel: { label: 'Read spreadsheets in one folder and save changed copies there (the original is never changed)', kinds: ['workbook_list', 'workbook_inspect', 'workbook_apply'] }
 }
 export const ALWAYS_ALLOWED = ['ping']
 
 /** The jobs this computer will do right now: a ping, plus whatever the person allowed. */
-export function activeKinds(config: Pick<Config, 'allow'>): string[] {
+export function activeKinds(config: Pick<Config, 'allow' | 'workspace'>): string[] {
   const kinds = [...ALWAYS_ALLOWED]
-  for (const name of config.allow ?? []) if (Object.prototype.hasOwnProperty.call(PERMISSIONS, name)) kinds.push(...PERMISSIONS[name]!.kinds)
+  for (const name of config.allow ?? []) {
+    if (!Object.prototype.hasOwnProperty.call(PERMISSIONS, name)) continue
+    // Spreadsheet work needs a folder. Without one, nothing is offered.
+    if (name === 'excel' && !config.workspace) continue
+    kinds.push(...PERMISSIONS[name]!.kinds)
+  }
   return kinds
 }
 
@@ -83,6 +95,18 @@ export const HANDLERS: Record<string, { label: string, run: Handler }> = {
       await upload(out.image, out.mediaType)
       return { ...out.facts }
     }
+  },
+  workbook_list: {
+    label: 'List spreadsheets in the chosen folder',
+    run: async (input, { workspace }) => ({ ...(await workbookList(workspace, input)) })
+  },
+  workbook_inspect: {
+    label: 'Read a spreadsheet in the chosen folder',
+    run: async (input, { workspace }) => ({ ...(await workbookInspect(workspace, input)) })
+  },
+  workbook_apply: {
+    label: 'Save a changed copy of a spreadsheet in the chosen folder',
+    run: async (input, { workspace, signal, deps }) => ({ ...(await workbookApply(workspace, input, signal, deps.sheets)) })
   }
 }
 
@@ -175,7 +199,7 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
         const upload = async (bytes: Uint8Array, mediaType: 'image/jpeg' | 'image/png') => {
           await call(config, deps, `/api/bridge/jobs/${encodeURIComponent(id)}/file`, { mediaType, imageBase64: Buffer.from(bytes).toString('base64') }, controller.signal)
         }
-        const result = await handler.run(typeof job.input === 'object' && job.input ? job.input : {}, { deps, signal: controller.signal, active, upload })
+        const result = await handler.run(typeof job.input === 'object' && job.input ? job.input : {}, { deps, signal: controller.signal, active, upload, workspace: config.workspace ?? null })
         if (controller.signal.aborted) { await report({ ok: false, cancelled: true }); deps.log(`Stopped "${kind}".`) }
         else { await report({ ok: true, result }); deps.log(`Finished "${kind}".`) }
       } catch (err: any) {
@@ -198,7 +222,8 @@ export async function run(config: Config, deps: Deps, signal: AbortSignal, reloa
   while (!signal.aborted) {
     try {
       // What is allowed can change while the Bridge runs (npm run bridge -- allow browser), so read it fresh each round.
-      const current: Config = { ...config, allow: reload?.()?.allow ?? config.allow }
+      const fresh = reload?.()
+      const current: Config = { ...config, allow: fresh?.allow ?? config.allow, workspace: fresh ? fresh.workspace : config.workspace }
       if (!(await pollOnce(current, deps, running, signal))) { deps.log('This computer was disconnected from OpenLobs.'); return 'disconnected' }
       wait = 1000
     } catch (err: any) {

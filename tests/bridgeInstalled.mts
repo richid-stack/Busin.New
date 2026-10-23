@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import ExcelJS from 'exceljs'
 import { startBridgeTestServer, waitFor } from './helpers/bridgeTestServer.mts'
 
 /**
@@ -62,6 +63,31 @@ try {
   const status = await runCmd(path.join(appDir, 'bridge.cmd'), ['status'])
   assert(/Paired as/.test(status.out) && /Look at web pages/.test(status.out), 'the Start menu "status" command works')
   assert(fs.existsSync(path.join(dataDir, 'bridge.log')) && /Running "ping"/.test(fs.readFileSync(path.join(dataDir, 'bridge.log'), 'utf8')), 'it keeps an activity log')
+
+  // Spreadsheets: choose a folder, then ask the installed Bridge to change a workbook with a real spreadsheet program.
+  const sheetDir = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || process.env.TEMP || '.', 'olb-sheets-'))
+  const wb = new ExcelJS.Workbook()
+  wb.addWorksheet('Sales').addRows([['Region', 'Units', 'Price'], ['North', 10, 2.5], ['South', 4, 3], ['North', 6, 2.5], ['East', 8, 4]])
+  await wb.xlsx.writeFile(path.join(sheetDir, 'Sales.xlsx'))
+  const allowed = await runCmd(path.join(appDir, 'bridge.cmd'), ['allow', 'excel', '--folder', `"${sheetDir}"`])
+  assert(/Allowed:/.test(allowed.out), `the person can allow spreadsheet work in one folder${/Allowed:/.test(allowed.out) ? '' : `: ${allowed.out}`}`)
+  await waitFor('the Bridge to report spreadsheet work', async () => (await server.store.listDevices('winuser'))[0]!.capabilities.includes('workbook_apply'), 60_000)
+  const sheetJob = await server.store.enqueue('winuser', dev.id, 'workbook_apply', {
+    file: 'Sales.xlsx',
+    ops: [
+      { op: 'fill_formula', sheet: 'Sales', column: 'D', fromRow: 2, toRow: 5, formula: '=B{row}*C{row}', header: 'Revenue' },
+      { op: 'summarize', source: 'Sales', groupBy: 'A', value: 'D', fn: 'sum', headerRow: 1, target: 'By region' },
+      { op: 'add_chart', sheet: 'By region', type: 'column', categories: 'A2:A4', values: 'B2:B4', title: 'Revenue by region' }
+    ],
+    pdf: true
+  })
+  await waitFor('the workbook job', async () => ['done', 'failed'].includes((await server.store.getJob('winuser', sheetJob.id)).status), 150_000)
+  const sheetDone = await server.store.getJob('winuser', sheetJob.id)
+  const sheetResult = sheetDone.result as any
+  assert(sheetDone.status === 'done' && sheetResult.charts === 1 && sheetResult.checks.every((c: any) => c.ok), `the installed Bridge changes a workbook with ${sheetResult?.engine ?? 'a spreadsheet program'}${sheetDone.status === 'done' ? '' : `: ${sheetDone.error}`}`)
+  assert(fs.existsSync(path.join(sheetDir, 'Sales (OpenLobs).xlsx')) && fs.existsSync(path.join(sheetDir, 'Sales (OpenLobs).pdf')), 'the new workbook and its PDF are in the chosen folder, and the original is still there')
+  const selftest = await runCmd(path.join(appDir, 'bridge.cmd'), ['selftest'])
+  assert(/Everything works/.test(selftest.out), `the Start menu spreadsheet check passes${/Everything works/.test(selftest.out) ? '' : `: ${selftest.out.slice(-600)}`}`)
 
   const un = await run(path.join(appDir, 'unins000.exe'), ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'])
   assert(un.code === 0, 'the uninstaller runs silently')
