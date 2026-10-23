@@ -228,14 +228,13 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
 /**
  * Keeps asking until stopped or disconnected. Network trouble backs off (1 s, doubling, up to 60 s) instead of
  * hammering. Twice a second it also looks at the pause and quit switches (the tray icon sets them): a pause
- * stops whatever is running and the waiting request at once, and a quit ends the loop.
+ * stops whatever is running at once (and the next request tells OpenLobs nothing is possible), and a quit ends the loop.
  */
 export async function run(config: Config, deps: Deps, signal: AbortSignal, reload?: () => Config | null, watchMs = 500): Promise<'stopped' | 'disconnected'> {
   const running = new Map<string, Running>()
   const inner = new AbortController()
   if (signal.aborted) inner.abort()
   else signal.addEventListener('abort', () => inner.abort(), { once: true })
-  let pollAbort = new AbortController()
   let wasPaused = false
   let connected = false
   let current: Config = config
@@ -247,11 +246,10 @@ export async function run(config: Config, deps: Deps, signal: AbortSignal, reloa
     const paused = deps.control?.paused() ?? false
     if (paused && !wasPaused) {
       deps.log('Paused from the tray icon: stopping everything.')
+      // Running work stops now. The waiting request is left alone: ending it mid-wait could lose a job the server had just handed over.
       for (const r of running.values()) r.controller.abort()
-      pollAbort.abort()
     } else if (!paused && wasPaused) {
       deps.log('Resumed.')
-      pollAbort.abort()
     }
     wasPaused = paused
     if (deps.control?.quitRequested()) { deps.log('Quit from the tray icon.'); inner.abort() }
@@ -261,19 +259,15 @@ export async function run(config: Config, deps: Deps, signal: AbortSignal, reloa
   deps.log(`Connected as "${config.name}". Waiting for OpenLobs. Press Ctrl+C to stop.`)
   try {
     while (!inner.signal.aborted) {
-      pollAbort = new AbortController()
-      const both = AbortSignal.any([inner.signal, pollAbort.signal])
       try {
         // What is allowed can change while the Bridge runs (bridge allow browser), so read it fresh each round.
         const fresh = reload?.()
         current = { ...config, allow: fresh?.allow ?? config.allow, workspace: fresh ? fresh.workspace : config.workspace }
-        if (!(await pollOnce(current, deps, running, both))) { deps.log('This computer was disconnected from OpenLobs.'); connected = false; publish(); return 'disconnected' }
+        if (!(await pollOnce(current, deps, running, inner.signal))) { deps.log('This computer was disconnected from OpenLobs.'); connected = false; publish(); return 'disconnected' }
         connected = true
         wait = 1000
       } catch (err: any) {
         if (inner.signal.aborted) break
-        // A pause or resume ended the waiting request on purpose: ask again straight away with the new state.
-        if (pollAbort.signal.aborted) continue
         if (err instanceof AuthError) { deps.log(err.message); connected = false; publish(); return 'disconnected' }
         connected = false
         deps.log(`Cannot reach OpenLobs (${String(err?.message ?? err).slice(0, 100)}). Trying again in ${Math.round(wait / 1000)} s.`)
