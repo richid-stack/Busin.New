@@ -1,10 +1,10 @@
 # OpenLobs Bridge
 
-A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.2: it can answer a ping and, if you allow it, look at web pages.** It is the base for later steps (Excel, other apps).
+A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.3: it can answer a ping, look at web pages, and work on spreadsheets in one folder, each only if you allow it.** It is the base for later steps (other apps).
 
 ## What it will and will not do
 
-- It only **calls out** to your OpenLobs address. It opens no port and runs no commands. The one program it starts is your browser, and only for a browser job you allowed.
+- It only **calls out** to your OpenLobs address. It opens no port and runs no commands. The only programs it starts are your browser (for a browser job you allowed) and, for spreadsheet work you allowed, Microsoft Excel or LibreOffice, driven by two fixed scripts that nothing from OpenLobs is ever written into (`sheets/engine.ts`; `process.ts` is the single place that starts a program).
 - It has a fixed list of jobs (`HANDLERS` in `core.ts`). A job not on the list is refused on this computer even if the server sends it.
 - It says what it is doing, can be stopped with Ctrl+C, and stops by itself if you disconnect it in OpenLobs.
 - The token that proves this computer's identity is stored in a file only your user can read (`%APPDATA%\OpenLobsBridge\config.json` on Windows, `~/.openlobs-bridge/config.json` elsewhere).
@@ -26,6 +26,17 @@ You need Node.js 22 or newer and this repository.
 
 A browser look opens the page in a fresh, empty browser (no logins, nothing remembered), takes a picture, and reports page errors. It never clicks or types. Pages on this computer and the public internet are opened; private-network addresses (router, intranet), local files, and anything a page tries to load from them are refused.
 
+### Spreadsheets (Excel)
+
+`bridge allow excel --folder "C:\Users\you\Documents\OpenLobs"` (on Windows, leave out `--folder` to pick the folder in a window; the Start menu entry "Allow spreadsheet work in one folder" does this). OpenLobs can then list the `.xlsx`/`.csv` files in that folder (one level of sub-folders), read their sheets, headers and first rows, and save a **new copy** with changes made from a fixed list of steps: fill formulas, set cells, clean text and numbers, sort, summarize into a new sheet (live formulas), format, add a chart, rename/add/delete sheets, optionally save a PDF.
+
+- The original is never changed, an existing file is never replaced (a number is added to the name), and nothing outside the chosen folder can be reached: `..`, other drives, network paths and shortcuts that lead out are refused here, on this computer.
+- A file that has charts, pivot tables, pictures or macros is not copied through unless the person agreed to lose them.
+- Formulas that reach outside the spreadsheet (web, other files, other programs) are refused.
+- Excel is used when installed (through its own automation); otherwise LibreOffice. Either recalculates every formula, draws the charts, reports any cell showing an error, and can save a PDF. With neither, simple changes still work but are not recalculated, and charts/PDFs are refused.
+- `bridge selftest` checks all of this on the spot in a throwaway folder (Start menu: "Check that spreadsheets work").
+- Pivot tables cannot be created yet.
+
 Other commands: `npm run bridge -- status` (is it paired and can it reach the server), `npm run bridge -- disconnect` (forget the pairing on this computer; also disconnect it on the Computers page).
 
 The server address must be `https://`; plain `http://` is accepted only for `localhost`.
@@ -36,7 +47,8 @@ The server address must be `https://`; plain `http://` is accepted only for `loc
 - A tray icon or window to start and stop it (the Start menu shortcuts and Windows' own app list do this for now).
 - Storing the token in the Windows credential store (DPAPI) instead of a protected file.
 - Mac and Linux are untested.
-- Any job other than `ping` and `browser_look`: no clicking, typing, signed-in browsing, Excel or other apps yet.
+- Jobs other than `ping`, `browser_look` and the three `workbook_*` ones: no clicking, typing, signed-in browsing or other apps yet.
+- The Microsoft Excel engine is written but has only been tested against LibreOffice; run `bridge selftest` on a PC with Excel to confirm it there.
 
 ## Tests
 

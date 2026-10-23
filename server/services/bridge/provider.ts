@@ -1,8 +1,8 @@
 import { InspectError } from '../inspect/browser'
 import type { Screenshot, ScreenshotRequest } from '../inspect/browser'
 import type { ScreenshotProvider } from '../inspect/screenshot'
-import { isOnline, OPEN_JOB } from './model'
-import type { Device, Job } from './model'
+import { isOnline, JOB_PERMISSION, OPEN_JOB, PERMISSION_LABEL } from './model'
+import type { Device, Job, JobKind } from './model'
 import type { BridgeStore } from './store'
 
 /**
@@ -22,14 +22,18 @@ export interface BridgeProviderOptions {
   timeoutMs?: number
 }
 
-export function chooseComputer(devices: Device[], now: Date, name?: string): Device {
+export function chooseComputer(devices: Device[], now: Date, name?: string, kind: JobKind = 'browser_look'): Device {
   if (!devices.length) throw new InspectError('No computer is connected to OpenLobs. Add one on the Computers page first.')
   const pool = name ? devices.filter(d => d.name.toLowerCase() === name.trim().toLowerCase()) : devices
   if (!pool.length) throw new InspectError(`There is no connected computer named "${name!.slice(0, 60)}". Connected: ${devices.map(d => d.name).join(', ')}.`)
   const online = pool.filter(d => isOnline(d, now))
   if (!online.length) throw new InspectError(`${pool.length === 1 ? `"${pool[0]!.name}" is` : 'Your computers are'} offline right now. Start the Bridge on it and try again.`)
-  const allowed = online.filter(d => d.capabilities.includes('browser_look'))
-  if (!allowed.length) throw new InspectError(`"${online[0]!.name}" has not allowed looking at web pages. On that computer, run: npm run bridge -- allow browser`)
+  const allowed = online.filter(d => d.capabilities.includes(kind))
+  if (!allowed.length) {
+    const needs = JOB_PERMISSION[kind] ?? 'browser'
+    if (needs === 'browser') throw new InspectError(`"${online[0]!.name}" has not allowed looking at web pages. On that computer, run: npm run bridge -- allow browser`)
+    throw new InspectError(`"${online[0]!.name}" has not been allowed to ${PERMISSION_LABEL[needs].toLowerCase()}. On that computer, run: bridge allow ${needs}${needs === 'excel' ? ' --folder "C:\\path\\to\\folder"' : ''}`)
+  }
   return [...allowed].sort((a, b) => String(b.lastSeenAt).localeCompare(String(a.lastSeenAt)))[0]!
 }
 
@@ -75,4 +79,34 @@ export function bridgeProvider(opts: BridgeProviderOptions): ScreenshotProvider 
       }
     }
   }
+}
+
+export interface RunJobOptions extends Pick<BridgeProviderOptions, 'store' | 'userId' | 'computer' | 'now' | 'sleep' | 'pollMs'> {
+  kind: JobKind
+  input: Record<string, unknown>
+  timeoutMs: number
+}
+
+/** Asks a connected computer to do one job and waits for its answer. Errors are written for a person to read. */
+export async function runBridgeJob(opts: RunJobOptions, signal?: AbortSignal): Promise<{ result: Record<string, unknown>, computer: string }> {
+  const now = opts.now ?? (() => new Date())
+  const sleep = opts.sleep ?? (ms => new Promise<void>(r => setTimeout(r, ms)))
+  const device = chooseComputer(await opts.store.listDevices(opts.userId), now(), opts.computer, opts.kind)
+  let job: Job
+  try { job = await opts.store.enqueue(opts.userId, device.id, opts.kind, opts.input) } catch (err: any) { throw new InspectError(String(err?.message || 'The computer could not be asked.').slice(0, 300)) }
+  const deadline = now().getTime() + opts.timeoutMs
+  for (;;) {
+    if (signal?.aborted) { await opts.store.cancelJob(opts.userId, job.id).catch(() => {}); throw new InspectError('Cancelled.') }
+    job = await opts.store.getJob(opts.userId, job.id)
+    if (!OPEN_JOB.includes(job.status)) break
+    if (now().getTime() >= deadline) {
+      await opts.store.cancelJob(opts.userId, job.id).catch(() => {})
+      throw new InspectError(`"${device.name}" did not answer in time. Check that the Bridge is running there.`)
+    }
+    await sleep(opts.pollMs ?? 700)
+  }
+  if (job.status === 'cancelled') throw new InspectError('The job was cancelled.')
+  if (job.status === 'expired') throw new InspectError(`"${device.name}" did not pick up the request. Check that the Bridge is running there.`)
+  if (job.status === 'failed') throw new InspectError(`"${device.name}" could not do it: ${job.error || 'unknown problem'}`.slice(0, 400))
+  return { result: (job.result ?? {}) as Record<string, unknown>, computer: device.name }
 }

@@ -129,6 +129,7 @@ const looks = ref<Record<string, LookState>>({})
 const lookOf = (id: string): LookState => looks.value[id] ?? { open: false, url: '', phone: false, job: null, starting: false, error: null }
 const setLook = (id: string, patch: Partial<LookState>) => { looks.value = { ...looks.value, [id]: { ...lookOf(id), ...patch } } }
 const canLook = (c: ComputerItem) => c.capabilities.includes('browser_look')
+const canSheets = (c: ComputerItem) => c.capabilities.includes('workbook_apply')
 
 async function look(c: ComputerItem) {
   const state = lookOf(c.id)
@@ -259,8 +260,9 @@ async function remove(c: ComputerItem) {
                   </div>
                 </div>
                 <p class="mt-1 ml-5 text-xs text-dimmed">
-                  <template v-if="canLook(c)">Allowed here: test ping, look at web pages.</template>
-                  <template v-else>Allowed here: test ping. To let OpenLobs look at web pages, choose "Allow looking at web pages" in the Start menu under OpenLobs Bridge on that computer, or run <code class="text-highlighted">npm run bridge -- allow browser</code>.</template>
+                  Allowed here: test ping<template v-if="canLook(c)">, look at web pages</template><template v-if="canSheets(c)">, work on spreadsheets in one folder (originals are never changed)</template>.
+                  <template v-if="!canLook(c)"> To allow web page looks, choose "Allow looking at web pages" in the Start menu under OpenLobs Bridge on that computer, or run <code class="text-highlighted">bridge allow browser</code>.</template>
+                  <template v-if="!canSheets(c)"> To allow spreadsheet work, choose "Allow spreadsheet work in one folder" there (you pick the folder), or run <code class="text-highlighted">bridge allow excel</code>.</template>
                 </p>
                 <form v-if="lookOf(c.id).open && canLook(c)" class="mt-3 ml-5 space-y-3" @submit.prevent="look(c)">
                   <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
@@ -347,6 +349,7 @@ async function remove(c: ComputerItem) {
             <ul class="space-y-1.5 text-sm text-muted list-disc pl-5">
               <li>It only calls out to OpenLobs. It opens no port on your computer.</li>
               <li>It can answer a ping, and, only if you allow it on that computer, open a web page in an empty browser and send back a picture. It never clicks or types.</li>
+              <li>If you allow spreadsheet work, it can read spreadsheets in the one folder you pick, and save changed copies there. It never changes the original, never replaces a file, and cannot see anything outside that folder.</li>
               <li>You can stop it any time, or disconnect it here. The connection ends at once.</li>
             </ul>
           </section>

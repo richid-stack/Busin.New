@@ -3,6 +3,10 @@ import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline/promises'
 import { BRIDGE_VERSION, PERMISSIONS, defaultDeps, disconnect, pair, run } from './core'
+import { findEngine } from './sheets/engine'
+import { selfTest } from './sheets/selftest'
+import { pickFolder } from './pickFolder'
+import { openWorkspace } from './workspace'
 import type { Config } from './core'
 
 /**
@@ -11,6 +15,7 @@ import type { Config } from './core'
  *   bridge connect            (asks for the address and code)
  *   bridge run [--log FILE]
  *   bridge allow browser | bridge deny browser
+ *   bridge allow excel --folder "C:\path\to\folder" | bridge deny excel
  *   bridge status
  *   bridge disconnect
  */
@@ -67,7 +72,7 @@ try {
     const server = option(args, '--server') || process.env.OPENLOBS_URL
     if (!code || !server) throw new Error('Usage: bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]')
     const config = await pair(server, code, option(args, '--name') || os.hostname().slice(0, 60), deps)
-    save({ ...config, allow: load()?.allow })
+    save({ ...config, allow: load()?.allow, workspace: load()?.workspace })
     console.log(`Paired as "${config.name}". Run "bridge run" to connect.`)
   } else if (command === 'connect') {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -76,7 +81,7 @@ try {
       const code = (await rl.question('Pairing code from the Computers page: ')).trim()
       if (!server || !code) throw new Error('An address and a code are both needed.')
       const config = await pair(server, code, os.hostname().slice(0, 60), deps)
-      save({ ...config, allow: load()?.allow })
+      save({ ...config, allow: load()?.allow, workspace: load()?.workspace })
       console.log(`Paired as "${config.name}". It will connect the next time the Bridge starts (or at your next sign-in).`)
     } finally { rl.close() }
   } else if (command === 'run') {
@@ -96,7 +101,8 @@ try {
     if (config) {
       console.log('Allowed on this computer:')
       console.log('  - Answer a test ping (always)')
-      for (const [name, p] of Object.entries(PERMISSIONS)) console.log(`  ${(config.allow ?? []).includes(name) ? '-' : 'x'} ${p.label}${(config.allow ?? []).includes(name) ? '' : `  (off; turn on with: bridge allow ${name})`}`)
+      for (const [name, p] of Object.entries(PERMISSIONS)) console.log(`  ${(config.allow ?? []).includes(name) ? '-' : 'x'} ${p.label}${(config.allow ?? []).includes(name) ? '' : `  (off; turn on with: bridge allow ${name}${name === 'excel' ? ' --folder "C:\\path\\to\\folder"' : ''})`}`)
+      if (config.workspace) console.log(`Spreadsheet folder: ${config.workspace}`)
     }
   } else if (command === 'allow' || command === 'deny') {
     const config = load()
@@ -104,10 +110,25 @@ try {
     const name = args[0]
     if (!name || !Object.prototype.hasOwnProperty.call(PERMISSIONS, name)) throw new Error(`Usage: bridge ${command} <${Object.keys(PERMISSIONS).join('|')}>`)
     const set = new Set(config.allow ?? [])
-    if (command === 'allow') set.add(name)
-    else set.delete(name)
-    save({ ...config, allow: [...set] })
+    let workspace = config.workspace
+    if (command === 'allow') {
+      if (name === 'excel') {
+        const chosen = option(args, '--folder') || await pickFolder() || workspace
+        // The folder is checked now, and the real location (after shortcuts) is what gets saved.
+        workspace = openWorkspace(chosen)
+      }
+      set.add(name)
+    } else set.delete(name)
+    save({ ...config, allow: [...set], workspace })
+    if (command === 'allow' && name === 'excel') console.log(`Folder: ${workspace}`)
     console.log(command === 'allow' ? `Allowed: ${PERMISSIONS[name]!.label}. A running Bridge picks this up within a minute.` : `No longer allowed: ${PERMISSIONS[name]!.label}.`)
+  } else if (command === 'selftest') {
+    // Checks that spreadsheet work really functions on this computer, using a throwaway folder.
+    const engine = await findEngine()
+    console.log(engine ? `Spreadsheet program: ${engine.name === 'excel' ? 'Microsoft Excel' : 'LibreOffice'}` : 'Spreadsheet program: none found (charts and PDFs will not work).')
+    const report = await selfTest()
+    for (const line of report.lines) console.log(line)
+    if (!report.ok) process.exitCode = 1
   } else if (command === 'disconnect') {
     const config = load()
     if (!config) throw new Error('Not paired.')
@@ -115,7 +136,7 @@ try {
     fs.rmSync(file, { force: true })
     console.log('Disconnected.')
   } else {
-    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE]\n  bridge allow browser | deny browser\n  bridge status\n  bridge disconnect`)
+    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE]\n  bridge allow browser | deny browser\n  bridge allow excel --folder <folder> | deny excel\n  bridge selftest\n  bridge status\n  bridge disconnect`)
   }
 } catch (err: any) {
   console.error(err.message)
