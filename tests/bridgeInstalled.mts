@@ -15,6 +15,9 @@ if (!fs.existsSync(installer)) throw new Error(`No installer at ${installer}`)
 
 const run = (file: string, args: string[]) => new Promise<{ code: number, out: string }>(resolve =>
   execFile(file, args, { encoding: 'utf8', windowsHide: true }, (err, stdout, stderr) => resolve({ code: err ? Number((err as any).code) || 1 : 0, out: `${stdout}${stderr}` })))
+// A .cmd file cannot be started directly any more; it goes through cmd.exe, with the quoting cmd expects for a path with spaces.
+const runCmd = (file: string, args: string[]) => new Promise<{ code: number, out: string }>(resolve =>
+  execFile('cmd.exe', ['/d', '/s', '/c', `""${file}" ${args.join(' ')}"`], { encoding: 'utf8', windowsHide: true, windowsVerbatimArguments: true }, (err, stdout, stderr) => resolve({ code: err ? Number((err as any).code) || 1 : 0, out: `${stdout}${stderr}` })))
 const tasks = async () => (await run('tasklist', ['/FI', 'IMAGENAME eq openlobs-bridge.exe', '/FO', 'CSV', '/NH'])).out
 const appDir = path.join(process.env.LOCALAPPDATA!, 'Programs', 'OpenLobs Bridge')
 const startup = path.join(process.env.APPDATA!, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'OpenLobs Bridge.lnk')
@@ -56,7 +59,7 @@ try {
     assert(file?.bytes[0] === 0xFF && (done.result as any).title === 'Installer Test Page' && (done.result as any).consoleErrors.some((e: string) => /test console error/.test(e)), 'the picture is a real screenshot and the page error was seen')
   }
 
-  const status = await run(path.join(appDir, 'bridge.cmd'), ['status'])
+  const status = await runCmd(path.join(appDir, 'bridge.cmd'), ['status'])
   assert(/Paired as/.test(status.out) && /Look at web pages/.test(status.out), 'the Start menu "status" command works')
   assert(fs.existsSync(path.join(dataDir, 'bridge.log')) && /Running "ping"/.test(fs.readFileSync(path.join(dataDir, 'bridge.log'), 'utf8')), 'it keeps an activity log')
 
