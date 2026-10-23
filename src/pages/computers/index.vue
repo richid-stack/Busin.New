@@ -260,7 +260,7 @@ async function remove(c: ComputerItem) {
                 </div>
                 <p class="mt-1 ml-5 text-xs text-dimmed">
                   <template v-if="canLook(c)">Allowed here: test ping, look at web pages.</template>
-                  <template v-else>Allowed here: test ping. To let OpenLobs look at web pages, run <code class="text-highlighted">npm run bridge -- allow browser</code> on that computer.</template>
+                  <template v-else>Allowed here: test ping. To let OpenLobs look at web pages, choose "Allow looking at web pages" in the Start menu under OpenLobs Bridge on that computer, or run <code class="text-highlighted">npm run bridge -- allow browser</code>.</template>
                 </p>
                 <form v-if="lookOf(c.id).open && canLook(c)" class="mt-3 ml-5 space-y-3" @submit.prevent="look(c)">
                   <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
