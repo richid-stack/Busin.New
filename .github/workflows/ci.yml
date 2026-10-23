@@ -31,7 +31,7 @@ jobs:
         run: npm run lint
 
       - name: Test
-        run: npm test
+        run: node scripts/ci-capture.mjs "npm test" npm test
 
       # The build writes auto-imports.d.ts and components.d.ts, which the type check reads, so it runs first.
       - name: Build

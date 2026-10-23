@@ -249,7 +249,9 @@ export function libreOfficeEngine(soffice: string, python: string): Engine {
         const script = path.join(dir, 'lo.py'); const jobFile = path.join(dir, 'job.json'); const result = path.join(dir, 'result.json')
         fs.writeFileSync(script, LIBREOFFICE_SCRIPT, 'utf8')
         fs.writeFileSync(jobFile, JSON.stringify(job), 'utf8')
-        const r = await runProgram(python, ['-I', script, soffice, jobFile, result], { timeoutMs: TIMEOUT_MS, signal })
+        // LibreOffice's own Python finds its "uno" module next to itself; the script folder is one this run just made.
+        const bundled = path.dirname(python) === path.dirname(soffice)
+        const r = await runProgram(python, bundled ? [script, soffice, jobFile, result] : ['-I', script, soffice, jobFile, result], { timeoutMs: TIMEOUT_MS, signal, env: bundled ? { ...process.env, PYTHONPATH: path.dirname(soffice) } : process.env })
         return readOutcome(result, r.stderr, r.code, r.timedOut, 'LibreOffice')
       })
     }

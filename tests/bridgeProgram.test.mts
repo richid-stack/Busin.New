@@ -1,6 +1,7 @@
 import { execFile, execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { findEngine } from '../bridge/sheets/engine'
 import { startBridgeTestServer, waitFor } from './helpers/bridgeTestServer.mts'
 
 /**
@@ -71,7 +72,7 @@ try {
   assert(true, 'a running Bridge notices when the owner turns a permission off')
 
   // The bundled program can do spreadsheet work with a real spreadsheet program, when this machine has one.
-  if (fs.existsSync('/usr/bin/soffice') || process.env.OPENLOBS_SOFFICE) {
+  if (await findEngine()) {
     const out = await bridge('selftest')
     assert(/Everything works/.test(out), 'the bundled program passes its own spreadsheet check (real LibreOffice)')
   } else console.log('SKIP the spreadsheet check (no LibreOffice here)')
