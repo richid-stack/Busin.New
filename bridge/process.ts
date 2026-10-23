@@ -1,4 +1,7 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
+
+export type { ChildProcess }
 
 /**
  * The only place the Bridge starts another program. It is used for one thing: the fixed scripts that drive a
@@ -16,4 +19,9 @@ export function runProgram(exe: string, args: string[], opts: { timeoutMs: numbe
     })
     child.on('error', () => { /* reported through the callback */ })
   })
+}
+
+/** Starts a fixed program that keeps running next to the Bridge (the tray icon). The caller stops it when the Bridge stops. */
+export function startBackground(exe: string, args: string[]): ChildProcess {
+  return spawn(exe, args, { windowsHide: true, stdio: 'ignore' })
 }

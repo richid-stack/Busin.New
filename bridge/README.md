@@ -1,6 +1,6 @@
 # OpenLobs Bridge
 
-A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.3: it can answer a ping, look at web pages, and work on spreadsheets in one folder, each only if you allow it.** It is the base for later steps (other apps).
+A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.4: it can answer a ping, look at web pages, and work on spreadsheets in one folder, each only if you allow it.** It is the base for later steps (other apps).
 
 ## What it will and will not do
 
@@ -26,6 +26,10 @@ You need Node.js 22 or newer and this repository.
 
 A browser look opens the page in a fresh, empty browser (no logins, nothing remembered), takes a picture, and reports page errors. It never clicks or types. Pages on this computer and the public internet are opened; private-network addresses (router, intranet), local files, and anything a page tries to load from them are refused.
 
+### Emergency stop and tray icon
+
+On Windows the Bridge shows a small icon by the clock: green when connected, orange while it is working, grey when it cannot reach OpenLobs, red when paused. Its menu has **Pause everything now** (also Resume), **Show recent activity**, **Open OpenLobs Computers page** and **Quit the Bridge**. Pausing stops whatever is running within a second, tells OpenLobs this computer can do nothing, and refuses anything that still arrives, even a ping. The same switch is `bridge pause` / `bridge resume` (and Start menu entries), and works without the icon. The icon talks to the Bridge only through small files in its own folder (`paused.flag`, `quit.flag`, `state.json`); it opens no port. If the Bridge stops, the icon removes itself within 20 seconds. Not verified yet by a person looking at a real desktop.
+
 ### Spreadsheets (Excel)
 
 `bridge allow excel --folder "C:\Users\you\Documents\OpenLobs"` (on Windows, leave out `--folder` to pick the folder in a window; the Start menu entry "Allow spreadsheet work in one folder" does this). OpenLobs can then list the `.xlsx`/`.csv` files in that folder (one level of sub-folders), read their sheets, headers and first rows, and save a **new copy** with changes made from a fixed list of steps: fill formulas, set cells, clean text and numbers, sort, summarize into a new sheet (live formulas), format, add a chart, rename/add/delete sheets, optionally save a PDF.
@@ -44,7 +48,7 @@ The server address must be `https://`; plain `http://` is accepted only for `loc
 ## Not built yet
 
 - Signing the installer, automatic updates, and a release process (the installer is built by CI).
-- A tray icon or window to start and stop it (the Start menu shortcuts and Windows' own app list do this for now).
+- A settings window (the tray menu and Start menu entries cover pause, activity and quit).
 - Storing the token in the Windows credential store (DPAPI) instead of a protected file.
 - Mac and Linux are untested.
 - Jobs other than `ping`, `browser_look` and the three `workbook_*` ones: no clicking, typing, signed-in browsing or other apps yet.

@@ -5,7 +5,9 @@ import readline from 'node:readline/promises'
 import { BRIDGE_VERSION, PERMISSIONS, defaultDeps, disconnect, pair, run } from './core'
 import { findEngine } from './sheets/engine'
 import { selfTest } from './sheets/selftest'
+import { clearQuit, fileControl, setPaused } from './control'
 import { pickFolder } from './pickFolder'
+import { startTray } from './tray'
 import { openWorkspace } from './workspace'
 import type { Config } from './core'
 
@@ -13,7 +15,8 @@ import type { Config } from './core'
  * OpenLobs Bridge, command line.
  *   bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]
  *   bridge connect            (asks for the address and code)
- *   bridge run [--log FILE]
+ *   bridge run [--log FILE] [--no-tray]
+ *   bridge pause | resume
  *   bridge allow browser | bridge deny browser
  *   bridge allow excel --folder "C:\path\to\folder" | bridge deny excel
  *   bridge status
@@ -50,7 +53,8 @@ function log(line: string) {
     fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`)
   } catch { /* logging must never stop the Bridge */ }
 }
-const deps = defaultDeps(log)
+const control = fileControl(dir)
+const deps = { ...defaultDeps(log), control }
 
 /** Only one Bridge runs per computer: a second one would just double the polling. */
 const lockFile = path.join(dir, 'run.lock')
@@ -92,12 +96,19 @@ try {
     process.on('SIGINT', () => stop.abort())
     process.on('SIGTERM', () => stop.abort())
     process.on('exit', dropLock)
+    clearQuit(dir)
+    // The tray icon (Windows). It is a convenience and an emergency stop; the Bridge works without it.
+    const tray = args.includes('--no-tray') ? null : startTray(dir)
+    tray?.on('exit', () => log('The tray icon closed.'))
+    process.on('exit', () => { try { tray?.kill() } catch { /* already gone */ } })
     const result = await run(config, deps, stop.signal, load)
+    try { tray?.kill() } catch { /* already gone */ }
     if (result === 'disconnected') { fs.rmSync(file, { force: true }); process.exitCode = 1 }
     else console.log('Stopped.')
   } else if (command === 'status') {
     const config = load()
     console.log(config ? `Bridge ${BRIDGE_VERSION}. Paired as "${config.name}" with ${config.server}.` : `Bridge ${BRIDGE_VERSION}. Not paired.`)
+    if (config && control.paused()) console.log('PAUSED: nothing will run until you resume (tray icon, or: bridge resume).')
     if (config) {
       console.log('Allowed on this computer:')
       console.log('  - Answer a test ping (always)')
@@ -122,6 +133,9 @@ try {
     save({ ...config, allow: [...set], workspace })
     if (command === 'allow' && name === 'excel') console.log(`Folder: ${workspace}`)
     console.log(command === 'allow' ? `Allowed: ${PERMISSIONS[name]!.label}. A running Bridge picks this up within a minute.` : `No longer allowed: ${PERMISSIONS[name]!.label}.`)
+  } else if (command === 'pause' || command === 'resume') {
+    setPaused(dir, command === 'pause')
+    console.log(command === 'pause' ? 'Paused. Everything running stops within a second and nothing new is accepted. Undo with: bridge resume' : 'Resumed.')
   } else if (command === 'selftest') {
     // Checks that spreadsheet work really functions on this computer, using a throwaway folder.
     const engine = await findEngine()
@@ -136,7 +150,7 @@ try {
     fs.rmSync(file, { force: true })
     console.log('Disconnected.')
   } else {
-    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE]\n  bridge allow browser | deny browser\n  bridge allow excel --folder <folder> | deny excel\n  bridge selftest\n  bridge status\n  bridge disconnect`)
+    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE] [--no-tray]\n  bridge pause | resume\n  bridge allow browser | deny browser\n  bridge allow excel --folder <folder> | deny excel\n  bridge selftest\n  bridge status\n  bridge disconnect`)
   }
 } catch (err: any) {
   console.error(err.message)
