@@ -245,9 +245,10 @@ function wire(): { deps: Deps, cfg: Config } {
 
 // ---- A real browser, when one is available here ----
 const browserPath = process.env.OPENLOBS_BROWSER_PATH || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '')
-if (!browserPath) console.log('SKIP the real-browser check (no Chromium found; set OPENLOBS_BROWSER_PATH)')
+// BRIDGE_REAL_BROWSER=1 means "use the Edge or Chrome installed on this computer" (what the Windows check does).
+if (!browserPath && process.env.BRIDGE_REAL_BROWSER !== '1') console.log('SKIP the real-browser check (no Chromium found; set OPENLOBS_BROWSER_PATH or BRIDGE_REAL_BROWSER=1)')
 else {
-  process.env.OPENLOBS_BROWSER_PATH = browserPath
+  if (browserPath) process.env.OPENLOBS_BROWSER_PATH = browserPath
   const server = http.createServer((req, res) => {
     if (req.url === '/') {
       res.setHeader('Content-Type', 'text/html')

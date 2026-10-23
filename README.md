@@ -24,6 +24,7 @@ npm run dev
 | `ALLOW_ANONYMOUS_CHAT` | Chat requires sign-in by default. Set to `true` to allow anonymous (rate-limited) chats, e.g. local demos. |
 | `TRUSTED_PROXY_HOPS` | Reverse proxies in front of the app (default `1`, matching Cloud Run). Used to read the real client address for rate limiting. |
 | `FIRECRAWL_API_KEY`, `PARALLEL_API_KEY`, `TAVILY_API_KEY` | Optional web tool keys. Without them, search uses DuckDuckGo and pages are read by the built-in reader. Each key you add switches that provider on. |
+| `BRIDGE_DOWNLOAD_URL` | Optional https address of the Windows Bridge installer (see Bridge). When set, the Computers page offers a download button. |
 | `CRON_SECRET` | Enables scheduled workflows. 16+ random characters; the timer endpoint does not exist without it. See "Scheduled workflows". |
 | `SCHEDULE_MIN_MINUTES` | Shortest gap allowed between two runs of a scheduled workflow (default `15`). |
 | `SEARCH_PROVIDERS` | Optional comma-separated order for search providers (default `parallel,tavily,firecrawl,duckduckgo`). |
@@ -73,7 +74,9 @@ The **Computers** page connects your own computer to OpenLobs through the Bridge
 - **Using it:** the **Computers** page has "Look at a page", and chat's `inspect_design` takes `onMyComputer` (a site running on your computer, e.g. `http://localhost:5173`, is judged like any page, and page errors come back with the verdict). Tasks can use it too when a computer is online and has allowed it.
 - Computers, their logs and jobs are part of the account export (never the token) and the erase.
 
-Not built yet: an installer or `.exe` (people who are not technical cannot use it yet), a tray icon, clicking or typing in pages, signed-in browsing, storing the token in the Windows credential store (it is a file only you can read, in `%APPDATA%\OpenLobsBridge`), and Mac or Linux testing. Windows with Node 22 is the target. See `bridge/README.md`.
+**Windows installer:** `bridge/installer/` builds `OpenLobs-Bridge-Setup.exe` (Inno Setup). It installs for the current user only (no administrator password), ships its own runtime as `openlobs-bridge.exe` plus the one library it needs, asks for the OpenLobs address and pairing code, optionally allows web page looks, pairs, and starts the Bridge hidden; it also starts at sign-in, has Start menu shortcuts (status, connect, allow/stop web page looks, recent activity) and disconnects the computer when uninstalled. Silent form: `OpenLobs-Bridge-Setup.exe /VERYSILENT /SERVER=https://... /CODE=... /ALLOWBROWSER=1`. The `bridge-windows` GitHub Actions job builds it on a real Windows machine and then installs, uses (ping, a real Edge browser look) and uninstalls it; the installer is kept as the `OpenLobs-Bridge-Setup` artifact of that run. To offer it on the Computers page, host the file somewhere with an https address and set `BRIDGE_DOWNLOAD_URL`.
+
+Not built yet: signing the installer (Windows warns "unknown publisher" until it is signed with a certificate), automatic updates, a tray icon, clicking or typing in pages, signed-in browsing, storing the token in the Windows credential store (it is a file only you can read, in `%APPDATA%\OpenLobsBridge`), and Mac or Linux testing. Windows with Node 22 is the target. See `bridge/README.md`.
 
 ## Visual checks
 

@@ -1,0 +1,80 @@
+name: bridge-windows
+
+# Builds the Windows installer for the OpenLobs Bridge and tests it on a real Windows machine: install it
+# silently, let it pair with a stand-in OpenLobs, ask it to look at a page with the real Edge that comes with
+# Windows, then uninstall it and check it left nothing running.
+
+on:
+  pull_request:
+    paths:
+      - 'bridge/**'
+      - 'tests/bridge*'
+      - 'tests/helpers/**'
+      - 'server/services/bridge/**'
+      - '.github/workflows/bridge-windows.yml'
+  workflow_dispatch:
+    inputs:
+      default_server:
+        description: 'OpenLobs address the installer suggests (optional)'
+        required: false
+        default: ''
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      NUXT_UI_PRO_LICENSE: ${{ secrets.NUXT_UI_PRO_LICENSE }}
+      BRIDGE_REAL_BROWSER: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bridge tests on Windows (real Edge)
+        run: |
+          node scripts/ci-capture.mjs "bridge.test" npx tsx tests/bridge.test.mts
+          node scripts/ci-capture.mjs "bridgeBrowser.test" npx tsx tests/bridgeBrowser.test.mts
+          node scripts/ci-capture.mjs "bridgeProgram.test" npx tsx tests/bridgeProgram.test.mts
+
+      - name: Build the app folder
+        shell: pwsh
+        run: |
+          $node = (Get-Command node).Source
+          node scripts/ci-capture.mjs "build app folder" node bridge/installer/build.mjs --node $node
+          Get-ChildItem dist/bridge-app | Select-Object Name, Length
+
+      - name: Find Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup was not found" }
+          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $log = & $env:ISCC "/DAppVersion=0.2.0" "/DDefaultServer=${{ github.event.inputs.default_server }}" bridge\installer\openlobs-bridge.iss 2>&1 | Out-String
+          Write-Host $log
+          if ($LASTEXITCODE -ne 0) { $t = $log.Substring([Math]::Max(0, $log.Length - 5000)).Replace('%','%25').Replace("`r",'').Replace("`n",'%0A'); Write-Host "::error title=Inno Setup build::$t"; throw "Installer build failed" }
+          Get-Item dist\OpenLobs-Bridge-Setup.exe | Select-Object Name, Length
+
+      - name: Install, use and uninstall it for real
+        run: node scripts/ci-capture.mjs "installed bridge" npx tsx tests/bridgeInstalled.mts dist/OpenLobs-Bridge-Setup.exe
+
+      - name: Keep the installer
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenLobs-Bridge-Setup
+          path: dist/OpenLobs-Bridge-Setup.exe
+          if-no-files-found: warn

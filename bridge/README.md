@@ -9,7 +9,11 @@ A small program that connects a computer to OpenLobs so OpenLobs can ask it to d
 - It says what it is doing, can be stopped with Ctrl+C, and stops by itself if you disconnect it in OpenLobs.
 - The token that proves this computer's identity is stored in a file only your user can read (`%APPDATA%\OpenLobsBridge\config.json` on Windows, `~/.openlobs-bridge/config.json` elsewhere).
 
-## Use (Windows first)
+## Install on Windows (no terminal)
+
+Download `OpenLobs-Bridge-Setup.exe` (the Computers page links to it when your OpenLobs has one; otherwise it is the `OpenLobs-Bridge-Setup` artifact of the `bridge-windows` GitHub Actions run). Run it. Windows may say the publisher is unknown, because it is not signed yet: choose "More info", then "Run anyway". It asks for your OpenLobs address and the pairing code from the Computers page, and whether OpenLobs may look at web pages. That is all: it connects, and starts by itself whenever you sign in. Start menu, "OpenLobs Bridge": status, connect again, allow or stop web page looks, recent activity. Uninstall from Windows Settings; this also disconnects the computer in OpenLobs.
+
+## Use from source (developers)
 
 You need Node.js 22 or newer and this repository.
 
@@ -28,8 +32,8 @@ The server address must be `https://`; plain `http://` is accepted only for `loc
 
 ## Not built yet
 
-- An installer or a single `.exe` (today it runs with Node).
-- A tray icon or window to start and stop it.
+- Signing the installer, automatic updates, and a release process (the installer is built by CI).
+- A tray icon or window to start and stop it (the Start menu shortcuts and Windows' own app list do this for now).
 - Storing the token in the Windows credential store (DPAPI) instead of a protected file.
 - Mac and Linux are untested.
 - Any job other than `ping` and `browser_look`: no clicking, typing, signed-in browsing, Excel or other apps yet.
