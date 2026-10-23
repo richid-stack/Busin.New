@@ -3,6 +3,7 @@ import { look, parseLookInput } from './browser'
 import type { LookDeps } from './browser'
 import { workbookApply, workbookInspect, workbookList } from './sheets/jobs'
 import type { SheetDeps } from './sheets/jobs'
+import type { Control } from './control'
 
 /**
  * The OpenLobs Bridge, without the command line around it, so it can be tested.
@@ -13,7 +14,7 @@ import type { SheetDeps } from './sheets/jobs'
  *  3. A job can be stopped, and the Bridge says out loud what it is doing.
  */
 
-export const BRIDGE_VERSION = '0.3.0'
+export const BRIDGE_VERSION = '0.4.0'
 
 /** `allow` lists what the person has allowed on this computer (see PERMISSIONS). A ping is always allowed. */
 export interface Config { server: string, deviceId: string, token: string, name: string, allow?: string[], /** The one folder spreadsheet jobs may use. Chosen on this computer. */ workspace?: string }
@@ -29,6 +30,8 @@ export interface Deps {
   browser?: LookDeps
   /** Replaceable in tests: which spreadsheet program is used. */
   sheets?: SheetDeps
+  /** The pause switch and status board shared with the tray icon. Absent in tests that do not need it. */
+  control?: Control
 }
 
 export const defaultDeps = (log: (line: string) => void = line => console.log(line)): Deps => ({
@@ -161,9 +164,13 @@ export interface Running { controller: AbortController, kind: string }
  * disconnected, so the caller stops for good.
  */
 export async function pollOnce(config: Config, deps: Deps, running: Map<string, Running>, signal?: AbortSignal): Promise<boolean> {
-  const active = activeKinds(config)
-  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: activeKinds(config) }, signal)
+  // A pause beats everything: while paused this computer says it can do nothing, and refuses whatever still arrives.
+  const pausedAtStart = deps.control?.paused() ?? false
+  if (pausedAtStart) for (const r of running.values()) r.controller.abort()
+  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: pausedAtStart ? [] : activeKinds(config) }, signal)
   if (answer?.revoked) return false
+  // What is allowed is judged when the jobs arrive, not when the request began: the person may have paused or resumed while it waited.
+  const active = deps.control?.paused() ? [] : activeKinds(config)
 
   for (const id of Array.isArray(answer?.cancel) ? answer.cancel : []) {
     const r = running.get(String(id))
@@ -183,6 +190,11 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
       // The server asked for something this Bridge does not do. Refuse, and say so.
       deps.log(`Refused "${kind.slice(0, 40)}": this Bridge does not do that.`)
       started.push(report({ ok: false, error: 'This Bridge does not do that.' }))
+      continue
+    }
+    if (deps.control?.paused()) {
+      deps.log(`Refused "${kind}": this computer is paused.`)
+      started.push(report({ ok: false, error: 'This computer is paused. Resume it from the tray icon.' }))
       continue
     }
     if (!active.includes(kind)) {
@@ -214,28 +226,64 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
   return true
 }
 
-/** Keeps asking until stopped or disconnected. Network trouble backs off (1 s, doubling, up to 60 s) instead of hammering. */
-export async function run(config: Config, deps: Deps, signal: AbortSignal, reload?: () => Config | null): Promise<'stopped' | 'disconnected'> {
+/**
+ * Keeps asking until stopped or disconnected. Network trouble backs off (1 s, doubling, up to 60 s) instead of
+ * hammering. Twice a second it also looks at the pause and quit switches (the tray icon sets them): a pause
+ * stops whatever is running at once (and the next request tells OpenLobs nothing is possible), and a quit ends the loop.
+ */
+export async function run(config: Config, deps: Deps, signal: AbortSignal, reload?: () => Config | null, watchMs = 500): Promise<'stopped' | 'disconnected'> {
   const running = new Map<string, Running>()
+  const inner = new AbortController()
+  if (signal.aborted) inner.abort()
+  else signal.addEventListener('abort', () => inner.abort(), { once: true })
+  let wasPaused = false
+  let connected = false
+  let current: Config = config
+  const publish = () => deps.control?.publish({
+    version: BRIDGE_VERSION, name: current.name, server: current.server, connected, paused: wasPaused,
+    busy: [...running.values()].map(r => HANDLERS[r.kind]?.label ?? r.kind)[0] ?? null, at: deps.now().toISOString()
+  })
+  const watch = setInterval(() => {
+    const paused = deps.control?.paused() ?? false
+    if (paused && !wasPaused) {
+      deps.log('Paused from the tray icon: stopping everything.')
+      // Running work stops now. The waiting request is left alone: ending it mid-wait could lose a job the server had just handed over.
+      for (const r of running.values()) r.controller.abort()
+    } else if (!paused && wasPaused) {
+      deps.log('Resumed.')
+    }
+    wasPaused = paused
+    if (deps.control?.quitRequested()) { deps.log('Quit from the tray icon.'); inner.abort() }
+    publish()
+  }, watchMs)
   let wait = 1000
   deps.log(`Connected as "${config.name}". Waiting for OpenLobs. Press Ctrl+C to stop.`)
-  while (!signal.aborted) {
-    try {
-      // What is allowed can change while the Bridge runs (npm run bridge -- allow browser), so read it fresh each round.
-      const fresh = reload?.()
-      const current: Config = { ...config, allow: fresh?.allow ?? config.allow, workspace: fresh ? fresh.workspace : config.workspace }
-      if (!(await pollOnce(current, deps, running, signal))) { deps.log('This computer was disconnected from OpenLobs.'); return 'disconnected' }
-      wait = 1000
-    } catch (err: any) {
-      if (signal.aborted) break
-      if (err instanceof AuthError) { deps.log(err.message); return 'disconnected' }
-      deps.log(`Cannot reach OpenLobs (${String(err?.message ?? err).slice(0, 100)}). Trying again in ${Math.round(wait / 1000)} s.`)
-      await deps.sleep(wait, signal)
-      wait = Math.min(wait * 2, 60_000)
+  try {
+    while (!inner.signal.aborted) {
+      try {
+        // What is allowed can change while the Bridge runs (bridge allow browser), so read it fresh each round.
+        const fresh = reload?.()
+        current = { ...config, allow: fresh?.allow ?? config.allow, workspace: fresh ? fresh.workspace : config.workspace }
+        if (!(await pollOnce(current, deps, running, inner.signal))) { deps.log('This computer was disconnected from OpenLobs.'); connected = false; publish(); return 'disconnected' }
+        connected = true
+        wait = 1000
+      } catch (err: any) {
+        if (inner.signal.aborted) break
+        if (err instanceof AuthError) { deps.log(err.message); connected = false; publish(); return 'disconnected' }
+        connected = false
+        deps.log(`Cannot reach OpenLobs (${String(err?.message ?? err).slice(0, 100)}). Trying again in ${Math.round(wait / 1000)} s.`)
+        publish()
+        await deps.sleep(wait, inner.signal)
+        wait = Math.min(wait * 2, 60_000)
+      }
     }
+  } finally {
+    clearInterval(watch)
   }
   // Stopping the Bridge stops whatever it was doing.
   for (const r of running.values()) r.controller.abort()
+  connected = false
+  publish()
   return 'stopped'
 }
 

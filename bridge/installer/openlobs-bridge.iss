@@ -1,8 +1,8 @@
 ; OpenLobs Bridge: Windows installer (Inno Setup 6).
-; Build:  iscc /DAppVersion=0.3.0 /DDefaultServer=https://your-openlobs bridge\installer\openlobs-bridge.iss
+; Build:  iscc /DAppVersion=0.4.0 /DDefaultServer=https://your-openlobs bridge\installer\openlobs-bridge.iss
 ; Silent: OpenLobs-Bridge-Setup.exe /VERYSILENT /SERVER=https://your-openlobs /CODE=ABCD2345 /ALLOWBROWSER=1
 #ifndef AppVersion
-  #define AppVersion "0.3.0"
+  #define AppVersion "0.4.0"
 #endif
 #ifndef DefaultServer
   #define DefaultServer ""
@@ -33,6 +33,8 @@ Source: "..\..\dist\bridge-app\*"; DestDir: "{app}"; Flags: recursesubdirs ignor
 Name: "{userprograms}\OpenLobs Bridge\Bridge status"; Filename: "{cmd}"; Parameters: "/k ""{app}\bridge.cmd"" status"
 Name: "{userprograms}\OpenLobs Bridge\Connect to OpenLobs"; Filename: "{cmd}"; Parameters: "/k ""{app}\bridge.cmd"" connect"
 Name: "{userprograms}\OpenLobs Bridge\Allow looking at web pages"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow browser & pause"
+Name: "{userprograms}\OpenLobs Bridge\Pause everything now"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" pause & pause"
+Name: "{userprograms}\OpenLobs Bridge\Resume"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" resume & pause"
 Name: "{userprograms}\OpenLobs Bridge\Allow spreadsheet work in one folder"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow excel & pause"
 Name: "{userprograms}\OpenLobs Bridge\Stop allowing spreadsheet work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny excel & pause"
 Name: "{userprograms}\OpenLobs Bridge\Check that spreadsheets work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" selftest & pause"
