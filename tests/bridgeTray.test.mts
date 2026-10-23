@@ -82,6 +82,18 @@ pausedNow = false
 calls.length = 0
 await waitFor('the resumed poll', () => calls.some(c => c.path === '/api/bridge/poll' && c.body.capabilities?.includes('ping')))
 assert(logs.some(l => /Resumed/.test(l)), 'resuming lets it work again')
+// A job that arrives on a request that began while paused is still done if the person has resumed by then.
+pausedNow = true
+await wait(60)
+let resumed = false
+const origFetch = deps.fetch
+jobsToSend = []
+;(deps as any).fetch = (async (url: any, init: any) => {
+  if (new URL(String(url)).pathname === '/api/bridge/poll' && !resumed) { resumed = true; pausedNow = false; return new Response(JSON.stringify({ jobs: [{ id: 'j3', kind: 'ping', input: {} }], cancel: [] })) }
+  return origFetch(url, init)
+}) as any
+await waitFor('the late job', () => calls.some(c => c.path.endsWith('/j3/result')))
+assert(calls.find(c => c.path.endsWith('/j3/result'))!.body.ok === true, 'a request that started while paused still delivers its job once the person has resumed')
 quitNow = true
 const ended = await Promise.race([loop, wait(3000).then(() => 'hung')])
 assert(ended === 'stopped' && logs.some(l => /Quit from the tray icon/.test(l)) && states.at(-1)?.connected === false, 'quit ends the Bridge cleanly')

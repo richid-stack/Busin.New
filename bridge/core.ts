@@ -165,11 +165,12 @@ export interface Running { controller: AbortController, kind: string }
  */
 export async function pollOnce(config: Config, deps: Deps, running: Map<string, Running>, signal?: AbortSignal): Promise<boolean> {
   // A pause beats everything: while paused this computer says it can do nothing, and refuses whatever still arrives.
-  const paused = deps.control?.paused() ?? false
-  const active = paused ? [] : activeKinds(config)
-  if (paused) for (const r of running.values()) r.controller.abort()
-  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: active }, signal)
+  const pausedAtStart = deps.control?.paused() ?? false
+  if (pausedAtStart) for (const r of running.values()) r.controller.abort()
+  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: pausedAtStart ? [] : activeKinds(config) }, signal)
   if (answer?.revoked) return false
+  // What is allowed is judged when the jobs arrive, not when the request began: the person may have paused or resumed while it waited.
+  const active = deps.control?.paused() ? [] : activeKinds(config)
 
   for (const id of Array.isArray(answer?.cancel) ? answer.cancel : []) {
     const r = running.get(String(id))
@@ -191,7 +192,7 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
       started.push(report({ ok: false, error: 'This Bridge does not do that.' }))
       continue
     }
-    if (paused || deps.control?.paused()) {
+    if (deps.control?.paused()) {
       deps.log(`Refused "${kind}": this computer is paused.`)
       started.push(report({ ok: false, error: 'This computer is paused. Resume it from the tray icon.' }))
       continue
