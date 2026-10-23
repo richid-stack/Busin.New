@@ -24,6 +24,7 @@ npm run dev
 | `ALLOW_ANONYMOUS_CHAT` | Chat requires sign-in by default. Set to `true` to allow anonymous (rate-limited) chats, e.g. local demos. |
 | `TRUSTED_PROXY_HOPS` | Reverse proxies in front of the app (default `1`, matching Cloud Run). Used to read the real client address for rate limiting. |
 | `FIRECRAWL_API_KEY`, `PARALLEL_API_KEY`, `TAVILY_API_KEY` | Optional web tool keys. Without them, search uses DuckDuckGo and pages are read by the built-in reader. Each key you add switches that provider on. |
+| `BRIDGE_DOWNLOAD_URL` | Optional https address of the Windows Bridge installer (see Bridge). When set, the Computers page offers a download button. |
 | `CRON_SECRET` | Enables scheduled workflows. 16+ random characters; the timer endpoint does not exist without it. See "Scheduled workflows". |
 | `SCHEDULE_MIN_MINUTES` | Shortest gap allowed between two runs of a scheduled workflow (default `15`). |
 | `SEARCH_PROVIDERS` | Optional comma-separated order for search providers (default `parallel,tavily,firecrawl,duckduckgo`). |
