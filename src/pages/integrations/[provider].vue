@@ -109,8 +109,8 @@ function examplePrompts(name: string, category: string): string[] {
       ]
     case 'design':
       return [
-        `Show me what I can work from in ${name}: templates, recent files and folders.`,
-        `Summarize the latest comments on my ${name} files and list what still needs an answer.`
+        `Show me what I can work from in ${name}: templates, designs and folders.`,
+        `Find my ${name} files about a project I name, and tell me what is in them.`
       ]
     case 'developer':
       return [
