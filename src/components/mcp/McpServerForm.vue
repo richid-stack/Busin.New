@@ -37,6 +37,7 @@ function submit() {
     <template #body>
       <form class="flex flex-col gap-4" @submit.prevent="submit">
         <div v-if="preset" class="text-sm text-muted space-y-2">
+          <BrandMark :icon="preset.icon" :name="preset.name" size="lg" />
           <p>{{ preset.summary }}</p>
           <p v-if="preset.keyHelp">
             {{ preset.keyHelp }}

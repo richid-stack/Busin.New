@@ -5,7 +5,7 @@ import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
 import McpServerForm from '../../components/mcp/McpServerForm.vue'
 import McpToolReview from '../../components/mcp/McpToolReview.vue'
-import { MCP_PRESETS } from '../../../shared/mcpCatalog'
+import { MCP_PRESETS, presetByUrl } from '../../../shared/mcpCatalog'
 import type { McpPreset } from '../../../shared/mcpCatalog'
 import type { McpApproval, McpNewServer, McpServerView, McpToolListing } from '../../types/mcp'
 
@@ -208,7 +208,8 @@ const PILLARS = [
       <div v-else class="flex flex-col gap-4">
         <div v-for="server in servers" :key="server.id" class="rounded-2xl border border-default bg-default p-5 hover:shadow-md transition-shadow">
           <div class="flex items-start gap-4">
-            <div class="p-2.5 rounded-xl border border-default shadow-sm bg-default shrink-0">
+            <BrandMark v-if="presetByUrl(server.url)" :icon="presetByUrl(server.url)?.icon" :name="server.name" size="lg" />
+            <div v-else class="p-2.5 rounded-xl border border-default shadow-sm bg-default shrink-0">
               <UIcon name="i-lucide-plug" class="size-5 text-primary" />
             </div>
             <div class="min-w-0 flex-1">
@@ -242,6 +243,7 @@ const PILLARS = [
         <p class="text-xs text-muted mb-3">Checked against each maker's own documentation. Adding one only fills in the form; you still approve every tool.</p>
         <ul class="divide-y divide-default rounded-2xl border border-default bg-default">
           <li v-for="p in shelf" :key="p.id" class="flex items-start gap-3 px-4 py-3">
+            <BrandMark :icon="p.icon" :name="p.name" />
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-sm font-medium text-highlighted">{{ p.name }}</span>

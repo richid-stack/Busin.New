@@ -1,3 +1,5 @@
+import type { ActionStep } from '../actionSteps'
+import { withProgress } from '../progressStream'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { createWorkflow, ensureDefaultWorkflow, getWorkflow, resolveWorkflowId } from '../firebase'
@@ -238,7 +240,8 @@ Say whether the task only reads ("read": looking things up, listing, searching) 
       access: z.enum(['read', 'change']).default('change').describe('"read" if the task only looks things up; "change" if it creates, sends, updates or deletes anything. When unsure, "change".')
     }),
     needsApproval: opts.gate ? ({ access }: { access?: string }) => access !== 'read' : undefined,
-    execute: async ({ provider, instruction, access }, { abortSignal }) => {
+    // Streams what the task is doing as it goes: each step shows up the moment it starts.
+    execute: async function* ({ provider, instruction, access }, { abortSignal }) {
       // Catalogued apps use their definition; any other slug is tried as a Composio toolkit.
       const norm = provider.toLowerCase().trim().replace(/[- ]/g, '_')
       const definition = resolveIntegrationDefinition(provider)
@@ -246,11 +249,21 @@ Say whether the task only reads ("read": looking things up, listing, searching) 
           ? { provider: norm, name: norm.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), icon: 'i-lucide-plug', category: 'Other' }
           : null)
       if (!definition) {
-        return { success: false, provider, instruction, error: `Unknown integration "${provider}". Use the integration status tool to see what is available.` }
+        yield { success: false, provider, instruction, error: `Unknown integration "${provider}". Use the integration status tool to see what is available.` }
+        return
       }
 
-      const result = await executeIntegratedAction(userId, definition.provider, `${definition.provider}_action`, { instruction }, { abortSignal, readOnly: access === 'read' })
-      return {
+      let result!: Awaited<ReturnType<typeof executeIntegratedAction>>
+      for await (const update of withProgress<ActionStep[], typeof result>(report => executeIntegratedAction(userId, definition.provider, `${definition.provider}_action`, { instruction }, {
+        abortSignal,
+        readOnly: access === 'read',
+        onProgress: report
+      }))) {
+        if ('progress' in update) yield { running: true, provider: definition.provider, providerName: definition.name, icon: definition.icon, instruction, access, steps: update.progress }
+        else result = update.result
+      }
+      const steps: ActionStep[] = Array.isArray(result.output?.steps) ? result.output.steps : []
+      yield {
         success: result.success,
         authRequired: result.authRequired ?? false,
         authUrl: result.authUrl,
@@ -260,6 +273,7 @@ Say whether the task only reads ("read": looking things up, listing, searching) 
         category: definition.category,
         instruction,
         access,
+        steps,
         output: result.output,
         message: result.message,
         ...(result.success ? {} : { error: result.message })

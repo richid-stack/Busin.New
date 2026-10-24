@@ -47,6 +47,24 @@ for (const prefix of PREFIXES) {
   collections.push({ prefix, icons, aliases, width: data.width, height: data.height })
 }
 
+// Brand logos (src/assets/brands/*.svg) are bundled whole as the "brand" collection, so `i-brand-github` just works.
+// Most come from the LobeHub icon set (MIT); Context7's comes from its own repository.
+{
+  const dir = 'src/assets/brands'
+  const icons = {}
+  for (const file of readdirSync(dir).filter(f => f.endsWith('.svg')).sort()) {
+    const svg = readFileSync(join(dir, file), 'utf8').trim()
+    const root = svg.match(/^<svg([^>]*)>/)?.[1] ?? ''
+    const box = root.match(/viewBox="([\d.\s-]+)"/)?.[1]?.trim().split(/\s+/).map(Number)
+    if (!box || box.length !== 4) throw new Error(`${file} has no viewBox`)
+    let body = svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').replace(/<title>[^<]*<\/title>/g, '')
+    const carried = ['fill', 'fill-rule'].map(a => root.match(new RegExp(`\\s${a}="([^"]+)"`))?.[1] ? `${a}="${root.match(new RegExp(`\\s${a}="([^"]+)"`))[1]}"` : '').filter(Boolean).join(' ')
+    if (carried) body = `<g ${carried}>${body}</g>`
+    icons[file.replace(/\.svg$/, '')] = { body, left: box[0], top: box[1], width: box[2], height: box[3] }
+  }
+  collections.push({ prefix: 'brand', icons, aliases: {}, width: 24, height: 24 })
+}
+
 mkdirSync('src/generated', { recursive: true })
 writeFileSync('src/generated/icons.json', JSON.stringify(collections))
 console.log(collections.map(c => `${c.prefix}: ${Object.keys(c.icons).length}`).join(', '))

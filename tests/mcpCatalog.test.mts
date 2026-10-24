@@ -1,4 +1,5 @@
-import { MCP_PRESETS, presetById } from '../shared/mcpCatalog'
+import { readFileSync } from 'node:fs'
+import { MCP_PRESETS, presetById, presetByUrl } from '../shared/mcpCatalog'
 import { checkServerUrl, endpointFor, serverInputSchema } from '../server/services/mcp/server'
 import { SUPPORTED_THIRD_PARTY_TOOLKITS } from '../server/services/composio/client'
 import { ALL_INTEGRATIONS_CATALOG } from '../server/services/integrations/registry'
@@ -23,6 +24,11 @@ assert(presetById('stitch')?.headerName === 'X-Goog-Api-Key' && presetById('nope
   assert(Object.keys(bearer.headers).length === 0, 'a server with no key sends no sign-in header')
 }
 assert(!MCP_PRESETS.some(p => /linear|slack|jira|atlassian|figma|canva|notion/i.test(p.name)), 'apps that need a browser sign-in, or that were put off, are not on the shelf')
+
+// Every logo named on the shelf is really in the bundle, so none shows up blank.
+const brand = JSON.parse(readFileSync('src/generated/icons.json', 'utf8')).find((c: any) => c.prefix === 'brand')
+for (const p of MCP_PRESETS.filter(p => p.icon)) assert(p.icon!.startsWith('i-brand-') && !!brand?.icons?.[p.icon!.slice('i-brand-'.length)], `${p.name}: its logo is in the bundled brand set`)
+assert(presetByUrl('https://api.githubcopilot.com/mcp')?.id === 'github' && presetByUrl('https://nope.example/') === undefined, 'a server added from the shelf is recognised by its address')
 
 // ---- Canva and Figma, through Composio ----
 for (const slug of ['canva', 'figma']) {
