@@ -61,6 +61,8 @@ export function buildMcpTools(userId: string, servers: McpServer[], deps: { call
       tools[name] = tool({
         description: `[${server.name}, an outside MCP server] ${approved.description || toolName}`.slice(0, 700),
         inputSchema: schema,
+        // Unless the person said otherwise for this tool, every use waits for their Approve in the chat.
+        needsApproval: approved.runWithoutAsking !== true,
         execute: withToolLimits(
           { name: `mcp:${server.id}`, userId, perMinute: 20, timeoutMs: 40_000, maxResultChars: 30_000 },
           async (input: Record<string, unknown>, signal: AbortSignal) => {

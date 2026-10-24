@@ -9,7 +9,7 @@ const COLLECTION = 'mcp_servers'
 function fromDoc(id: string, data: Record<string, any>): McpServer {
   const approved: Record<string, ApprovedTool> = {}
   for (const [name, t] of Object.entries(data.approved && typeof data.approved === 'object' ? data.approved : {}) as Array<[string, any]>) {
-    if (t && typeof t.fingerprint === 'string') approved[name] = { fingerprint: t.fingerprint, description: String(t.description ?? ''), inputSchema: t.inputSchema ?? { type: 'object', properties: {} } }
+    if (t && typeof t.fingerprint === 'string') approved[name] = { fingerprint: t.fingerprint, description: String(t.description ?? ''), inputSchema: t.inputSchema ?? { type: 'object', properties: {} }, ...(t.runWithoutAsking === true ? { runWithoutAsking: true } : {}) }
   }
   return {
     id,

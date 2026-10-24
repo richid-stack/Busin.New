@@ -34,7 +34,8 @@ export default defineHandler(async (event) => {
         inputSchema: t.inputSchema,
         annotations: t.annotations ?? null,
         status: toolStatus(server.approved, t),
-        approved: t.name in server.approved
+        approved: t.name in server.approved,
+        runWithoutAsking: server.approved[t.name]?.runWithoutAsking === true
       })),
       removed: drift.removed
     }

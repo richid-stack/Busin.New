@@ -19,6 +19,7 @@ import ChatToolComputerExcel from '../tool/ComputerExcel.vue'
 import ChatToolTaskProposal from '../tool/TaskProposal.vue'
 import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
+import ChatToolApproval from '../tool/Approval.vue'
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
@@ -84,8 +85,17 @@ const emit = defineEmits<{
     </UChatReasoning>
 
     <template v-else-if="isToolUIPart(part)">
+      <ChatToolApproval
+        v-if="part.state === 'approval-requested'"
+        :part="part"
+      />
+      <UChatTool
+        v-else-if="part.state === 'output-denied'"
+        text="You declined this action. Nothing was changed."
+        icon="i-lucide-ban"
+      />
       <ChatToolChart
-        v-if="getToolName(part) === 'chart'"
+        v-else-if="getToolName(part) === 'chart'"
         :invocation="{ ...(part as ChartUIToolInvocation) }"
       />
       <ChatToolWeather

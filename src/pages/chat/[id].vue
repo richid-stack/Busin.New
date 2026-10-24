@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ATTACH_ACCEPT } from '../../utils/attachmentTypes'
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, provide } from 'vue'
 import { $fetch } from 'ofetch'
 import { useChat } from '@ai-sdk/vue'
-import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, getToolName } from 'ai'
+import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, getToolName, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai'
 import type { UIMessage } from 'ai'
 import { getSearchQuery } from '../../utils/tool'
 import { useModels } from '../../composables/useModels'
@@ -101,9 +101,11 @@ const mcpItems = computed<DropdownMenuItem[][]>(() => [
   ]
 ])
 
-const { messages, status, error, sendMessage, regenerate, stop } = useChat({
+const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalResponse } = useChat({
   id: data?.id,
   messages: data?.messages,
+  // Once every question the assistant asked has an answer, the conversation carries on by itself.
+  sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
   transport: new DefaultChatTransport({
     api: `/api/chats/${data?.id}`,
     fetch: async (url, options) => {
@@ -199,6 +201,9 @@ const { messages, status, error, sendMessage, regenerate, stop } = useChat({
     }
   }
 })
+
+// The approval cards in the messages answer through this.
+provide('respondToToolApproval', (id: string, approved: boolean) => addToolApprovalResponse({ id, approved }))
 
 const activeActivityText = computed(() => {
   if (status.value !== 'streaming') return 'Thinking...'

@@ -9,7 +9,7 @@ import { listMcpTools } from '../../../../../services/mcp/client'
 import { MCP_LIMITS, McpConflict, McpError, planApproval } from '../../../../../services/mcp/tools'
 
 const bodySchema = z.object({
-  tools: z.array(z.object({ name: z.string().max(128), fingerprint: z.string().regex(/^[0-9a-f]{64}$/) })).max(MCP_LIMITS.maxToolsListed)
+  tools: z.array(z.object({ name: z.string().max(128), fingerprint: z.string().regex(/^[0-9a-f]{64}$/), runWithoutAsking: z.boolean().optional() })).max(MCP_LIMITS.maxToolsListed)
 })
 
 /**

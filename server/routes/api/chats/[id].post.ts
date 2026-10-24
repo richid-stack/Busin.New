@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
 import type { GoogleLanguageModelOptions } from '@ai-sdk/google'
 import type { OpenAILanguageModelResponsesOptions } from '@ai-sdk/openai'
-import { useUserSession } from '../../../utils/session'
+import { useUserSession, toolApprovalSecret } from '../../../utils/session'
 import { getChat, updateChatTitle, saveChatMessage, saveChatMessages } from '../../../utils/firebase'
 import { defineHandler } from 'nitro'
 import { createError, getValidatedRouterParams, readValidatedBody } from 'nitro/h3'
@@ -250,7 +250,7 @@ export default defineHandler(async (event) => {
           workflow_create: createWorkflowCreateTool(userId),
           workflow_run: createWorkflowRunTool(userId),
           integration_status: createIntegrationStatusTool(userId),
-          integration_execute: createIntegrationExecuteTool(userId),
+          integration_execute: createIntegrationExecuteTool(userId, { gate: true }),
           create_document: createDocumentTool(userId),
           create_spreadsheet: createSpreadsheetTool(userId),
           create_presentation: createPresentationTool(userId),
@@ -267,6 +267,7 @@ export default defineHandler(async (event) => {
       try {
         const result = streamText({
           abortSignal: event.req.signal,
+          experimental_toolApprovalSecret: toolApprovalSecret(userId),
           model: languageModel,
           maxRetries: 0,
           instructions: `You are a knowledgeable and helpful AI assistant. ${session.data.user?.username ? `The user's name is ${session.data.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
