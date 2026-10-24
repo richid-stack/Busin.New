@@ -107,6 +107,11 @@ function examplePrompts(name: string, category: string): string[] {
         `Pull the ${name} deals that have gone quiet for two weeks and draft a follow-up for each.`,
         `Summarize the newest ${name} contacts and what we know about them.`
       ]
+    case 'design':
+      return [
+        `Show me what I can work from in ${name}: templates, recent files and folders.`,
+        `Summarize the latest comments on my ${name} files and list what still needs an answer.`
+      ]
     case 'developer':
       return [
         `Show me the open items in ${name} that need my attention today.`,
