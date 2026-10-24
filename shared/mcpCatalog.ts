@@ -36,7 +36,7 @@ export const MCP_PRESETS: McpPreset[] = [
     access: 'changes',
     keyHelp: 'Make an API key in your Stitch settings (stitch.withgoogle.com). It creates designs in your own Stitch account.',
     keyUrl: 'https://stitch.withgoogle.com',
-    caution: 'Some people have had trouble making the key or got sign-in errors when generating a screen. If it fails, tell Claude the error and we will look.',
+    caution: 'Some people have had trouble making the key or got sign-in errors when generating a screen. If it fails, the error message will say why; Stitch’s own sign-in is the usual cause.',
     docsUrl: 'https://github.com/google-labs-code/stitch-sdk',
     checked: '2026-10-23'
   },
