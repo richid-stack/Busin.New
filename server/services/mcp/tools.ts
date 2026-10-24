@@ -26,6 +26,8 @@ export interface McpToolDef {
 
 export interface ApprovedTool {
   fingerprint: string
+  /** The person chose to let this tool run without being asked each time. Without it, every use waits for their Approve. */
+  runWithoutAsking?: boolean
   description: string
   inputSchema: Record<string, unknown>
 }
@@ -111,10 +113,11 @@ export function modelToolName(slug: string, tool: string, taken: Set<string>): s
 }
 
 /** Checks a request to approve tools against what the server offers right now and the caps. */
-export function planApproval(offered: McpToolDef[], wanted: Array<{ name: string, fingerprint: string }>, otherServersApproved: number): Record<string, ApprovedTool> {
+export function planApproval(offered: McpToolDef[], wanted: Array<{ name: string, fingerprint: string, runWithoutAsking?: boolean }>, otherServersApproved: number): Record<string, ApprovedTool> {
   const byName = new Map(offered.map(t => [t.name, t]))
   // What is stored is what the person was shown: each tool comes with the fingerprint of the version they reviewed.
   const seen = new Map(wanted.map(w => [w.name, w.fingerprint]))
+  const unasked = new Set(wanted.filter(w => w.runWithoutAsking === true).map(w => w.name))
   const names = [...seen.keys()]
   if (names.length > MCP_LIMITS.maxApprovedPerServer) throw new McpError(`Approve at most ${MCP_LIMITS.maxApprovedPerServer} tools per server.`)
   if (names.length + otherServersApproved > MCP_LIMITS.maxApprovedPerUser) throw new McpError(`You can have ${MCP_LIMITS.maxApprovedPerUser} approved MCP tools in total. Remove some from another server first.`)
@@ -123,7 +126,7 @@ export function planApproval(offered: McpToolDef[], wanted: Array<{ name: string
     const def = byName.get(name)
     if (!def) throw new McpError(`The server does not offer a tool called "${name}" right now.`)
     if (fingerprintTool(def) !== seen.get(name)) throw new McpError(`"${name}" changed since you opened the review. Open it again and read the new version before approving.`)
-    out[name] = { fingerprint: fingerprintTool(def), description: def.description, inputSchema: def.inputSchema }
+    out[name] = { fingerprint: fingerprintTool(def), description: def.description, inputSchema: def.inputSchema, ...(unasked.has(name) ? { runWithoutAsking: true } : {}) }
   }
   return out
 }

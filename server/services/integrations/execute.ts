@@ -6,6 +6,7 @@ import { VercelProvider } from '@composio/vercel'
 import { getComposioApiKey, getActiveComposioConnection, createComposioConnectionLink } from '../composio/client'
 import { composioToolkitSlug } from './slugs'
 import { getLanguageModel, pickAvailableModel } from '../../utils/models'
+import { onlyReadTools } from '../../utils/writeGate'
 
 export interface IntegrationRunResult {
   success: boolean
@@ -57,6 +58,7 @@ export async function runIntegrationInstruction(opts: {
   providerName: string
   instruction: string
   abortSignal?: AbortSignal
+  readOnly?: boolean
 }): Promise<IntegrationRunResult> {
   const { userId, provider, providerName, instruction, abortSignal } = opts
   const client = getAgentClient()
@@ -73,7 +75,7 @@ export async function runIntegrationInstruction(opts: {
     return { success: false, authRequired: true, authUrl, output: null, toolCalls: 0, message: `Connect your ${providerName} account to continue.` }
   }
 
-  return runWithTools({ userId, providerName, instruction, abortSignal, getTools: async () => await client.tools.get(userId, { toolkits: [composioToolkitSlug(provider)] }) as Record<string, any> })
+  return runWithTools({ userId, providerName, instruction, abortSignal, readOnly: opts.readOnly, getTools: async () => await client.tools.get(userId, { toolkits: [composioToolkitSlug(provider)] }) as Record<string, any> })
 }
 
 /**
@@ -98,6 +100,10 @@ export async function runWithTools(opts: {
   instruction: string
   abortSignal?: AbortSignal
   getTools: () => Promise<Record<string, any>>
+  /** Only tools that look are given to the model, so a task that was said to be a read cannot change anything. */
+  readOnly?: boolean
+  /** Says which of this service's tools only look. Defaults to reading the tool's name. */
+  isRead?: (toolName: string) => boolean
 }): Promise<IntegrationRunResult> {
   const { userId, providerName, instruction, abortSignal } = opts
   const modelId = pickAvailableModel()
@@ -107,7 +113,11 @@ export async function runWithTools(opts: {
 
   // Planning an action is a model call, so it costs credits like any other. The charge is taken once the
   // tools are known to exist, and given back if the model call fails before it does anything.
-  const tools = await opts.getTools()
+  const all = await opts.getTools()
+  const tools = opts.readOnly && all ? onlyReadTools(all, opts.isRead) as Record<string, any> : all
+  if (all && Object.keys(all).length > 0 && opts.readOnly && Object.keys(tools).length === 0) {
+    return { success: false, output: null, toolCalls: 0, message: `${providerName} has no read-only actions to use for this. If the task changes something, ask for it as a change so the person can approve it first.` }
+  }
   if (!tools || Object.keys(tools).length === 0) {
     return { success: false, output: null, toolCalls: 0, message: `No ${providerName} actions are available for this account.` }
   }

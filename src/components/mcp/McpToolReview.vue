@@ -14,11 +14,14 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:open': [boolean], 'save': [McpApproval[]], 'retry': [] }>()
 
 const selected = ref<Set<string>>(new Set())
+// Tools the person lets run without being asked each time. Off unless they turn it on, for every tool.
+const unasked = ref<Set<string>>(new Set())
 const expanded = ref<string | null>(null)
 
 // Start from what is approved and still matches; a changed tool must be ticked again on purpose.
 watch(() => [props.open, props.tools] as const, () => {
   selected.value = new Set(props.tools.filter(t => t.status === 'approved').map(t => t.name))
+  unasked.value = new Set(props.tools.filter(t => t.status === 'approved' && t.runWithoutAsking).map(t => t.name))
   expanded.value = null
 }, { immediate: true })
 
@@ -27,7 +30,14 @@ const atLimit = computed(() => selected.value.size >= props.maxPerServer)
 
 /** Each choice goes back with the fingerprint of the version shown here, so only what was read can be approved. */
 function save() {
-  emit('save', props.tools.filter(t => selected.value.has(t.name)).map(t => ({ name: t.name, fingerprint: t.fingerprint })))
+  emit('save', props.tools.filter(t => selected.value.has(t.name)).map(t => ({ name: t.name, fingerprint: t.fingerprint, runWithoutAsking: unasked.value.has(t.name) })))
+}
+
+function setUnasked(name: string, on: boolean) {
+  const next = new Set(unasked.value)
+  if (on) next.add(name)
+  else next.delete(name)
+  unasked.value = next
 }
 
 function toggle(name: string, on: boolean) {
@@ -35,6 +45,7 @@ function toggle(name: string, on: boolean) {
   if (on) next.add(name)
   else next.delete(name)
   selected.value = next
+  if (!on) setUnasked(name, false)
 }
 
 const params = (t: McpToolListing) => Object.entries(t.inputSchema?.properties ?? {}).map(([name, p]) => ({
@@ -52,7 +63,7 @@ const STATUS = {
 </script>
 
 <template>
-  <UModal v-model:open="open" :title="server ? `Tools from ${server.name}` : 'Tools'" description="Pick the tools OpenLobs may use. Read what each one says it does first." :ui="{ content: 'sm:max-w-2xl' }">
+  <UModal v-model:open="open" :title="server ? `Tools from ${server.name}` : 'Tools'" description="Pick the tools OpenLobs may use. By default each use waits for your Approve in the chat." :ui="{ content: 'sm:max-w-2xl' }">
     <template #body>
       <div v-if="loading" class="py-12 flex flex-col items-center gap-3 text-sm text-muted">
         <UIcon name="i-lucide-loader-2" class="size-6 animate-spin" />
@@ -99,6 +110,15 @@ const STATUS = {
                 <UBadge v-else-if="t.annotations?.readOnlyHint" label="Says it only reads" color="neutral" variant="subtle" size="sm" />
               </div>
               <p class="text-xs text-muted leading-relaxed whitespace-pre-line">{{ t.description || 'No description given.' }}</p>
+              <USwitch
+                v-if="selected.has(t.name)"
+                :model-value="unasked.has(t.name)"
+                size="sm"
+                label="Run without asking me each time"
+                :description="unasked.has(t.name) ? 'It will run as soon as OpenLobs decides to use it.' : 'Chat shows you what it will do and waits for your Approve.'"
+                class="mt-2.5"
+                @update:model-value="setUnasked(t.name, Boolean($event))"
+              />
               <button
                 type="button"
                 class="mt-2 text-xs text-dimmed hover:text-default inline-flex items-center gap-1 focus-visible:outline-2 focus-visible:outline-primary rounded"
