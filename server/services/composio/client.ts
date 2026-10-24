@@ -38,7 +38,7 @@ export interface SupportedThirdPartyToolkit {
   name: string
   icon: string
   description: string
-  category: 'communication' | 'productivity' | 'project_management' | 'crm' | 'developer'
+  category: 'communication' | 'productivity' | 'project_management' | 'crm' | 'developer' | 'design'
   popularActions: Array<{ slug: string; name: string; description: string }>
 }
 
@@ -186,6 +186,28 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
     popularActions: [
       { slug: 'airtable_create_record', name: 'Create Record', description: 'Append rows to custom relational Airtable bases' },
       { slug: 'airtable_list_records', name: 'List Records', description: 'Fetch and filter rows from tables' }
+    ]
+  },
+  // --- Design. Connected with the person's own Canva or Figma sign-in through Composio. ---
+  {
+    slug: 'canva',
+    name: 'Canva',
+    icon: 'i-simple-icons:canva',
+    description: 'Find your brand templates, look through designs and folders, and bring images into Canva.',
+    category: 'design',
+    popularActions: [
+      { slug: 'CANVA_ACCESS_USER_SPECIFIC_BRAND_TEMPLATES_LIST', name: 'List Brand Templates', description: 'See the brand templates you can use' },
+      { slug: 'CANVA_CREATE_URL_ASSET_UPLOAD_JOB', name: 'Upload Image From a Link', description: 'Bring a picture from a public web address into Canva' }
+    ]
+  },
+  {
+    slug: 'figma',
+    name: 'Figma',
+    icon: 'i-logos-figma',
+    description: 'Read design files, comments and components, and add comments for your team.',
+    category: 'design',
+    popularActions: [
+      { slug: 'FIGMA_ADD_A_COMMENT_TO_A_FILE', name: 'Comment on a File', description: 'Leave a comment on a Figma file' }
     ]
   },
   // --- Microsoft 365 & Enterprise Productivity Tools (Supported by Composio Managed Auth) ---
