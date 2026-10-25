@@ -5,6 +5,8 @@ import { defaultProvider } from '../inspect/screenshot'
 import { chargeUsage } from '../usage/usage'
 import { modelCost } from '../usage/plans'
 import { getLanguageModel, pickAvailableModel } from '../../utils/models'
+import { parseMyModelId } from '../../../shared/modelProviders'
+import { resolveModel } from '../models/resolve'
 import { runTask } from './orchestrator'
 import type { RunDeps } from './orchestrator'
 import { notifyTaskFinished, defaultNotifyDeps } from '../notifications/notify'
@@ -16,23 +18,25 @@ import { modelJudge, verifyCriteria } from './verify'
 
 /** The real parts a task runs with. Tests swap them for fakes through `runTask` directly. */
 export function liveDeps(store: TaskStore = taskStore()): RunDeps {
-  const pick = (modelId: string | null) => {
+  const pick = async (modelId: string | null, userId: string) => {
+    // The person's own model runs on their own key: never swapped for another, and it costs no credits.
+    if (modelId && parseMyModelId(modelId)) return { id: modelId, model: (await resolveModel(userId, modelId)).model }
     const id = pickAvailableModel(modelId)
     return id ? { id, model: getLanguageModel(id) } : null
   }
   return {
     store,
     tools: task => buildTaskTools(task.userId, task.tools),
-    model: task => pick(task.model),
-    costOf: modelCost,
+    model: task => pick(task.model, task.userId),
+    costOf: id => (parseMyModelId(id) ? 0 : modelCost(id)),
     charge: chargeUsage,
     verify: async (criteria, ctx, task) => {
-      const chosen = pick(task.model)
+      const chosen = await pick(task.model, task.userId).catch(() => null)
       return await verifyCriteria(criteria, ctx, {
         inspect: input => runInspection(input, { provider: defaultProvider(), save: i => fileStore().save(i) }),
         judgeCheck: async (input) => {
           if (!chosen) return { status: 'unsure', reason: 'No AI model is available to judge this.', fix: '' }
-          const charge = await chargeUsage(task.userId, modelCost(chosen.id))
+          const charge = await chargeUsage(task.userId, parseMyModelId(chosen.id) ? 0 : modelCost(chosen.id))
           try { return await modelJudge(chosen.model, { generate: generateObject })(input) } catch (err) { await charge.refund(); throw err }
         }
       })

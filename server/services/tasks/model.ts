@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MODELS } from '../../../shared/utils/models'
+import { parseMyModelId } from '../../../shared/modelProviders'
 
 /**
  * A task is a goal, the ways we will know it was met, and a record of what happened. It is not a chat:
@@ -65,7 +66,7 @@ export const taskInputSchema = z.object({
   tools: z.array(z.string()).max(TASK_TOOL_GROUPS.length).default(DEFAULT_TASK_GROUPS)
     .refine(list => list.every(id => (TASK_TOOL_GROUPS as readonly string[]).includes(id)), 'That tool group is not available to tasks yet.')
     .transform(list => TASK_TOOL_GROUPS.filter(id => list.includes(id))),
-  model: z.string().nullable().optional().default(null).refine(m => m === null || MODELS.some(x => x.value === m), 'Unknown model'),
+  model: z.string().nullable().optional().default(null).refine(m => m === null || MODELS.some(x => x.value === m) || parseMyModelId(m) !== null, 'Unknown model'),
   maxAttempts: z.coerce.number().int().min(LIMITS.attempts.min).max(LIMITS.attempts.max).default(LIMITS.attempts.default),
   maxSteps: z.coerce.number().int().min(LIMITS.steps.min).max(LIMITS.steps.max).default(LIMITS.steps.default),
   maxMinutes: z.coerce.number().int().min(LIMITS.minutes.min).max(LIMITS.minutes.max).default(LIMITS.minutes.default)

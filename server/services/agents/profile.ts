@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MODELS } from '../../../shared/utils/models'
+import { parseMyModelId } from '../../../shared/modelProviders'
 
 /** Most agents one person can keep. */
 export const MAX_AGENTS_PER_USER = 10
@@ -42,7 +43,7 @@ export const agentInputSchema = z.object({
   name: z.string().transform(clean).pipe(z.string().min(1, 'Give the agent a name.').max(60, 'The name can be at most 60 characters.')),
   description: z.string().transform(clean).pipe(z.string().max(200, 'The description can be at most 200 characters.')).optional().default(''),
   instructions: z.string().transform(clean).pipe(z.string().min(1, 'Tell the agent what it should do.').max(MAX_INSTRUCTIONS_CHARS, `The instructions can be at most ${MAX_INSTRUCTIONS_CHARS} characters.`)),
-  model: z.string().nullable().optional().default(null).refine(m => m === null || MODELS.some(x => x.value === m), 'Unknown model'),
+  model: z.string().nullable().optional().default(null).refine(m => m === null || MODELS.some(x => x.value === m) || parseMyModelId(m) !== null, 'Unknown model'),
   tools: z.array(z.string()).max(GROUP_IDS.length).default(DEFAULT_GROUPS)
     .refine(list => list.every(id => GROUP_IDS.includes(id)), 'Unknown tool group')
     .transform(list => GROUP_IDS.filter(id => list.includes(id))),
