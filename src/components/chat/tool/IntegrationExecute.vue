@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ActionSteps from './ActionSteps.vue'
+import { accentGradient } from '../../../utils/accentGradient'
+import { appLogo } from '../../../utils/appLogo'
 
 const props = defineProps<{
   invocation: any
@@ -37,45 +39,9 @@ const providerRaw = computed(() => {
   return (toolResult.value?.provider || toolArgs.value?.provider || 'service').toString().toLowerCase().trim()
 })
 
-// Map provider slugs to authentic official brand logos
-const BRAND_ICON_MAP: Record<string, string> = {
-  github: 'i-brand-github',
-  gh: 'i-brand-github',
-  slack: 'i-logos-slack-icon',
-  discord: 'i-logos-discord-icon',
-  linear: 'i-logos-linear-icon',
-  notion: 'i-logos-notion-icon',
-  jira: 'i-logos-jira',
-  salesforce: 'i-logos-salesforce',
-  airtable: 'i-logos-airtable',
-  stripe: 'i-logos-stripe',
-  gitlab: 'i-logos-gitlab',
-  trello: 'i-logos-trello',
-  asana: 'i-logos-asana-icon',
-  gmail: 'i-logos-google-gmail',
-  google_drive: 'i-logos-google-drive',
-  drive: 'i-logos-google-drive',
-  google_sheets: 'i-simple-icons:googlesheets',
-  sheets: 'i-simple-icons:googlesheets',
-  google_docs: 'i-simple-icons:googledocs',
-  docs: 'i-simple-icons:googledocs',
-  google_calendar: 'i-logos-google-calendar',
-  calendar: 'i-logos-google-calendar',
-  google_tasks: 'i-simple-icons:googletasks',
-  tasks: 'i-simple-icons:googletasks',
-  microsoft_teams: 'i-logos-microsoft-teams',
-  teams: 'i-logos-microsoft-teams',
-  outlook: 'i-logos-microsoft-icon',
-  one_drive: 'i-logos-microsoft-onedrive',
-  onedrive: 'i-logos-microsoft-onedrive',
-  zendesk: 'i-logos-zendesk-icon'
-}
-
 const providerIcon = computed(() => {
-  const p = providerRaw.value.replace(/[- ]/g, '_')
-  if (BRAND_ICON_MAP[p]) return BRAND_ICON_MAP[p]
   if (toolResult.value?.icon) return toolResult.value.icon
-  return 'i-lucide-layers'
+  return appLogo(providerRaw.value)
 })
 
 const providerDisplayName = computed(() => {
@@ -128,30 +94,60 @@ const heading = computed(() => {
   if (isExecuting.value) return `Using ${providerDisplayName.value}...`
   return isSuccess.value ? `Used ${providerDisplayName.value}` : `Could not use ${providerDisplayName.value}`
 })
-const icon = computed(() => (requiresAuth.value ? 'i-lucide-key-round' : !isExecuting.value && !isSuccess.value ? 'i-lucide-circle-alert' : providerIcon.value))
+// The app's logo stays on the row. A failure is shown by the red text and step, not by swapping the logo away.
+const accent = computed(() => accentGradient(providerDisplayName.value))
 </script>
 
 <template>
+  <!-- Connecting an account is the one moment worth a card: the app's logo, what is waiting, and the button. -->
+  <div
+    v-if="requiresAuth"
+    :class="['rounded-3xl p-3 sm:p-4 min-w-0 max-w-full', accent]"
+  >
+    <div class="rounded-2xl border border-default bg-default/80 backdrop-blur shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+      <div class="size-12 sm:size-14 rounded-xl bg-default border border-default shadow-sm flex items-center justify-center shrink-0">
+        <UIcon
+          :name="providerIcon"
+          class="size-6 sm:size-7"
+        />
+      </div>
+      <div class="min-w-0 flex-1">
+        <h4 class="text-sm font-semibold text-highlighted m-0">
+          Connect {{ providerDisplayName }}
+        </h4>
+        <p class="text-xs text-muted mt-1 m-0 leading-relaxed line-clamp-2">
+          To do this for you: {{ instruction }}
+        </p>
+        <p class="text-xs text-dimmed mt-1 m-0">
+          You can disconnect at any time.
+        </p>
+      </div>
+      <UButton
+        :to="authUrl"
+        target="_blank"
+        :label="`Connect ${providerDisplayName}`"
+        color="neutral"
+        trailing-icon="i-lucide-arrow-up-right"
+        class="shrink-0 justify-center"
+      />
+    </div>
+  </div>
+
   <UChatTool
+    v-else
     v-model:open="open"
+    class="min-w-0 max-w-full"
     :text="heading"
     :suffix="instruction"
-    :streaming="isExecuting && !requiresAuth"
-    :icon="icon"
-    chevron="leading"
-    :ui="!isExecuting && !isSuccess && !requiresAuth ? { leadingIcon: 'text-error' } : undefined"
-    :actions="requiresAuth ? [{ label: `Connect ${providerDisplayName}`, to: authUrl, target: '_blank', color: 'neutral', variant: 'subtle', trailingIcon: 'i-lucide-arrow-up-right' }] : undefined"
+    :streaming="isExecuting"
+    :icon="providerIcon"
+    chevron="trailing"
+    :ui="!isExecuting && !isSuccess ? { label: 'text-error' } : undefined"
   >
     <div class="flex flex-col gap-1.5 ml-2 pl-3 border-l border-default">
-      <p
-        v-if="requiresAuth"
-        class="text-xs text-muted"
-      >
-        Authorize your {{ providerDisplayName }} account once so actions can run on it.
-      </p>
       <ActionSteps :steps="steps" />
       <p
-        v-if="!isExecuting && !isSuccess && !requiresAuth"
+        v-if="!isExecuting && !isSuccess"
         class="text-xs text-error"
       >
         {{ errorMessage }}

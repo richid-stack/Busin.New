@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch, defineAsyncComponent } from 'vue'
 import { $fetch } from 'ofetch'
 import { showcaseFor } from '../../utils/integrationShowcase'
+import { accentGradient } from '../../utils/accentGradient'
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '@vueuse/core'
 import { useIntegrations } from '../../composables/useIntegrations'
@@ -96,16 +97,7 @@ async function copyLink() {
   toast.add({ title: 'Link copied', icon: 'i-lucide-link', color: 'neutral' })
 }
 
-const gradientClasses = [
-  'bg-gradient-to-b from-blue-400/20 to-emerald-400/20 dark:from-blue-500/10 dark:to-emerald-500/10',
-  'bg-gradient-to-b from-purple-400/20 to-pink-400/20 dark:from-purple-500/10 dark:to-pink-500/10',
-  'bg-gradient-to-b from-amber-400/20 to-orange-400/20 dark:from-amber-500/10 dark:to-orange-500/10',
-  'bg-gradient-to-b from-rose-400/20 to-red-400/20 dark:from-rose-500/10 dark:to-red-500/10'
-]
-const accentGradient = computed(() => {
-  const hash = (integration.value?.name || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  return gradientClasses[hash % gradientClasses.length]
-})
+const accentClass = computed(() => accentGradient(integration.value?.name || ''))
 
 function examplePrompts(name: string, category: string): string[] {
   switch (category) {
@@ -266,7 +258,7 @@ const links = computed(() => {
         <!-- Example prompts -->
         <section class="mb-10">
           <p class="text-sm font-medium text-muted mb-3">Try asking</p>
-          <div :class="['rounded-3xl p-4 sm:p-6 space-y-3', accentGradient]">
+          <div :class="['rounded-3xl p-4 sm:p-6 space-y-3', accentClass]">
             <button
               v-for="(prompt, idx) in prompts"
               :key="idx"
