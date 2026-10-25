@@ -133,6 +133,10 @@ defineShortcuts({
             label: 'Integrations',
             to: '/integrations',
             icon: 'i-lucide-blocks'
+          }, {
+            label: 'Models',
+            to: '/models',
+            icon: 'i-lucide-cpu'
           }]"
           :collapsed="collapsed"
           orientation="vertical"

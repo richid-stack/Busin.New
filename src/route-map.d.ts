@@ -108,6 +108,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/models': RouteRecordInfo<
+      '/models',
+      '/models',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/privacy': RouteRecordInfo<
       '/privacy',
       '/privacy',
@@ -253,6 +260,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/memory.vue': {
       routes:
         | '/memory'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/models.vue': {
+      routes:
+        | '/models'
       views:
         | never
       pathParamNames:

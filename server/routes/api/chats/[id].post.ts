@@ -37,6 +37,8 @@ import { UsageLimitError, chargeGuest, chargeUsage, recordTokens } from '../../.
 import { modelCost } from '../../../services/usage/plans'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
 import { MODELS } from '../../../../shared/utils/models'
+import { parseMyModelId } from '../../../../shared/modelProviders'
+import { resolveModel } from '../../../services/models/resolve'
 import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
@@ -81,7 +83,7 @@ export default defineHandler(async (event) => {
   }).parse)
 
   const { model, messages } = await readValidatedBody(event, z.object({
-    model: z.string().refine(value => MODELS.some(m => m.value === value), {
+    model: z.string().refine(value => MODELS.some(m => m.value === value) || parseMyModelId(value) !== null, {
       message: 'Invalid model'
     }),
     messages: z.array(z.custom<UIMessage>())
@@ -159,13 +161,14 @@ export default defineHandler(async (event) => {
   // Retired models (e.g. old saved selections) are mapped to the default; a missing API key
   // for the chosen provider produces a clear 400 from getLanguageModel.
   const modelId = agent?.model ?? model
-  const languageModel = getLanguageModel(modelId)
+  // A model the person connected with their own key runs on that key: no credits here and no built-in provider settings.
+  const { model: languageModel, own: ownKey } = await resolveModel(signedIn ? userId : null, modelId)
 
   // Every message draws from the person's credits. A limit that is reached answers with a plain 429 and
   // a message the chat shows as it is; a call that fails before doing any work gives the credits back.
   // Guests are counted by their session and, with a larger ceiling, by their address, so clearing cookies does not
   // bring a fresh allowance and a shared mobile address is not stuck with one person's share.
-  const chargeAmount = modelCost(modelId)
+  const chargeAmount = ownKey ? 0 : modelCost(modelId)
   const charged = signedIn
     ? chargeUsage(userId, chargeAmount)
     : chargeGuest(userId, rateLimitSubject(event).replace(/[^A-Za-z0-9._-]/g, '_'), chargeAmount)
@@ -325,7 +328,7 @@ ${Object.keys(tools).some(n => n.startsWith('mcp_')) ? `**MCP TOOLS:**
 ${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}`,
           messages: await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })),
           tools,
-          providerOptions: {
+          providerOptions: ownKey ? undefined : {
             anthropic: {
               thinking: {
                 type: 'enabled',
