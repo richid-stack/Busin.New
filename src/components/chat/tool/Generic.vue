@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { getToolName } from 'ai'
 import { isToolStreaming } from '@nuxt/ui/utils/ai'
+import { mcpLogo } from '../../../utils/mcpLogo'
 
 const props = defineProps<{
   part: any
@@ -45,7 +46,7 @@ const formattedOutput = computed(() => {
     :text="isMcp ? (streaming ? `Using ${formattedName}...` : props.part.output?.status === 'failed' ? `Could not use ${formattedName}` : `Used ${formattedName}`) : (streaming ? `Running ${formattedName}...` : `Completed ${formattedName}`)"
     :suffix="summary"
     :streaming="streaming"
-    :icon="isMcp ? 'i-lucide-plug' : 'i-lucide-wrench'"
+    :icon="isMcp ? (mcpLogo(toolName) ?? 'i-lucide-plug') : 'i-lucide-wrench'"
     chevron="leading"
   >
     <div
