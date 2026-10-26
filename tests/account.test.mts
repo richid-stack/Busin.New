@@ -17,6 +17,8 @@ const seed = async (uid: string) => {
   await db.collection('workflows').doc(`w-${uid}`).collection('runs').doc('r1').set({ userId: uid, status: 'completed' })
   await db.collection('agents').doc(`a-${uid}`).set({ userId: uid, name: 'Agent' })
   await db.collection('tasks').doc(`t-${uid}`).set({ userId: uid, goal: 'Do a thing', status: 'done', leaseToken: 'LEASE-SECRET', leaseUntil: null })
+  await db.collection('shared_items').doc(`sh-${uid}`).set({ userId: uid, title: 'Invoice helper', payload: { instructions: 'x' } })
+  await db.collection('share_reports').doc(`r-${uid}`).set({ userId: uid, shareId: 'x', reason: 'spam' })
   await db.collection('task_schedules').doc(`ts-${uid}`).set({ userId: uid, title: 'Morning brief', cron: '0 9 * * *' })
   await db.collection('tasks').doc(`t-${uid}`).collection('events').doc('e1').set({ at: '2026-10-22T10:00:00Z', kind: 'note', text: 'hi' })
   await db.collection('devices').doc(`d-${uid}`).set({ userId: uid, name: 'Desk', tokenHash: 'TOKEN-HASH-SECRET', platform: 'win32' })
@@ -56,6 +58,7 @@ assert(out.account.email === 'a@x.com' && out.exportedAt === '2026-10-19T00:00:0
 assert(out.chats.length === 1 && (out.chats[0] as any).messages.length === 1 && (out.chats[0] as any).votes.length === 1, 'chats come with their messages and votes')
 assert((out.chats[0] as any).createdAt === '2026-01-02T03:04:05.000Z', 'chat dates are readable')
 assert((out.workflows[0] as any).runs.length === 1, 'workflows come with their runs')
+assert((out.sharedItems as any[]).length === 1 && (out.sharedItems[0] as any).title === 'Invoice helper', 'shared links are exported')
 assert((out.taskSchedules as any[]).length === 1 && (out.taskSchedules[0] as any).title === 'Morning brief', 'task schedules are exported')
 assert((out.tasks[0] as any).events.length === 1 && !JSON.stringify(out.tasks).includes('LEASE-SECRET'), 'tasks are exported with their logs, without lease details')
 assert((out.computers[0] as any).name === 'Desk' && (out.computers[0] as any).events.length === 1 && out.computerJobs.length === 1, 'computers are exported with their logs, plus their jobs')
@@ -83,7 +86,7 @@ assert(e instanceof AccountDeletionError && db.raw('agents').has('a-alice'), 'if
 // ---- Erasure ----
 const res = await eraseUserData(deps(), 'alice')
 assert(calls.includes('disconnect:conn1') && calls.includes('disconnect:conn2') && calls.includes('auth:alice'), 'apps are disconnected and the sign-in account removed')
-for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit']) {
+for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit']) {
   assert([...db.raw(c).values()].every(d => d.userId !== 'alice'), `${c}: all of Alice's documents are gone`)
 }
 assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice'), 'usage, plan and memory settings are gone')

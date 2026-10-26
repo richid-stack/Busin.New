@@ -122,6 +122,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/reef/[id]': RouteRecordInfo<
+      '/reef/[id]',
+      '/reef/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
     '/settings': RouteRecordInfo<
       '/settings',
       '/settings',
@@ -280,6 +287,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | never
+    }
+    'src/pages/reef/[id].vue': {
+      routes:
+        | '/reef/[id]'
+      views:
+        | never
+      pathParamNames:
+        | 'id'
     }
     'src/pages/settings.vue': {
       routes:

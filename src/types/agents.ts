@@ -12,9 +12,11 @@ export interface AgentProfile {
   maxSteps: number
   createdAt: string
   updatedAt: string
+  /** Set when the agent was installed from The Reef. */
+  source?: { shareId: string, version: number, author: string }
 }
 
-export type AgentInput = Omit<AgentProfile, 'id' | 'createdAt' | 'updatedAt'>
+export type AgentInput = Omit<AgentProfile, 'id' | 'createdAt' | 'updatedAt' | 'source'>
 
 export interface AgentOptions {
   toolGroups: Array<{ id: string, label: string, detail: string, sensitive: boolean }>

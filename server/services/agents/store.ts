@@ -5,7 +5,10 @@ import type { Agent, AgentInput } from './profile'
 
 const COLLECTION = 'agents'
 
-export function agentFromDoc(id: string, data: Record<string, any>): Agent {
+/** Where an agent came from when it was installed from a share. */
+export interface AgentSource { shareId: string, version: number, author: string }
+
+export function agentFromDoc(id: string, data: Record<string, any>): Agent & { source?: AgentSource } {
   // Older or hand-edited documents are read through the same rules as new ones, falling back to safe values.
   const parsed = agentInputSchema.safeParse({
     name: data.name || 'Agent',
@@ -17,7 +20,8 @@ export function agentFromDoc(id: string, data: Record<string, any>): Agent {
     maxSteps: data.maxSteps ?? DEFAULT_STEPS
   })
   const input: AgentInput = parsed.success ? parsed.data : agentInputSchema.parse({ name: 'Agent', instructions: 'Help the user.' })
-  return { ...input, id, userId: String(data.userId || ''), createdAt: String(data.createdAt || ''), updatedAt: String(data.updatedAt || '') }
+  const source = data.source && typeof data.source.shareId === 'string' ? { shareId: String(data.source.shareId), version: Number(data.source.version) || 1, author: String(data.source.author || '') } : undefined
+  return { ...input, id, userId: String(data.userId || ''), createdAt: String(data.createdAt || ''), updatedAt: String(data.updatedAt || ''), ...(source ? { source } : {}) }
 }
 
 export async function listAgents(userId: string): Promise<Agent[]> {
@@ -30,11 +34,11 @@ export async function getAgent(id: string): Promise<Agent | null> {
   return doc.exists ? agentFromDoc(doc.id, doc.data()!) : null
 }
 
-export async function createAgent(userId: string, input: AgentInput): Promise<Agent> {
+export async function createAgent(userId: string, input: AgentInput, source?: AgentSource): Promise<Agent & { source?: AgentSource }> {
   await assertNotDeleting(userId)
   const now = new Date().toISOString()
   const ref = getFirebaseDb().collection(COLLECTION).doc()
-  const doc = { ...input, userId, createdAt: now, updatedAt: now }
+  const doc = { ...input, userId, createdAt: now, updatedAt: now, ...(source ? { source } : {}) }
   await ref.set(doc)
   return agentFromDoc(ref.id, doc)
 }
