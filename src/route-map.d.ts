@@ -122,11 +122,46 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/reef/': RouteRecordInfo<
+      '/reef/',
+      '/reef',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/reef/[id]': RouteRecordInfo<
       '/reef/[id]',
       '/reef/:id',
       { id: ParamValue<true> },
       { id: ParamValue<false> },
+      | never
+    >,
+    '/reef/[owner]/[repo]': RouteRecordInfo<
+      '/reef/[owner]/[repo]',
+      '/reef/:owner/:repo',
+      { owner: ParamValue<true>, repo: ParamValue<true> },
+      { owner: ParamValue<false>, repo: ParamValue<false> },
+      | never
+    >,
+    '/reef/projects': RouteRecordInfo<
+      '/reef/projects',
+      '/reef/projects',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/reef/questions': RouteRecordInfo<
+      '/reef/questions',
+      '/reef/questions',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/reef/u/[handle]': RouteRecordInfo<
+      '/reef/u/[handle]',
+      '/reef/u/:handle',
+      { handle: ParamValue<true> },
+      { handle: ParamValue<false> },
       | never
     >,
     '/settings': RouteRecordInfo<
@@ -288,6 +323,14 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
+    'src/pages/reef/index.vue': {
+      routes:
+        | '/reef/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
     'src/pages/reef/[id].vue': {
       routes:
         | '/reef/[id]'
@@ -295,6 +338,38 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'id'
+    }
+    'src/pages/reef/[owner]/[repo].vue': {
+      routes:
+        | '/reef/[owner]/[repo]'
+      views:
+        | never
+      pathParamNames:
+        | 'repo'
+    }
+    'src/pages/reef/projects.vue': {
+      routes:
+        | '/reef/projects'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/reef/questions.vue': {
+      routes:
+        | '/reef/questions'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/reef/u/[handle].vue': {
+      routes:
+        | '/reef/u/[handle]'
+      views:
+        | never
+      pathParamNames:
+        | 'handle'
     }
     'src/pages/settings.vue': {
       routes:
