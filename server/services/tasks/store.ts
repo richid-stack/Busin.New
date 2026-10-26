@@ -33,6 +33,7 @@ function fromDoc(id: string, d: Record<string, any>): Task {
     outcome: String(d.outcome || ''),
     error: String(d.error || ''),
     eventCount: d.eventCount ?? 0,
+    scheduleId: d.scheduleId ?? null,
     leaseUntil: d.leaseUntil ?? null,
     leaseToken: d.leaseToken ?? null,
     createdAt: String(d.createdAt || ''),
@@ -73,7 +74,7 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
   }
 
   return {
-    async create(userId: string, input: TaskInput): Promise<Task> {
+    async create(userId: string, input: TaskInput, opts: { scheduleId?: string } = {}): Promise<Task> {
       await assertNotDeleting(userId, db as any)
       const mineNow = (await db.collection(COLLECTION).where('userId', '==', userId).get()).docs.map((d: any) => fromDoc(d.id, d.data()))
       if (mineNow.filter((t: Task) => !isFinal(t.status) && t.status !== 'needs_review').length >= LIMITS.maxActive) {
@@ -92,11 +93,11 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
       const r = db.collection(COLLECTION).doc()
       const doc = {
         userId, goal: input.goal, status: 'queued', criteria, tools: input.tools, model: input.model, maxAttempts: input.maxAttempts, maxSteps: input.maxSteps, maxMinutes: input.maxMinutes,
-        attempts: 0, artifacts: [], result: '', outcome: '', error: '', eventCount: 0, leaseUntil: null, leaseToken: null, createdAt: at, updatedAt: at, startedAt: null, finishedAt: null
+        attempts: 0, artifacts: [], result: '', outcome: '', error: '', eventCount: 0, scheduleId: opts.scheduleId ?? null, leaseUntil: null, leaseToken: null, createdAt: at, updatedAt: at, startedAt: null, finishedAt: null
       }
       await r.set(doc)
       const task = fromDoc(r.id, doc)
-      await this.addEvent(task.id, 'created', 'Task created and waiting for a free worker.')
+      await this.addEvent(task.id, 'created', opts.scheduleId ? 'Started by its schedule and waiting for a free worker.' : 'Task created and waiting for a free worker.')
       return { ...task, eventCount: 1 }
     },
 

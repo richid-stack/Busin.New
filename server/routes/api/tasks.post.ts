@@ -5,7 +5,7 @@ import { enforceRateLimit } from '../../utils/rateLimit'
 import { taskInputSchema } from '../../services/tasks/model'
 import { TaskError, publicTask, taskStore } from '../../services/tasks/store'
 import { processQueue } from '../../services/tasks/run'
-import { parseSafeUrl, UnsafeUrlError } from '../../utils/netSafety'
+import { assertSafeCriteria } from '../../services/tasks/safeCriteria'
 
 /** Creates a task and starts working on it in the background. The page follows its progress. */
 export default defineHandler(async (event) => {
@@ -14,11 +14,7 @@ export default defineHandler(async (event) => {
   const input = await readValidatedBody(event, body => taskInputSchema.parse(body))
 
   // A web address to look at must be a public one; say so now, not after the task has run.
-  for (const c of input.criteria) {
-    if (c.kind === 'visual') {
-      try { parseSafeUrl(c.url!) } catch (e) { throw new HTTPError({ statusCode: 400, statusMessage: e instanceof UnsafeUrlError ? e.message : 'That is not a valid web address.' }) }
-    }
-  }
+  assertSafeCriteria(input)
 
   try {
     const task = await taskStore().create(user.id, input)

@@ -109,6 +109,8 @@ export interface Task {
   outcome: string
   error: string
   eventCount: number
+  /** The schedule that started this task, when it was not started by hand. */
+  scheduleId: string | null
   leaseUntil: string | null
   leaseToken: string | null
   createdAt: string
