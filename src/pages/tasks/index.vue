@@ -2,6 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTasks } from '../../composables/useTasks'
+import { useTaskSchedules } from '../../composables/useTaskSchedules'
+import TaskWhen from '../../components/tasks/TaskWhen.vue'
+import TaskSchedules from '../../components/tasks/TaskSchedules.vue'
+import { defaultWhen, whenPayload } from '../../utils/taskWhen'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
 import { TASK_STATUS } from '../../types/tasks'
@@ -13,8 +17,10 @@ const { openAuthModal } = useFirebaseAuth()
 const { loggedIn } = useUserSession()
 const { tasks, loading, loaded, unauthorized, loadError, fetchTasks, createTask } = useTasks()
 
-onMounted(fetchTasks)
-watch(loggedIn, fetchTasks)
+const { schedules, fetchSchedules, createSchedule } = useTaskSchedules()
+const hasSchedules = computed(() => schedules.value.length > 0)
+onMounted(() => { fetchTasks(); fetchSchedules() })
+watch(loggedIn, () => { fetchTasks(); fetchSchedules() })
 
 // While anything is running, keep the list fresh.
 let timer: ReturnType<typeof setInterval> | undefined
@@ -36,6 +42,9 @@ const FORMATS = [{ label: 'Any file', value: 'any' }, { label: 'Word', value: 'd
 
 const goal = ref('')
 const criteria = ref<Array<{ text: string, kind: CriterionKind, format: string, url: string }>>([])
+const scheduled = ref(false)
+const when = ref(defaultWhen())
+const title = ref('')
 const creating = ref(false)
 const createError = ref<string | null>(null)
 
@@ -47,21 +56,30 @@ async function start() {
   if (!canStart.value) return
   creating.value = true
   createError.value = null
+  const input = {
+    goal: goal.value.trim(),
+    criteria: criteria.value.filter(c => c.text.trim()).map(c => ({
+      text: c.text.trim(),
+      kind: c.kind,
+      ...(c.kind === 'file' && c.format !== 'any' ? { format: c.format } : {}),
+      ...(c.kind === 'visual' ? { url: c.url.trim() } : {})
+    }))
+  }
   try {
-    const task = await createTask({
-      goal: goal.value.trim(),
-      criteria: criteria.value.filter(c => c.text.trim()).map(c => ({
-        text: c.text.trim(),
-        kind: c.kind,
-        ...(c.kind === 'file' && c.format !== 'any' ? { format: c.format } : {}),
-        ...(c.kind === 'visual' ? { url: c.url.trim() } : {})
-      }))
-    })
+    if (scheduled.value) {
+      await createSchedule({ ...(title.value.trim() ? { title: title.value.trim() } : {}), task: input, ...whenPayload(when.value) })
+      goal.value = ''
+      title.value = ''
+      criteria.value = []
+      scheduled.value = false
+      return
+    }
+    const task = await createTask(input)
     goal.value = ''
     criteria.value = []
     router.push(`/tasks/${task.id}`)
   } catch (err: any) {
-    createError.value = err?.data?.statusMessage || err?.statusMessage || 'Could not start the task. Try again.'
+    createError.value = err?.data?.statusMessage || err?.statusMessage || (scheduled.value ? 'Could not save the schedule. Try again.' : 'Could not start the task. Try again.')
   } finally {
     creating.value = false
   }
@@ -113,12 +131,30 @@ async function start() {
             <UButton v-if="criteria.length < 8" label="Add a check" icon="i-lucide-plus" size="xs" color="neutral" variant="subtle" @click="addCriterion" />
           </div>
 
+          <div>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Run it on a schedule</p>
+                <p class="text-xs text-muted">Repeat it, or run it once later. Each run is a normal task you can open.</p>
+              </div>
+              <USwitch v-model="scheduled" aria-label="Run on a schedule" />
+            </div>
+            <div v-if="scheduled" class="mt-3 space-y-3">
+              <UFormField label="Name" size="sm">
+                <UInput v-model="title" :maxlength="80" class="w-full" placeholder="Optional. Defaults to the start of the goal." />
+              </UFormField>
+              <TaskWhen v-model="when" />
+            </div>
+          </div>
+
           <div class="flex items-center justify-between gap-3 pt-1">
-            <p class="text-xs text-dimmed">Uses credits like chat messages: once per attempt, up to 2 attempts.</p>
-            <UButton type="submit" label="Start task" icon="i-lucide-play" color="neutral" :loading="creating" :disabled="!canStart" />
+            <p class="text-xs text-dimmed">{{ scheduled ? 'Every run uses credits like a task started by hand. A schedule pauses itself after 3 failed runs in a row.' : 'Uses credits like chat messages: once per attempt, up to 2 attempts.' }}</p>
+            <UButton type="submit" :label="scheduled ? 'Save schedule' : 'Start task'" :icon="scheduled ? 'i-lucide-calendar-check' : 'i-lucide-play'" color="neutral" :loading="creating" :disabled="!canStart" />
           </div>
           <p v-if="createError" class="text-xs text-error" role="alert">{{ createError }}</p>
         </form>
+
+        <TaskSchedules />
 
         <div v-if="loadError" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
           <h2 class="text-base font-semibold text-highlighted mb-1">Could not load your tasks</h2>
@@ -138,18 +174,24 @@ async function start() {
           <p class="text-sm text-muted">Describe a goal above. You can close this page: it keeps working.</p>
         </div>
 
-        <ul v-else class="divide-y divide-default rounded-2xl border border-default overflow-hidden">
-          <li v-for="t in tasks" :key="t.id">
-            <RouterLink :to="`/tasks/${t.id}`" class="flex items-start gap-3 px-4 py-3.5 hover:bg-elevated/60 transition-colors">
-              <span class="mt-1.5 size-2 shrink-0 rounded-full" :class="TASK_STATUS[t.status].dot" aria-hidden="true" />
-              <div class="min-w-0 flex-1">
-                <p class="text-sm font-medium text-highlighted truncate">{{ t.goal }}</p>
-                <p class="text-xs text-muted mt-0.5 truncate">{{ t.outcome || TASK_STATUS[t.status].label }}</p>
-              </div>
-              <span class="text-xs text-dimmed shrink-0 mt-0.5">{{ timeAgo(t.createdAt) }}</span>
-            </RouterLink>
-          </li>
-        </ul>
+        <template v-else>
+          <h2 v-if="hasSchedules" class="text-sm font-semibold text-highlighted mb-2">Your tasks</h2>
+          <ul class="divide-y divide-default rounded-2xl border border-default overflow-hidden">
+            <li v-for="t in tasks" :key="t.id">
+              <RouterLink :to="`/tasks/${t.id}`" class="flex items-start gap-3 px-4 py-3.5 hover:bg-elevated/60 transition-colors">
+                <span class="mt-1.5 size-2 shrink-0 rounded-full" :class="TASK_STATUS[t.status].dot" aria-hidden="true" />
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium text-highlighted flex items-center gap-1.5 min-w-0">
+                    <UIcon v-if="t.scheduleId" name="i-lucide-calendar-clock" class="size-3.5 shrink-0 text-muted" title="Started by a schedule" />
+                    <span class="truncate">{{ t.goal }}</span>
+                  </p>
+                  <p class="text-xs text-muted mt-0.5 truncate">{{ t.outcome || TASK_STATUS[t.status].label }}</p>
+                </div>
+                <span class="text-xs text-dimmed shrink-0 mt-0.5">{{ timeAgo(t.createdAt) }}</span>
+              </RouterLink>
+            </li>
+          </ul>
+        </template>
       </template>
     </div>
   </div>
