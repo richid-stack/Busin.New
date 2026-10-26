@@ -1,4 +1,4 @@
-> **Status: plan agreed (26 Oct 2026), nothing built yet.** Phase 9 of the big score. It reuses what OpenLobs already has (agents, skills, workflows, MCP approvals, the account export and delete) and is written so each slice can be tried on its own.
+> **Status: plan agreed (26 Oct 2026). Slice 9.1 (share an agent by link) is built; the rest is not.** Phase 9 of the big score. It reuses what OpenLobs already has (agents, skills, workflows, MCP approvals, the account export and delete) and is written so each slice can be tried on its own.
 
 # Phase 9: The Reef (the OpenLobs community)
 

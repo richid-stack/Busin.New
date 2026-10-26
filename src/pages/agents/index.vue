@@ -6,6 +6,7 @@ import { useModelProviders } from '../../composables/useModelProviders'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
 import AgentEditor from '../../components/agents/AgentEditor.vue'
+import ShareDialog from '../../components/reef/ShareDialog.vue'
 import { MODELS } from '../../../shared/utils/models'
 import type { AgentInput, AgentProfile } from '../../types/agents'
 
@@ -23,6 +24,9 @@ watch(loggedIn, () => { fetchAgents(); fetchOptions() })
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
+const shareOpen = ref(false)
+const sharing = ref<AgentProfile | null>(null)
+const openShare = (agent: AgentProfile) => { sharing.value = agent; shareOpen.value = true }
 const editorOpen = ref(false)
 const editing = ref<AgentProfile | null>(null)
 const saving = ref(false)
@@ -81,7 +85,8 @@ const groupLabel = (id: string) => options.value?.toolGroups.find(g => g.id === 
 
 function menuItems(agent: AgentProfile) {
   return [[
-    { label: 'Edit', icon: 'i-lucide-pencil', onSelect: () => openEdit(agent) }
+    { label: 'Edit', icon: 'i-lucide-pencil', onSelect: () => openEdit(agent) },
+    { label: 'Share…', icon: 'i-lucide-share-2', onSelect: () => openShare(agent) }
   ], [
     { label: 'Delete', icon: 'i-lucide-trash', color: 'error' as const, onSelect: () => remove(agent) }
   ]]
@@ -162,6 +167,10 @@ const isEmpty = computed(() => loaded.value && !loading.value && !unauthorized.v
             <UBadge v-if="!agent.tools.length" label="No tools" color="neutral" variant="subtle" size="sm" />
           </div>
           <p class="text-[11px] text-dimmed mt-3">{{ modelLabel(agent.model) }} · up to {{ agent.maxSteps }} steps</p>
+          <p v-if="agent.source" class="text-[11px] text-dimmed mt-1 flex items-center gap-1 min-w-0">
+            <UIcon name="i-lucide-waves" class="size-3 shrink-0" />
+            <span class="truncate">From The Reef<template v-if="agent.source.author"> · by {{ agent.source.author }}</template></span>
+          </p>
           <div class="flex items-center gap-2 mt-4 pt-4 border-t border-default">
             <UButton label="Chat" icon="i-lucide-message-circle" size="sm" color="neutral" @click="startChat(agent)" />
             <UButton label="Edit" icon="i-lucide-pencil" size="sm" color="neutral" variant="subtle" @click="openEdit(agent)" />
@@ -171,6 +180,8 @@ const isEmpty = computed(() => loaded.value && !loading.value && !unauthorized.v
 
       <p v-if="atLimit" class="text-xs text-muted mt-4">You have reached the limit of {{ options?.limits.maxAgents }} agents. Delete one to make another.</p>
     </div>
+
+    <ShareDialog v-model:open="shareOpen" :agent="sharing" />
 
     <AgentEditor
       v-model:open="editorOpen"
