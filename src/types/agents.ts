@@ -13,7 +13,7 @@ export interface AgentProfile {
   createdAt: string
   updatedAt: string
   /** Set when the agent was installed from The Reef. */
-  source?: { shareId: string, version: number, author: string }
+  source?: { shareId: string, version: number, author: string, project?: string }
 }
 
 export type AgentInput = Omit<AgentProfile, 'id' | 'createdAt' | 'updatedAt' | 'source'>

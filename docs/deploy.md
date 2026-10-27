@@ -184,6 +184,12 @@ Both cost a little for storage; raise the retention only when you need it. To re
 - **Spend:** set a budget alert (Billing → Budgets) at an amount you are comfortable with.
 - Logs hold only error text and the page path. Request bodies, headers, browser details and people's content are never logged.
 
+## 5e. The Reef
+
+- **Indexes:** deploy the composite indexes once: `firebase deploy --only firestore:indexes --project $PROJECT` (the repository's `firebase.json` names the database). They take a few minutes to build; the Reef lists return an error until then.
+- **Moderators:** set `REEF_ADMINS` on the service to a comma-separated list of the emails (or account ids) of the people who may work the review queue and hand out badges.
+- **The official account:** sign in as the account that should speak for OpenLobs, make its Reef profile, then give it the official badge from its profile page (a moderator does this; the handle `openlobs` is reserved).
+
 ## 9. Before you tell people about it
 
 - Set the contact email (step 4) and have a Ghanaian lawyer read `src/pages/terms.vue` and `src/pages/privacy.vue`. They are written in plain English from what the app does, but they are not legal advice.

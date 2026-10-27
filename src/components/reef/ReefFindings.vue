@@ -3,7 +3,7 @@ import type { ReefScan } from '../../types/reef'
 
 defineProps<{ scan: ReefScan, mode: 'blocked' | 'review' }>()
 
-const FIELD: Record<string, string> = { name: 'Name', description: 'Description', instructions: 'Instructions' }
+const FIELD: Record<string, string> = { name: 'Name', description: 'Description', instructions: 'Instructions', readme: 'README', note: 'Note', tags: 'Tags', text: 'Text', title: 'Question', bio: 'Bio' }
 </script>
 
 <template>
