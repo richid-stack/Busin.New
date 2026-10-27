@@ -129,18 +129,25 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/reef/[id]': RouteRecordInfo<
-      '/reef/[id]',
-      '/reef/:id',
-      { id: ParamValue<true> },
-      { id: ParamValue<false> },
-      | never
-    >,
     '/reef/[owner]/[repo]': RouteRecordInfo<
       '/reef/[owner]/[repo]',
       '/reef/:owner/:repo',
       { owner: ParamValue<true>, repo: ParamValue<true> },
       { owner: ParamValue<false>, repo: ParamValue<false> },
+      | never
+    >,
+    '/reef/alerts': RouteRecordInfo<
+      '/reef/alerts',
+      '/reef/alerts',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/reef/post/[id]': RouteRecordInfo<
+      '/reef/post/[id]',
+      '/reef/post/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
       | never
     >,
     '/reef/projects': RouteRecordInfo<
@@ -153,6 +160,13 @@ declare module 'vue-router/auto-routes' {
     '/reef/questions': RouteRecordInfo<
       '/reef/questions',
       '/reef/questions',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/reef/review': RouteRecordInfo<
+      '/reef/review',
+      '/reef/review',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -331,14 +345,6 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
-    'src/pages/reef/[id].vue': {
-      routes:
-        | '/reef/[id]'
-      views:
-        | never
-      pathParamNames:
-        | 'id'
-    }
     'src/pages/reef/[owner]/[repo].vue': {
       routes:
         | '/reef/[owner]/[repo]'
@@ -346,6 +352,22 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'repo'
+    }
+    'src/pages/reef/alerts.vue': {
+      routes:
+        | '/reef/alerts'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/reef/post/[id].vue': {
+      routes:
+        | '/reef/post/[id]'
+      views:
+        | never
+      pathParamNames:
+        | 'id'
     }
     'src/pages/reef/projects.vue': {
       routes:
@@ -358,6 +380,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/reef/questions.vue': {
       routes:
         | '/reef/questions'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/reef/review.vue': {
+      routes:
+        | '/reef/review'
       views:
         | never
       pathParamNames:

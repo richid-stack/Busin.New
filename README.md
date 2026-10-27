@@ -216,7 +216,7 @@ OpenLobs is in active development. What is here, honestly:
 | Tasks with self-checks and browser inspection | Working |
 | Bridge for Windows (browser look, spreadsheets, tray, installer) | Early; Windows first |
 | Scheduled tasks (repeat or once, pauses itself after repeated failures) | Working; new, give it a real run |
-| The Reef: share an agent by link, with a safety scan and a list of what it needs | Working (first slice); the rest (public listing, forks, questions and answers) is [planned](docs/the-reef.md) |
+| The Reef: a community for sharing agents, with profiles, stars, forks, questions and answers, a safety scan and a review queue | Built and tested against a stand-in database; not yet run on real Firestore. Workflows, tasks and packs are [planned](docs/the-reef.md) |
 | One-command Docker setup | Planned |
 
 ## Docs

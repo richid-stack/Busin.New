@@ -6,7 +6,7 @@ import type { Agent, AgentInput } from './profile'
 const COLLECTION = 'agents'
 
 /** Where an agent came from when it was installed from a share. */
-export interface AgentSource { shareId: string, version: number, author: string }
+export interface AgentSource { shareId: string, version: number, author: string, /** "owner/name" when it came from a project in The Reef. */ project?: string }
 
 export function agentFromDoc(id: string, data: Record<string, any>): Agent & { source?: AgentSource } {
   // Older or hand-edited documents are read through the same rules as new ones, falling back to safe values.

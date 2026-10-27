@@ -36,21 +36,37 @@ export function createFakeFirestore() {
     '<=': (a, b) => a !== undefined && a !== null && a <= b,
     '>=': (a, b) => a !== undefined && a !== null && a >= b,
     '<': (a, b) => a !== undefined && a !== null && a < b,
-    '>': (a, b) => a !== undefined && a !== null && a > b
+    '>': (a, b) => a !== undefined && a !== null && a > b,
+    in: (a, b) => Array.isArray(b) && b.includes(a),
+    'array-contains': (a, b) => Array.isArray(a) && a.includes(b)
   }
-  const query = (path: string, filters: Array<[string, string, any]>): any => ({
+  const query = (path: string, filters: Array<[string, string, any]>, order: Array<[string, 'asc' | 'desc']> = [], max = Infinity): any => ({
     where(field: string, op: string, value: any) {
       if (!OPS[op]) throw new Error(`fake firestore: operator ${op} not supported`)
-      return query(path, [...filters, [field, op, value]])
+      return query(path, [...filters, [field, op, value]], order, max)
     },
+    orderBy: (field: string, dir: 'asc' | 'desc' = 'asc') => query(path, filters, [...order, [field, dir]], max),
+    limit: (n: number) => query(path, filters, order, n),
     get: async () => {
-      const docs = [...col(path)].filter(([, d]) => filters.every(([f, op, v]) => OPS[op]!(d[f], v))).map(([id, d]) => snap(path, id, d))
+      let rows = [...col(path)].filter(([, d]) => filters.every(([f, op, v]) => OPS[op]!(d[f], v)))
+      // Like Firestore, a document missing the ordered field is not returned.
+      if (order.length) rows = rows.filter(([, d]) => order.every(([f]) => d[f] !== undefined))
+      rows.sort(([, a], [, b]) => {
+        for (const [f, dir] of order) {
+          if (a[f] === b[f]) continue
+          return (a[f] < b[f] ? -1 : 1) * (dir === 'desc' ? -1 : 1)
+        }
+        return 0
+      })
+      const docs = rows.slice(0, max).map(([id, d]) => snap(path, id, d))
       return { docs, empty: docs.length === 0, size: docs.length, forEach: (fn: (d: any) => void) => docs.forEach(fn) }
     }
   })
   const collectionRef = (path: string): any => ({
     doc: (id?: string) => docRef(path, id ?? `doc${++counter}`),
     where: (field: string, op: string, value: any) => query(path, []).where(field, op, value),
+    orderBy: (field: string, dir?: 'asc' | 'desc') => query(path, []).orderBy(field, dir),
+    limit: (n: number) => query(path, []).limit(n),
     get: () => query(path, []).get()
   })
 
