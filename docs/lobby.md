@@ -4,18 +4,22 @@ Lobby is the voice of OpenLobs. You say what you want; it does the work and tell
 
 ## Using it
 
-- **Home:** press **Talk to Lobby**. **In a chat:** the sound-wave button beside Send.
-- **Orb or Space:** while it listens, a tap means "that is all, send it". While it talks or works, a tap interrupts: it stops mid-sentence and listens. **Esc** leaves.
-- **Approvals:** anything that changes things shows a card and is asked out loud. Say "yes" or "no", or tap Approve / Decline. Only a clear yes or no counts; anything else it asks again, and after three tries it waits for the buttons.
-- **Typing:** the box at the bottom works too, for a noisy room or a browser that cannot listen.
-- **Mute:** silences the voice but keeps the captions.
+Lobby is the normal chat, with a voice. There is no separate screen.
+
+- **The mic is where Send is.** With nothing typed, the button beside the message box is a microphone. Type a word and it becomes Send; clear the box and it is a mic again. On Home, the mic starts a new chat and begins listening.
+- **One tap does the obvious thing.** Tap the mic to start. While it listens, tap again to say "that is all". While it talks or works, tap to stop it mid-sentence; it then listens.
+- **A slim line above the box** shows what it is doing (Listening, Working on it, Speaking), the words it just heard, and two controls: mute its voice, and stop talking to it (Esc does the same).
+- **Approvals** are the usual approval card in the chat. Say "yes" or "no", or tap Approve / Decline. Only a clear yes or no counts; anything else it asks again, and after three tries it waits for the buttons.
+- **Typing while Lobby is on** works as normal: it stops listening while you type, and speaks the reply.
 - **Keep listening:** by default it listens again after each answer, so you can keep talking.
 
 ## What it says
 
-The assistant is told (only while Lobby is open) to narrate in short plain sentences: what it is about to do before each action, what it found after, then a gist of one to three sentences with "the details are on your screen". It never reads out keys, code, tables or links. All of that is `server/services/voice/persona.ts`.
+**Every chat narrates its work**, spoken or not. The assistant is told to say, in one short plain sentence, what it is about to do before each action and what it found after ("Let me check which invoices are overdue." ... "Found three. Now I'm drafting the reminders."), and to just answer a simple question without narration. It is ordinary chat text between the steps, so it reads well on screen.
 
-On the page, `src/utils/lobbyLines.ts` turns the growing message into lines to say, one at a time, never twice:
+**Only while Lobby is on**, it is also told to keep lines speakable: short, no markup, money in words, a gist of one to three sentences with "the details are on your screen", never reading out a key. Both are in `server/services/voice/persona.ts`.
+
+Lobby then speaks that text. On the page, `src/utils/lobbyLines.ts` turns the growing message into lines to say, one at a time, never twice:
 
 - every complete sentence of what the assistant writes, as it arrives;
 - a short phrase for an action it started without saying anything ("Searching the web.") so the room is never silent;
@@ -53,12 +57,12 @@ Everyone else is asked to add a key. The free browser voice needs none, so Lobby
 ## How it fits together
 
 - Server: `server/services/voice/` (settings, sealed keys, key lookup, speech and listening through the AI SDK) and `server/routes/api/voice/` (`settings`, `keys`, `speak`, `transcribe`). Services are plain AI SDK models, so adding one is a line in `shared/voice.ts` and `resolve.ts`.
-- Chat: `POST /api/chats/:id` takes `voice: true` while Lobby is open, which adds the narration instructions to whatever model is chosen. Lobby works with every model the chat does.
-- Page: `useLobby` (listening, speaking queue with prefetch, interrupts, approvals), `LobbyStage.vue` (the screen), `useVoiceSettings`, and `LobbyVoiceSettings.vue`.
+- Chat: `POST /api/chats/:id` takes `voice: true` while Lobby is open, which adds the speakable-text instructions to whatever model is chosen (the narration instructions are in every chat). Lobby works with every model the chat does.
+- Page: `useLobby` (listening, speaking queue with prefetch, interrupts, approvals), `PromptVoiceButton.vue` (the mic in Send's place), `LobbyStrip.vue` (the slim line), `useVoiceSettings`, and `LobbyVoiceSettings.vue`.
 - Account export includes voice settings and which services have a key (never the key); account erase removes them.
 
 ## Not done yet
 
-- Interrupting by voice while it is talking (today: tap or Space).
+- Interrupting by voice while it is talking (today: tap the button).
 - A remote or hands-free mode that works while you are away from the screen.
 - Real-voice tests against every provider: the provider calls are covered by tests with stand-in models, not by live calls.

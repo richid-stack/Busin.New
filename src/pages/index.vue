@@ -11,6 +11,7 @@ import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { usePromptAttachments } from '../composables/usePromptAttachments'
 import Navbar from '../components/Navbar.vue'
 import PromptAttachments from '../components/PromptAttachments.vue'
+import PromptVoiceButton from '../components/lobby/PromptVoiceButton.vue'
 import AgentSelect from '../components/agents/AgentSelect.vue'
 import { useAgents } from '../composables/useAgents'
 import GuestReply from '../components/chat/GuestReply.vue'
@@ -314,7 +315,14 @@ async function startAutomation(prompt: string) {
               <AgentSelect v-model="agentId" />
             </div>
 
+            <!-- Nothing typed: the microphone is where Send is. Typing turns it into Send. -->
+            <PromptVoiceButton
+              v-if="!input.trim() && attachments.length === 0 && !guestMessage"
+              :loading="lobbyLoading"
+              @press="talkToLobby"
+            />
             <UChatPromptSubmit
+              v-else
               :loading="loading"
               color="primary"
               size="sm"
@@ -322,20 +330,6 @@ async function startAutomation(prompt: string) {
             />
           </template>
         </UChatPrompt>
-        </div>
-
-        <div v-if="!guestMessage" class="flex items-center justify-center gap-3 -mt-2">
-          <UButton
-            label="Talk to Lobby"
-            icon="i-lucide-audio-lines"
-            color="neutral"
-            variant="soft"
-            size="md"
-            class="rounded-full"
-            :loading="lobbyLoading"
-            @click="talkToLobby"
-          />
-          <span class="hidden sm:inline text-xs text-muted">Say it out loud. It does the work and tells you as it goes.</span>
         </div>
 
         <!-- A saved agent that fits what is being typed -->

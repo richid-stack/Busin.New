@@ -35,7 +35,6 @@ export function useLobby(b: LobbyBindings) {
   const heard = ref('')
   /** The line being spoken right now. */
   const now = ref('')
-  const history = ref<string[]>([])
   const notice = ref('')
   const muted = ref(false)
   /** 0 to 1, how loud the person is, for the orb. */
@@ -70,7 +69,6 @@ export function useLobby(b: LobbyBindings) {
   function enqueue(lines: string[]) {
     for (const line of lines) {
       queue.push(line)
-      history.value = [...history.value, line].slice(-8)
     }
     void pump()
   }
@@ -356,6 +354,7 @@ export function useLobby(b: LobbyBindings) {
   // ---------------------------------------------------------------- what the page calls
 
   async function show() {
+    if (open.value) return
     await voice.load()
     feedState = newFeedState()
     // What is already in the chat is not read out again: Lobby only speaks what happens from here.
@@ -364,7 +363,6 @@ export function useLobby(b: LobbyBindings) {
     unclear = 0
     silent = 0
     notice.value = ''
-    history.value = []
     heard.value = ''
     now.value = ''
     open.value = true
@@ -426,18 +424,26 @@ export function useLobby(b: LobbyBindings) {
     b.respond(waiting.id, approved)
   }
 
-  /** Typing instead of talking, for a noisy room or a browser that cannot listen. */
-  function typed(text: string) {
+  /** Stop whatever is being said and forget what was waiting to be said (a typed message is about to replace it). */
+  function silence() {
+    epoch++
+    queue.length = 0
+    stopSpeaking()
+    now.value = ''
+  }
+
+  /** The person started typing: stop listening so the room is not taken for a message, and let them finish. */
+  function pause() {
+    if (state.value !== 'listening') return
     stopListening()
-    if (pending.value) accept(text)
-    else submit(text)
+    state.value = 'idle'
   }
 
   const supported = computed(() => voice.settings.value.listen.service !== 'browser' || browserCanListen())
 
   onBeforeUnmount(hide)
 
-  return { open, state, heard, now, history, notice, muted, level, pending, supported, show, hide, tap, toggleMute, decide, typed }
+  return { open, state, heard, now, notice, muted, level, pending, supported, show, hide, tap, toggleMute, decide, pause, silence }
 }
 
 /** What the stage screen is given: the controller with its refs unwrapped (wrap it in `reactive`). */

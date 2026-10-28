@@ -20,7 +20,8 @@ import ChatMessageContent from '../../components/chat/message/MessageContent.vue
 import ChatMessageActions from '../../components/chat/message/MessageActions.vue'
 import ChatVisibility from '../../components/chat/ChatVisibility.vue'
 import ChatTitle from '../../components/chat/ChatTitle.vue'
-import LobbyStage from '../../components/lobby/LobbyStage.vue'
+import LobbyStrip from '../../components/lobby/LobbyStrip.vue'
+import PromptVoiceButton from '../../components/lobby/PromptVoiceButton.vue'
 import { useLobby } from '../../composables/useLobby'
 import ChatIndicator from '../../components/chat/Indicator.vue'
 import TextSelectionToolbar from '../../components/chat/TextSelectionToolbar.vue'
@@ -260,9 +261,15 @@ const activeActivityText = computed(() => {
   return 'Thinking...'
 })
 
+const hasInput = computed(() => input.value.trim() !== '' || attachments.value.length > 0)
+const showVoiceButton = computed(() => !hasInput.value && (lobby.open || status.value === 'ready'))
+// Typing while Lobby listens would send the room's noise as a message, so listening waits until the person is done.
+watch(hasInput, (typing) => { if (typing && lobby.open) lobby.pause() })
+
 async function handleSubmit() {
   if (processing.value) return
   if (!input.value.trim() && attachments.value.length === 0) return
+  if (lobby.open) lobby.silence()
 
   const files = attachments.value.length > 0 ? await toFileParts() : undefined
   sendMessage({ text: input.value, files })
@@ -392,10 +399,6 @@ function handleTextAction(action: string, selectedText: string) {
 
 <template>
   <TextSelectionToolbar @action="handleTextAction" />
-  <LobbyStage
-    v-if="isOwner"
-    :lobby="lobby"
-  />
   
   <UDashboardPanel
     v-if="data?.id"
@@ -480,6 +483,10 @@ function handleTextAction(action: string, selectedText: string) {
           @submit="handleSubmit"
         >
           <template #header>
+            <LobbyStrip
+              v-if="lobby.open"
+              :lobby="lobby"
+            />
             <PromptAttachments
               :attachments="attachments"
               @remove="removeAttachment"
@@ -525,18 +532,15 @@ function handleTextAction(action: string, selectedText: string) {
             </div>
 
             <div class="flex items-center gap-1.5">
-              <UTooltip text="Talk to Lobby">
-                <UButton
-                  icon="i-lucide-audio-lines"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  class="rounded-full"
-                  aria-label="Talk to Lobby"
-                  @click="lobby.show()"
-                />
-              </UTooltip>
+              <!-- With nothing typed the microphone sits where Send does; as soon as there is text it becomes Send. -->
+              <PromptVoiceButton
+                v-if="showVoiceButton"
+                :state="lobby.open ? lobby.state : 'off'"
+                :level="lobby.level"
+                @press="lobby.open ? lobby.tap() : lobby.show()"
+              />
               <UChatPromptSubmit
+                v-else
                 :status="status"
                 color="primary"
                 size="sm"

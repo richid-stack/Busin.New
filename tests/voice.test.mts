@@ -2,7 +2,7 @@ import { DEFAULT_VOICE_SETTINGS, VOICE_LIMITS, VOICE_SERVICES, normaliseVoiceSet
 import { spokenText, takeSentences, yesOrNo } from '../shared/utils/spoken'
 import { VOICE_KEY_PURPOSE, resolveVoiceKey } from '../server/services/voice/resolve'
 import { listenFor, speakFor, voiceFailure } from '../server/services/voice/speech'
-import { VOICE_PROMPT } from '../server/services/voice/persona'
+import { NARRATION_PROMPT, VOICE_PROMPT } from '../server/services/voice/persona'
 import { seal } from '../server/utils/secretBox'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
@@ -98,5 +98,6 @@ assert((await rejects(() => listenFor('u', new Uint8Array(), { deps: deps() })))
 assert((await rejects(() => listenFor('u', new Uint8Array([1]), { deps: deps({ settings: async () => DEFAULT_VOICE_SETTINGS }) })))?.statusCode === 400, 'browser listening happens on the device')
 
 // ---- What the assistant is told ----
-assert(/NARRATE/.test(VOICE_PROMPT) && /yes or no|OK before/.test(VOICE_PROMPT) && /Never read out a key/.test(VOICE_PROMPT) && /cedis/.test(VOICE_PROMPT), 'voice mode tells it to narrate, ask before changing things, and keep secrets off the air')
+assert(/Before each action/.test(NARRATION_PROMPT) && /no tools needs no narration/.test(NARRATION_PROMPT) && /OK before it changes anything/.test(NARRATION_PROMPT), 'every chat is told to narrate its steps in plain words, and to say what needs an OK')
+assert(/yes or no/.test(VOICE_PROMPT) && /Never read out a key/.test(VOICE_PROMPT) && /cedis/.test(VOICE_PROMPT) && /read aloud/.test(VOICE_PROMPT), 'voice mode keeps what is said speakable, asks questions that can be answered yes or no, and keeps secrets off the air')
 console.log(process.exitCode ? 'Voice tests FAILED' : 'Voice tests OK')
