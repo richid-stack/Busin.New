@@ -136,6 +136,23 @@ async function createChat(prompt: string) {
   }
 }
 
+/** Lobby starts a chat with nothing in it and opens on the stage, ready to be talked to. */
+const lobbyLoading = ref(false)
+async function talkToLobby() {
+  if (lobbyLoading.value) return
+  if (!await ensureSignedIn()) { openAuthModal('signin'); return }
+  lobbyLoading.value = true
+  try {
+    const chat = await $fetch('/api/chats', { method: 'POST', headers: { [headerName]: csrf() }, body: { agentId: agentId.value ?? undefined } })
+    fetchChats()
+    if (chat?.id) router.push({ path: `/chat/${chat.id}`, query: { lobby: '1' } })
+  } catch (err: any) {
+    toast.add({ title: 'Could not start Lobby', description: err?.data?.statusMessage || err?.statusMessage || 'Please try again in a moment.', icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    lobbyLoading.value = false
+  }
+}
+
 async function onSubmit() {
   const text = input.value.trim()
   if (!text && attachments.value.length === 0) return
@@ -305,6 +322,20 @@ async function startAutomation(prompt: string) {
             />
           </template>
         </UChatPrompt>
+        </div>
+
+        <div v-if="!guestMessage" class="flex items-center justify-center gap-3 -mt-2">
+          <UButton
+            label="Talk to Lobby"
+            icon="i-lucide-audio-lines"
+            color="neutral"
+            variant="soft"
+            size="md"
+            class="rounded-full"
+            :loading="lobbyLoading"
+            @click="talkToLobby"
+          />
+          <span class="hidden sm:inline text-xs text-muted">Say it out loud. It does the work and tells you as it goes.</span>
         </div>
 
         <!-- A saved agent that fits what is being typed -->

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ATTACH_ACCEPT } from '../../utils/attachmentTypes'
-import { ref, computed, watch, onMounted, provide } from 'vue'
+import { ref, computed, reactive, watch, onMounted, provide } from 'vue'
 import { $fetch } from 'ofetch'
 import { useChat } from '@ai-sdk/vue'
 import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, getToolName, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai'
@@ -20,6 +20,8 @@ import ChatMessageContent from '../../components/chat/message/MessageContent.vue
 import ChatMessageActions from '../../components/chat/message/MessageActions.vue'
 import ChatVisibility from '../../components/chat/ChatVisibility.vue'
 import ChatTitle from '../../components/chat/ChatTitle.vue'
+import LobbyStage from '../../components/lobby/LobbyStage.vue'
+import { useLobby } from '../../composables/useLobby'
 import ChatIndicator from '../../components/chat/Indicator.vue'
 import TextSelectionToolbar from '../../components/chat/TextSelectionToolbar.vue'
 import Navbar from '../../components/Navbar.vue'
@@ -101,6 +103,9 @@ const mcpItems = computed<DropdownMenuItem[][]>(() => [
   ]
 ])
 
+// While Lobby is on the stage the assistant is told to talk the way it should be heard: short, narrating as it works.
+const voiceMode = ref(false)
+
 const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalResponse } = useChat({
   id: data?.id,
   messages: data?.messages,
@@ -119,7 +124,8 @@ const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalR
         const reqBody = JSON.parse(body)
         body = JSON.stringify({
           ...reqBody,
-          model: model.value
+          model: model.value,
+          voice: voiceMode.value || undefined
         })
       } else if (body instanceof FormData) {
         body.append('model', model.value)
@@ -201,6 +207,15 @@ const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalR
     }
   }
 })
+
+const lobby = reactive(useLobby({
+  messages,
+  status,
+  send: text => sendMessage({ text }),
+  stop: () => stop(),
+  respond: (id, approved) => addToolApprovalResponse({ id, approved })
+}))
+watch(() => lobby.open, (on) => { voiceMode.value = on })
 
 // The approval cards in the messages answer through this.
 provide('respondToToolApproval', (id: string, approved: boolean) => addToolApprovalResponse({ id, approved }))
@@ -354,6 +369,11 @@ onMounted(() => {
   if (isOwner.value && data?.messages?.length === 1) {
     regenerate()
   }
+  // "Talk to Lobby" on the home page lands here with the stage already open.
+  if (isOwner.value && route.query.lobby === '1') {
+    router.replace({ path: route.path })
+    void lobby.show()
+  }
 })
 
 function handleTextAction(action: string, selectedText: string) {
@@ -372,6 +392,10 @@ function handleTextAction(action: string, selectedText: string) {
 
 <template>
   <TextSelectionToolbar @action="handleTextAction" />
+  <LobbyStage
+    v-if="isOwner"
+    :lobby="lobby"
+  />
   
   <UDashboardPanel
     v-if="data?.id"
@@ -500,14 +524,27 @@ function handleTextAction(action: string, selectedText: string) {
               <ModelSelect v-if="!agent?.model" v-model="model" />
             </div>
 
-            <UChatPromptSubmit
-              :status="status"
-              color="primary"
-              size="sm"
-              class="rounded-full"
-              @stop="stop()"
-              @reload="regenerate()"
-            />
+            <div class="flex items-center gap-1.5">
+              <UTooltip text="Talk to Lobby">
+                <UButton
+                  icon="i-lucide-audio-lines"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="rounded-full"
+                  aria-label="Talk to Lobby"
+                  @click="lobby.show()"
+                />
+              </UTooltip>
+              <UChatPromptSubmit
+                :status="status"
+                color="primary"
+                size="sm"
+                class="rounded-full"
+                @stop="stop()"
+                @reload="regenerate()"
+              />
+            </div>
           </template>
         </UChatPrompt>
       </UContainer>
