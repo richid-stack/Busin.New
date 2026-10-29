@@ -217,7 +217,7 @@ OpenLobs is in active development. What is here, honestly:
 | Bridge for Windows (browser look, spreadsheets, tray, installer) | Early; Windows first |
 | Scheduled tasks (repeat or once, pauses itself after repeated failures) | Working; new, give it a real run |
 | The Reef: a community for sharing agents, with profiles, stars, forks, questions and answers, a safety scan and a review queue | Built and tested against a stand-in database; not yet run on real Firestore. Workflows, tasks and packs are [planned](docs/the-reef.md) |
-| Lobby: talk to OpenLobs and hear it narrate its work, approve by voice; free browser voice, or Gemini, OpenAI, Groq and ElevenLabs | New; works in a test browser with stand-in voices. No real voice service has been called yet |
+| Lobby: talk to OpenLobs and hear it narrate its work, approve by voice, dictate into the box; free browser voice, or Gemini, OpenAI, Groq and ElevenLabs | New; works in a test browser with stand-in voices. No real voice service has been called yet |
 | One-command Docker setup | Planned |
 
 ## Docs

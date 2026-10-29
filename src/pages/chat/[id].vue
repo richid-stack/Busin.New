@@ -20,9 +20,11 @@ import ChatMessageContent from '../../components/chat/message/MessageContent.vue
 import ChatMessageActions from '../../components/chat/message/MessageActions.vue'
 import ChatVisibility from '../../components/chat/ChatVisibility.vue'
 import ChatTitle from '../../components/chat/ChatTitle.vue'
-import LobbyStrip from '../../components/lobby/LobbyStrip.vue'
+import PromptWaves from '../../components/lobby/PromptWaves.vue'
+import DictateButton from '../../components/lobby/DictateButton.vue'
 import PromptVoiceButton from '../../components/lobby/PromptVoiceButton.vue'
 import { useLobby } from '../../composables/useLobby'
+import { useDictation } from '../../composables/useDictation'
 import ChatIndicator from '../../components/chat/Indicator.vue'
 import TextSelectionToolbar from '../../components/chat/TextSelectionToolbar.vue'
 import Navbar from '../../components/Navbar.vue'
@@ -262,7 +264,10 @@ const activeActivityText = computed(() => {
 })
 
 const hasInput = computed(() => input.value.trim() !== '' || attachments.value.length > 0)
-const showVoiceButton = computed(() => !hasInput.value && (lobby.open || status.value === 'ready'))
+const dictation = useDictation(input)
+// With nothing typed, the waveform sits where Send does and the small mic beside it dictates into the box.
+const showVoiceButton = computed(() => !hasInput.value && status.value === 'ready')
+const showDictate = computed(() => dictation.supported.value && (dictation.listening.value || dictation.working.value || showVoiceButton.value))
 // Typing while Lobby listens would send the room's noise as a message, so listening waits until the person is done.
 watch(hasInput, (typing) => { if (typing && lobby.open) lobby.pause() })
 
@@ -479,11 +484,11 @@ function handleTextAction(action: string, selectedText: string) {
           color="neutral"
           variant="subtle"
           class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10 border-t border-default shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]"
-          :ui="{ base: 'px-3 py-2' }"
+          :ui="{ base: 'px-3 py-2', body: lobby.open ? 'hidden' : '' }"
           @submit="handleSubmit"
         >
           <template #header>
-            <LobbyStrip
+            <PromptWaves
               v-if="lobby.open"
               :lobby="lobby"
             />
@@ -532,22 +537,54 @@ function handleTextAction(action: string, selectedText: string) {
             </div>
 
             <div class="flex items-center gap-1.5">
-              <!-- With nothing typed the microphone sits where Send does; as soon as there is text it becomes Send. -->
-              <PromptVoiceButton
-                v-if="showVoiceButton"
-                :state="lobby.open ? lobby.state : 'off'"
-                :level="lobby.level"
-                @press="lobby.open ? lobby.tap() : lobby.show()"
-              />
-              <UChatPromptSubmit
-                v-else
-                :status="status"
-                color="primary"
-                size="sm"
-                class="rounded-full"
-                @stop="stop()"
-                @reload="regenerate()"
-              />
+              <!-- Voice mode: the box above is the waveform; these are mute, end, and the one tap that does the obvious thing. -->
+              <template v-if="lobby.open">
+                <UButton
+                  :icon="lobby.muted ? 'i-lucide-volume-x' : 'i-lucide-volume-2'"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="rounded-full"
+                  :aria-label="lobby.muted ? 'Turn Lobby’s voice on' : 'Mute Lobby’s voice'"
+                  @click="lobby.toggleMute()"
+                />
+                <UButton
+                  icon="i-lucide-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="rounded-full"
+                  aria-label="Stop talking to Lobby"
+                  @click="lobby.hide()"
+                />
+                <PromptVoiceButton
+                  :state="lobby.state"
+                  :level="lobby.level"
+                  @press="lobby.tap()"
+                />
+              </template>
+              <template v-else>
+                <DictateButton
+                  v-if="showDictate"
+                  :listening="dictation.listening.value"
+                  :working="dictation.working.value"
+                  @press="dictation.toggle()"
+                />
+                <!-- With nothing typed the waveform is where Send is; as soon as there is text it becomes Send. -->
+                <PromptVoiceButton
+                  v-if="showVoiceButton"
+                  @press="lobby.show()"
+                />
+                <UChatPromptSubmit
+                  v-else
+                  :status="status"
+                  color="primary"
+                  size="sm"
+                  class="rounded-full"
+                  @stop="stop()"
+                  @reload="regenerate()"
+                />
+              </template>
             </div>
           </template>
         </UChatPrompt>

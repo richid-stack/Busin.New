@@ -37,7 +37,7 @@ export function useLobby(b: LobbyBindings) {
   const now = ref('')
   const notice = ref('')
   const muted = ref(false)
-  /** 0 to 1, how loud the person is, for the orb. */
+  /** 0 to 1, how loud the person is, for the waves. */
   const level = ref(0)
 
   const busy = () => b.status.value === 'submitted' || b.status.value === 'streaming'
@@ -181,7 +181,7 @@ export function useLobby(b: LobbyBindings) {
   function nothingHeard() {
     state.value = 'idle'
     if (++silent <= 2 && voice.settings.value.keepListening && open.value) { void sleep(250).then(() => { if (open.value && state.value === 'idle' && !playing && !busy()) void listen() }) } else {
-      notice.value = "I didn't hear anything. Tap the orb when you want to talk."
+      notice.value = "I didn't hear anything. Tap the waveform button when you want to talk."
     }
   }
 
@@ -221,7 +221,7 @@ export function useLobby(b: LobbyBindings) {
       heard.value = (final + interim).trim()
     }
     rec.onerror = (e: any) => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { failed = true; notice.value = 'Allow the microphone for this site, then tap the orb.' } else if (e.error === 'network') { failed = true; notice.value = "The browser's listening service could not be reached. Pick another listening service in Lobby settings." } else if (e.error === 'audio-capture') { failed = true; notice.value = 'No microphone was found.' }
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { failed = true; notice.value = 'Allow the microphone for this site, then tap the waveform button.' } else if (e.error === 'network') { failed = true; notice.value = "The browser's listening service could not be reached. Pick another listening service in Lobby settings." } else if (e.error === 'audio-capture') { failed = true; notice.value = 'No microphone was found.' }
     }
     rec.onend = () => {
       level.value = 0
@@ -241,7 +241,7 @@ export function useLobby(b: LobbyBindings) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
     } catch {
-      notice.value = 'Allow the microphone for this site, then tap the orb.'
+      notice.value = 'Allow the microphone for this site, then tap the waveform button.'
       state.value = 'idle'
       return
     }

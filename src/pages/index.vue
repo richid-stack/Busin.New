@@ -12,6 +12,8 @@ import { usePromptAttachments } from '../composables/usePromptAttachments'
 import Navbar from '../components/Navbar.vue'
 import PromptAttachments from '../components/PromptAttachments.vue'
 import PromptVoiceButton from '../components/lobby/PromptVoiceButton.vue'
+import DictateButton from '../components/lobby/DictateButton.vue'
+import { useDictation } from '../composables/useDictation'
 import AgentSelect from '../components/agents/AgentSelect.vue'
 import { useAgents } from '../composables/useAgents'
 import GuestReply from '../components/chat/GuestReply.vue'
@@ -27,6 +29,7 @@ const { attachments, processing, onInputChange, remove, clear, toApiAttachments 
 
 const input = ref('')
 const loading = ref(false)
+const dictation = useDictation(input)
 
 const router = useRouter()
 const route = useRoute()
@@ -315,19 +318,27 @@ async function startAutomation(prompt: string) {
               <AgentSelect v-model="agentId" />
             </div>
 
-            <!-- Nothing typed: the microphone is where Send is. Typing turns it into Send. -->
-            <PromptVoiceButton
-              v-if="!input.trim() && attachments.length === 0 && !guestMessage"
-              :loading="lobbyLoading"
-              @press="talkToLobby"
-            />
-            <UChatPromptSubmit
-              v-else
-              :loading="loading"
-              color="primary"
-              size="sm"
-              class="rounded-full"
-            />
+            <!-- Nothing typed: the waveform is where Send is, with a small mic beside it. Typing turns both into Send. -->
+            <div class="flex items-center gap-1.5">
+              <DictateButton
+                v-if="!guestMessage && dictation.supported.value && (dictation.listening.value || dictation.working.value || (!input.trim() && attachments.length === 0))"
+                :listening="dictation.listening.value"
+                :working="dictation.working.value"
+                @press="dictation.toggle()"
+              />
+              <PromptVoiceButton
+                v-if="!input.trim() && attachments.length === 0 && !guestMessage"
+                :loading="lobbyLoading"
+                @press="talkToLobby"
+              />
+              <UChatPromptSubmit
+                v-else
+                :loading="loading"
+                color="primary"
+                size="sm"
+                class="rounded-full"
+              />
+            </div>
           </template>
         </UChatPrompt>
         </div>
