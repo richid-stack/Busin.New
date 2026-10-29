@@ -11,6 +11,9 @@ import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { usePromptAttachments } from '../composables/usePromptAttachments'
 import Navbar from '../components/Navbar.vue'
 import PromptAttachments from '../components/PromptAttachments.vue'
+import PromptVoiceButton from '../components/lobby/PromptVoiceButton.vue'
+import DictateButton from '../components/lobby/DictateButton.vue'
+import { useDictation } from '../composables/useDictation'
 import AgentSelect from '../components/agents/AgentSelect.vue'
 import { useAgents } from '../composables/useAgents'
 import GuestReply from '../components/chat/GuestReply.vue'
@@ -26,6 +29,7 @@ const { attachments, processing, onInputChange, remove, clear, toApiAttachments 
 
 const input = ref('')
 const loading = ref(false)
+const dictation = useDictation(input)
 
 const router = useRouter()
 const route = useRoute()
@@ -133,6 +137,23 @@ async function createChat(prompt: string) {
     })
   } finally {
     loading.value = false
+  }
+}
+
+/** Lobby starts a chat with nothing in it and opens on the stage, ready to be talked to. */
+const lobbyLoading = ref(false)
+async function talkToLobby() {
+  if (lobbyLoading.value) return
+  if (!await ensureSignedIn()) { openAuthModal('signin'); return }
+  lobbyLoading.value = true
+  try {
+    const chat = await $fetch('/api/chats', { method: 'POST', headers: { [headerName]: csrf() }, body: { agentId: agentId.value ?? undefined } })
+    fetchChats()
+    if (chat?.id) router.push({ path: `/chat/${chat.id}`, query: { lobby: '1' } })
+  } catch (err: any) {
+    toast.add({ title: 'Could not start Lobby', description: err?.data?.statusMessage || err?.statusMessage || 'Please try again in a moment.', icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    lobbyLoading.value = false
   }
 }
 
@@ -297,12 +318,27 @@ async function startAutomation(prompt: string) {
               <AgentSelect v-model="agentId" />
             </div>
 
-            <UChatPromptSubmit
-              :loading="loading"
-              color="primary"
-              size="sm"
-              class="rounded-full"
-            />
+            <!-- Nothing typed: the waveform is where Send is, with a small mic beside it. Typing turns both into Send. -->
+            <div class="flex items-center gap-1.5">
+              <DictateButton
+                v-if="!guestMessage && dictation.supported.value && (dictation.listening.value || dictation.working.value || (!input.trim() && attachments.length === 0))"
+                :listening="dictation.listening.value"
+                :working="dictation.working.value"
+                @press="dictation.toggle()"
+              />
+              <PromptVoiceButton
+                v-if="!input.trim() && attachments.length === 0 && !guestMessage"
+                :loading="lobbyLoading"
+                @press="talkToLobby"
+              />
+              <UChatPromptSubmit
+                v-else
+                :loading="loading"
+                color="primary"
+                size="sm"
+                class="rounded-full"
+              />
+            </div>
           </template>
         </UChatPrompt>
         </div>

@@ -20,6 +20,7 @@ npm run dev
 | Variable | Purpose |
 | --- | --- |
 | `GEMINI_API_KEY` (or `GROQ_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) | At least one model provider key. The server falls back to whichever provider has a key. |
+| `ELEVENLABS_API_KEY` | Optional. Lets Pro accounts use ElevenLabs voices in [Lobby](lobby.md) without a key of their own (the same goes for the Gemini, OpenAI and Groq keys above). |
 | `SESSION_SECRET` | **Required in production.** 32+ random characters for the session cookie. |
 | `COMPOSIO_API_KEY` | Enables app integrations (Gmail, Drive, Slack, Notion, ...). Without it integrations are disabled, never simulated. |
 | `CORS_ALLOWED_ORIGINS` | Optional comma-separated extra browser origins. Same-origin is always allowed. |

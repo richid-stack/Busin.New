@@ -24,6 +24,8 @@ const seed = async (uid: string) => {
   await db.collection('reef_versions').doc(`${uid}__thing__1`).set({ userId: uid, projectId: `${uid}__thing`, version: 1 })
   await db.collection('reef_posts').doc(`post-${uid}`).set({ userId: uid, handle: uid, type: 'post', text: 'hello', replyTo: null, feed: true, likes: 0, replies: 0 })
   await db.collection('reef_alerts').doc(`${uid}__star__x__y`).set({ userId: uid, type: 'star' })
+  await db.collection('voice_settings').doc(uid).set({ userId: uid, speak: { service: 'elevenlabs' } })
+  await db.collection('voice_keys').doc(`${uid}__elevenlabs`).set({ userId: uid, service: 'elevenlabs', sealedKey: 'VOICE-KEY-SECRET', last4: 'abcd', savedAt: '2026-10-27T10:00:00Z' })
   await db.collection('share_reports').doc(`r-${uid}`).set({ userId: uid, shareId: 'x', reason: 'spam' })
   await db.collection('task_schedules').doc(`ts-${uid}`).set({ userId: uid, title: 'Morning brief', cron: '0 9 * * *' })
   await db.collection('tasks').doc(`t-${uid}`).collection('events').doc('e1').set({ at: '2026-10-22T10:00:00Z', kind: 'note', text: 'hi' })
@@ -70,6 +72,7 @@ assert((out.taskSchedules as any[]).length === 1 && (out.taskSchedules[0] as any
 assert((out.tasks[0] as any).events.length === 1 && !JSON.stringify(out.tasks).includes('LEASE-SECRET'), 'tasks are exported with their logs, without lease details')
 assert((out.computers[0] as any).name === 'Desk' && (out.computers[0] as any).events.length === 1 && out.computerJobs.length === 1, 'computers are exported with their logs, plus their jobs')
 assert(!JSON.stringify(out).includes('TOKEN-HASH-SECRET') && !JSON.stringify(out).includes('CODE-HASH-SECRET'), 'computer tokens and pairing codes never leave in an export')
+assert((out.voice as any).settings.speak.service === 'elevenlabs' && (out.voice as any).keys[0].last4 === 'abcd' && !JSON.stringify(out).includes('VOICE-KEY-SECRET'), 'voice choices are exported, and voice keys only as their last four characters')
 assert(out.modelProviders.length === 1 && (out.modelProviders[0] as any).provider === 'groq' && !JSON.stringify(out).includes('MODEL-KEY-SECRET'), 'connected model providers are exported without their keys')
 assert(out.agents.length === 1 && out.memory.items.length === 1 && out.memory.enabled === false, 'agents and memory (including the on/off setting) are included')
 assert((out.plan as any).plan === 'pro' && out.usage.length === 1, 'plan and usage are included')
@@ -93,10 +96,10 @@ assert(e instanceof AccountDeletionError && db.raw('agents').has('a-alice'), 'if
 // ---- Erasure ----
 const res = await eraseUserData(deps(), 'alice')
 assert(calls.includes('disconnect:conn1') && calls.includes('disconnect:conn2') && calls.includes('auth:alice'), 'apps are disconnected and the sign-in account removed')
-for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit', 'reef_profiles', 'reef_handles', 'reef_projects', 'reef_versions', 'reef_posts', 'reef_alerts']) {
+for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit', 'voice_keys', 'reef_profiles', 'reef_handles', 'reef_projects', 'reef_versions', 'reef_posts', 'reef_alerts']) {
   assert([...db.raw(c).values()].every(d => d.userId !== 'alice'), `${c}: all of Alice's documents are gone`)
 }
-assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice'), 'usage, plan and memory settings are gone')
+assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice') && !db.raw('voice_settings').has('alice'), 'usage, plan, memory and voice settings are gone')
 assert(db.raw('chats/c-alice/messages').size === 0 && db.raw('chats/c-alice/votes').size === 0 && db.raw('workflows/w-alice/runs').size === 0 && db.raw('tasks/t-alice/events').size === 0 && db.raw('devices/d-alice/events').size === 0, 'messages, votes, runs and task logs go with their parents')
 assert(res.removed.chats === 1 && res.removed.agents === 1 && res.removed.connectedApps === 2, 'the result counts what was removed')
 
