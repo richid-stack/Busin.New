@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import { useElementSize, useEventListener, usePreferredReducedMotion } from '@vueuse/core'
 import type { LobbyController } from '../../composables/useLobby'
+import LobbyMark from './LobbyMark.vue'
 
 /**
  * Voice mode, in the message box. While Lobby is on, the text box becomes a live waveform: it follows your voice while
@@ -20,6 +21,8 @@ const caption = computed(() => {
   if (props.lobby.state === 'idle') return 'Tap the waveform to talk.'
   return props.lobby.heard
 })
+/** The real loudness behind the mark and the waves: yours while it listens, Lobby's while it speaks. */
+const signal = computed(() => (props.lobby.state === 'speaking' ? props.lobby.outLevel : props.lobby.level))
 const italic = computed(() => props.lobby.state === 'listening' && Boolean(props.lobby.heard) && !props.lobby.notice)
 
 // The bars: as many as fit, each moving to its own rhythm. Pure drawing, no data.
@@ -34,15 +37,15 @@ let raf = 0
 function frame(t: number) {
   const n = count.value
   const state = props.lobby.state
-  const level = props.lobby.level
+  const level = signal.value
   const next = heights.value.length === n ? heights.value.slice() : Array.from({ length: n }, () => 0.08)
   for (let i = 0; i < n; i++) {
     const x = i / (n - 1)
     // Taller in the middle, so the line has a shape rather than a flat fence.
     const envelope = 0.3 + 0.7 * Math.sin(Math.PI * x)
     let target = 0.07
-    if (state === 'listening') target = 0.08 + envelope * (0.3 + level * 0.8) * (0.55 + 0.45 * Math.sin(t / 150 + i * 0.7))
-    else if (state === 'speaking') target = 0.1 + envelope * 0.62 * (0.5 + 0.5 * Math.sin(t / 210 + i * 0.5)) * (0.72 + 0.28 * Math.sin(t / 640 + i * 1.3))
+    if (state === 'listening') target = 0.08 + envelope * (0.2 + level * 0.85) * (0.55 + 0.45 * Math.sin(t / 150 + i * 0.7))
+    else if (state === 'speaking') target = 0.08 + envelope * (0.12 + level * 0.78) * (0.5 + 0.5 * Math.sin(t / 210 + i * 0.5)) * (0.72 + 0.28 * Math.sin(t / 640 + i * 1.3))
     else if (state === 'thinking') target = 0.08 + envelope * 0.14 + 0.34 * Math.max(0, Math.sin(t / 520 - i * 0.3)) ** 3
     next[i] = next[i]! + (target - next[i]!) * 0.22
   }
@@ -83,9 +86,9 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => { if (e.key === 'Escap
   >
     <div class="flex items-center gap-2 text-xs">
       <span class="inline-flex shrink-0 items-center gap-1.5 font-medium text-highlighted">
-        <span
-          class="size-1.5 rounded-full"
-          :class="lobby.state === 'idle' ? 'bg-muted' : 'bg-primary animate-pulse motion-reduce:animate-none'"
+        <LobbyMark
+          :state="lobby.state"
+          :level="signal"
         />{{ label }}
       </span>
       <span

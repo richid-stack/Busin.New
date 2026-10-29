@@ -10,7 +10,7 @@
 import { computed, onBeforeUnmount, ref, watch, type Ref, type UnwrapNestedRefs } from 'vue'
 import { yesOrNo } from '../../shared/utils/spoken'
 import { lobbyParts, newFeedState, newLines, primeFeed } from '../utils/lobbyLines'
-import { browserCanListen, fetchSpeech, playUrl, speakInBrowser, transcribeRecording, VoiceError, type Playback } from '../utils/lobbyAudio'
+import { browserCanListen, fetchSpeech, openInputMeter, playUrl, speakInBrowser, transcribeRecording, VoiceError, type Playback } from '../utils/lobbyAudio'
 import { useVoiceSettings } from './useVoiceSettings'
 
 export type LobbyState = 'idle' | 'listening' | 'thinking' | 'speaking'
@@ -37,8 +37,10 @@ export function useLobby(b: LobbyBindings) {
   const now = ref('')
   const notice = ref('')
   const muted = ref(false)
-  /** 0 to 1, how loud the person is, for the waves. */
+  /** 0 to 1, how loud the person is, for the waves and the mark. */
   const level = ref(0)
+  /** 0 to 1, how loud Lobby is right now while it speaks. */
+  const outLevel = ref(0)
 
   const busy = () => b.status.value === 'submitted' || b.status.value === 'streaming'
   const parts = computed(() => lobbyParts(b.messages.value))
@@ -137,7 +139,37 @@ export function useLobby(b: LobbyBindings) {
   function stopListening() {
     cancelListen?.()
     cancelListen = null
+    endInputMeter()
+  }
+
+  // The real loudness of the person's voice while the browser does the listening (the recording path measures its own).
+  let closeMeter: (() => void) | null = null
+  let meterSeq = 0
+  function startInputMeter() {
+    const seq = ++meterSeq
+    void openInputMeter(v => { level.value = v }).then((stop) => { if (seq !== meterSeq) stop(); else closeMeter = stop })
+  }
+  function endInputMeter() {
+    meterSeq++
+    closeMeter?.()
+    closeMeter = null
     level.value = 0
+  }
+
+  // How loud Lobby is right now, for the mark and the waves: real for audio files, word by word for the browser's voice.
+  let outTimer: ReturnType<typeof setInterval> | null = null
+  function startOutMeter() {
+    if (outTimer) return
+    outTimer = setInterval(() => {
+      let v = 0
+      if (state.value === 'speaking' && !muted.value && current) v = current.level ? current.level() : 0.4
+      outLevel.value = outLevel.value * 0.45 + v * 0.55
+    }, 60)
+  }
+  function endOutMeter() {
+    if (outTimer) clearInterval(outTimer)
+    outTimer = null
+    outLevel.value = 0
   }
 
   /** The person's words: either an answer to a question that needs a yes or no, or a new request. */
@@ -224,7 +256,7 @@ export function useLobby(b: LobbyBindings) {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { failed = true; notice.value = 'Allow the microphone for this site, then tap the waveform button.' } else if (e.error === 'network') { failed = true; notice.value = "The browser's listening service could not be reached. Pick another listening service in Lobby settings." } else if (e.error === 'audio-capture') { failed = true; notice.value = 'No microphone was found.' }
     }
     rec.onend = () => {
-      level.value = 0
+      endInputMeter()
       if (cancelled) return
       cancelListen = null
       const said = final.trim()
@@ -233,7 +265,7 @@ export function useLobby(b: LobbyBindings) {
       else nothingHeard()
     }
     cancelListen = () => { cancelled = true; try { rec.abort() } catch { /* already stopped */ } }
-    try { rec.start() } catch { state.value = 'idle' }
+    try { rec.start(); startInputMeter() } catch { state.value = 'idle' }
   }
 
   async function listenByRecording() {
@@ -366,11 +398,13 @@ export function useLobby(b: LobbyBindings) {
     heard.value = ''
     now.value = ''
     open.value = true
+    startOutMeter()
     void listen()
   }
 
   function hide() {
     open.value = false
+    endOutMeter()
     epoch++
     queue.length = 0
     turnOpen = false
@@ -443,7 +477,7 @@ export function useLobby(b: LobbyBindings) {
 
   onBeforeUnmount(hide)
 
-  return { open, state, heard, now, notice, muted, level, pending, supported, show, hide, tap, toggleMute, decide, pause, silence }
+  return { open, state, heard, now, notice, muted, level, outLevel, pending, supported, show, hide, tap, toggleMute, decide, pause, silence }
 }
 
 /** What the stage screen is given: the controller with its refs unwrapped (wrap it in `reactive`). */
