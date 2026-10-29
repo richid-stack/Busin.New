@@ -20,6 +20,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { id: 'read_files', label: 'Read attached files', detail: 'Opens PDFs, Word files, spreadsheets and text you attach.', tools: ['read_document'] },
   { id: 'create_files', label: 'Create files', detail: 'Makes Word, PDF, Excel and PowerPoint files you can download.', tools: ['create_document', 'create_spreadsheet', 'create_presentation'] },
   { id: 'inspect', label: 'Check designs and pages', detail: 'Looks at a web page or a picture you attach and lists what is wrong with it, then checks again after fixes.', tools: ['inspect_design'] },
+  { id: 'browser', label: 'Use a browser for you', detail: 'Opens websites in a private, signed-out browser and does the clicking and typing. It asks you before it sends, buys or deletes anything, and you take over to sign in or pay.', tools: ['browser'], sensitive: true },
   { id: 'excel', label: 'Work on spreadsheets on your computer', detail: 'Reads spreadsheets in one folder you choose on a connected computer, and saves changed copies there. The originals are never changed.', tools: ['computer_excel'], sensitive: true },
   { id: 'utilities', label: 'Charts, plans, weather and maths', detail: 'Small helpers: draw a chart, outline a plan, check the weather, calculate.', tools: ['chart', 'plan', 'weather', 'calculator'] },
   { id: 'memory', label: 'Remember things about you', detail: 'Sees what you saved on the Memory page, and can save or forget things when you ask it to in chat.', tools: ['remember', 'forget_memory'] },

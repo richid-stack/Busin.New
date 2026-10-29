@@ -16,7 +16,7 @@ export const BROWSER_LIMITS = {
   /** The most actions in one session, so a stuck loop cannot run forever. */
   maxActions: 80,
   /** A session nobody touched for this long is closed. */
-  idleMs: 5 * 60_000,
+  idleMs: 10 * 60_000,
   /** The longest a session lives at all. */
   maxLifeMs: 20 * 60_000,
   maxTabs: 4,

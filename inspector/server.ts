@@ -1,14 +1,19 @@
 import { createServer } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
 import { InspectError, captureScreenshot } from '../server/services/inspect/browser'
+import { LocalBrowserService, answerWorker, bearerMatches } from '../server/services/browser/service'
 
 /**
  * The screenshot worker: a tiny HTTP service that takes a picture of a public web page for OpenLobs.
  * It holds no secrets besides the shared one, and should run under a service account with no roles.
  * POST /screenshot  { url, width?, height?, fullPage?, waitMs?, colorScheme? }  ->  { imageBase64, width, height, url, title }
+ * POST /browser/{check,act,status,frame,takeover,handback,input,close}  a live browser session for browser use (see server/services/browser).
  */
 const SECRET = process.env.INSPECTOR_SECRET || ''
 const PORT = Number(process.env.PORT || 8080)
+// Live browser sessions for browser use: a few at once, each in its own isolated context.
+const browsers = new LocalBrowserService({ maxSessions: Math.max(1, Math.min(6, Number(process.env.BROWSER_MAX_SESSIONS) || 2)) })
+process.on('SIGTERM', () => { void browsers.manager.shutdown().finally(() => process.exit(0)) })
 // One picture at a time: a browser is heavy, and a small instance should not be asked to run several.
 let busy = false
 
@@ -42,6 +47,18 @@ if (SECRET.length < 24) {
 createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true })
+    if (req.method === 'POST' && req.url?.startsWith('/browser/')) {
+      if (!bearerMatches(req.headers.authorization, SECRET)) return send(res, 401, { error: 'Unauthorized' })
+      let body: unknown
+      try { body = JSON.parse(await readBody(req, 20_000)) } catch { return send(res, 400, { error: 'That request could not be read.', code: 'bad_input' }) }
+      const reply = await answerWorker(browsers, req.url.slice('/browser/'.length), body)
+      if (reply.image) {
+        const f = reply.image
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store', 'X-Width': String(f.width), 'X-Height': String(f.height), 'X-Url': encodeURIComponent(f.url), 'X-Title': encodeURIComponent(f.title), 'X-Control': f.control })
+        return void res.end(f.bytes)
+      }
+      return send(res, reply.status, reply.json)
+    }
     if (req.method !== 'POST' || req.url !== '/screenshot') return send(res, 404, { error: 'Not found' })
     const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
     if (!same(bearer, SECRET)) return send(res, 401, { error: 'Unauthorized' })
