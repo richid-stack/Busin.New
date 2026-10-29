@@ -1,11 +1,14 @@
-# The screenshot worker for OpenLobs' visual inspection. Build: `gcloud run deploy openlobs-inspector --source . --dockerfile Dockerfile.inspector`
+# The browser worker for OpenLobs: screenshots for visual checks, and live sessions for browser use. Build: `gcloud run deploy openlobs-inspector --source . --dockerfile Dockerfile.inspector`
 # (or `docker build -f Dockerfile.inspector .`). The base image already contains Chromium; its version must match playwright-core below.
 FROM mcr.microsoft.com/playwright:v1.56.0-noble
 WORKDIR /app
-RUN npm init -y >/dev/null && npm install --no-audit --no-fund playwright-core@1.56.0 tsx@4
-# Only the two files the worker needs, so a change elsewhere in the app does not rebuild this image.
+RUN npm init -y >/dev/null && npm install --no-audit --no-fund playwright-core@1.56.0 tsx@4 zod@4
+# Only the files the worker needs, so a change elsewhere in the app does not rebuild this image.
 COPY server/utils/netSafety.ts ./server/utils/netSafety.ts
+COPY server/utils/guardProxy.ts ./server/utils/guardProxy.ts
 COPY server/services/inspect/browser.ts ./server/services/inspect/browser.ts
+COPY server/services/browser/model.ts server/services/browser/snapshot.ts server/services/browser/session.ts server/services/browser/manager.ts server/services/browser/service.ts ./server/services/browser/
+COPY shared/utils/browserSteps.ts ./shared/utils/browserSteps.ts
 COPY inspector/server.ts ./inspector/server.ts
 ENV NODE_ENV=production PORT=8080
 USER pwuser

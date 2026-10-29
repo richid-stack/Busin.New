@@ -58,8 +58,8 @@ const busy = computed(() => props.working || steps.value.some(s => s.state === '
 const view = useBrowserView(chatId, toRef(props, 'live'), busy)
 
 const person = computed(() => view.control.value === 'person')
-const status = computed(() => asking.value ? { label: 'Waiting for your OK', tone: 'bg-warning' }
-  : person.value ? { label: 'You are in control', tone: 'bg-primary' }
+const status = computed(() => person.value ? { label: 'You are in control', tone: 'bg-primary' }
+  : asking.value ? { label: 'Waiting for your OK', tone: 'bg-warning' }
     : view.ended.value && !busy.value ? { label: 'Finished', tone: 'bg-neutral-400' }
       : busy.value ? { label: 'Working', tone: 'bg-success animate-pulse' } : { label: 'Ready', tone: 'bg-success' })
 
@@ -162,7 +162,7 @@ function onPaste(e: ClipboardEvent) { if (person.value) { e.preventDefault(); vi
             v-model="typing"
             :type="reveal ? 'text' : 'password'"
             autocomplete="off"
-            placeholder="Type here to send to the page"
+            placeholder="Type here"
             size="sm"
             class="flex-1 min-w-0"
             @keydown.enter.prevent="sendTyped(); view.pressKey('Enter')"
@@ -299,7 +299,7 @@ function onPaste(e: ClipboardEvent) { if (person.value) { e.preventDefault(); vi
       </div>
 
       <div
-        v-if="live && view.live.value && !person && !asking"
+        v-if="live && view.live.value && !person"
         class="flex items-center justify-end gap-2 px-3 pb-3 -mt-1"
       >
         <UButton

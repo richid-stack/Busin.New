@@ -129,22 +129,26 @@ gcloud scheduler jobs create http openlobs-billing --location $REGION --schedule
 
 5. Do a real test: pay a small amount by card and by mobile money, check Pro starts, the receipt arrives and the payment shows in Settings. Refunds and disputes are handled in the Paystack dashboard (the app does not take Pro away by itself when a payment is reversed).
 
-## 5c. Visual checks (optional)
+## 5c. The browser worker: visual checks and browser use (optional)
 
-Visual checks need a small screenshot worker, a separate Cloud Run service so a browser crash or a hostile page cannot take the app down. Without it, chat can still judge screenshots people attach.
+One small worker, a separate Cloud Run service, runs the real browser for two features: visual checks (a screenshot of a page, judged against requirements) and **browser use** (the assistant opening and operating websites for a person, with a live view in the chat). It is separate so a browser crash or a hostile page cannot take the app down. Without it, chat still works and can judge screenshots people attach; the browser tool is simply not offered.
 
 ```bash
 SECRET=$(openssl rand -hex 32)
-gcloud iam service-accounts create openlobs-inspector --display-name "OpenLobs screenshot worker"   # no roles on purpose
+gcloud iam service-accounts create openlobs-inspector --display-name "OpenLobs browser worker"   # no roles on purpose
 docker build -f Dockerfile.inspector -t $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-inspector .
 docker push $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-inspector
 gcloud run deploy openlobs-inspector --image $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-inspector \
   --region $REGION --service-account openlobs-inspector@$PROJECT.iam.gserviceaccount.com \
-  --memory 2Gi --cpu 1 --concurrency 1 --max-instances 2 --timeout 60 --allow-unauthenticated \
-  --set-env-vars INSPECTOR_SECRET=$SECRET
+  --memory 2Gi --cpu 2 --concurrency 10 --max-instances 1 --timeout 90 --allow-unauthenticated \
+  --set-env-vars INSPECTOR_SECRET=$SECRET,BROWSER_MAX_SESSIONS=2
 ```
 
-The worker has no roles, so even a page that tricked the browser into reaching the metadata server would get nothing useful. It is public so the app can call it, but it answers only requests that carry `INSPECTOR_SECRET`, takes one picture at a time, and refuses private addresses (checked again for every request the page makes). Then give the app the address and the same secret (store the secret in Secret Manager like the others) as `INSPECTOR_URL` and `INSPECTOR_SECRET`, and redeploy. Check it with `curl $WORKER_URL/health`. The pictures it takes are kept in the same 30-day file store as created files.
+**Keep `--max-instances 1`.** A live browser session lives in the memory of the instance that started it, so a second instance would not find it. `BROWSER_MAX_SESSIONS` (default 2, up to 6) is how many people can have a page open at once on that instance; more than that get a "busy, try again in a minute" message. Raise it together with `--memory` (about 700 MB per open page). Sessions close by themselves after 10 minutes without use or 20 minutes in all, and are limited to 80 steps.
+
+The worker has no roles, so even a page that tricked the browser into reaching the metadata server would get nothing useful. It is public so the app can call it, but it answers only requests that carry `INSPECTOR_SECRET`. Every connection the browser makes (the page, its images and scripts, redirects, WebSockets) goes through a small proxy inside the worker that allows only public websites on ports 80 and 443 and checks the address at the moment it connects, so a public page that redirects to a private address, or a name that changes its answer, gets nowhere. Downloads, uploads, camera, microphone and location are blocked, and each session is its own isolated browser with its own cookies. Then give the app the address and the same secret (store the secret in Secret Manager like the others) as `INSPECTOR_URL` and `INSPECTOR_SECRET`, and redeploy. Check it with `curl $WORKER_URL/health`. The pictures it takes for visual checks are kept in the same 30-day file store as created files; the live view of a browser session is never stored.
+
+What browser use does and does not do: the browser is signed out, so it has none of the person's accounts. For a sign-in, a CAPTCHA or a payment the person presses **Take over** in the chat and types it themselves; what they type goes straight to the page and is never shown to the assistant. A step that sends, buys, deletes or changes something asks the person first, decided by the worker from the live page, not by the assistant. Per person: 400 steps and 60 pages a day.
 
 Not tested by the authors: the exact base image tag (`mcr.microsoft.com/playwright:v1.56.0-noble`) and the commands above; check them on first deploy.
 
