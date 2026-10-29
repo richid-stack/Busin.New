@@ -67,7 +67,8 @@ const SCRIPT = String.raw`(function (args) {
       var a = (f.getAttribute('action') || '') + ' ' + (f.getAttribute('role') || '') + ' ' + (f.id || '') + ' ' + (f.className && f.className.baseVal === undefined ? f.className : '');
       if (/search|query|find/i.test(a)) return true;
     }
-    return /^(q|query|search|s|keyword|keywords)$/i.test(el.name || '');
+    if (/^(q|query|search|s|keyword|keywords)$/i.test(el.name || '')) return true;
+    return /\b(search|find|filter|look up)\b/i.test(label(el) + ' ' + (el.getAttribute('placeholder') || ''));
   }
 
   // Asked only for one control's name now: used to be sure a step lands on the same control that was seen.

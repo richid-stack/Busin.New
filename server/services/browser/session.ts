@@ -52,6 +52,10 @@ export class BrowserSession {
   private closed = false
   /** Set when the page's own navigation was refused or failed (a blocked address, a site that is down). */
   private failedNav = false
+  /** The person held the page since the assistant last read it. */
+  private unseen = false
+  /** What the assistant had read when the person took the page. */
+  private held: PageState | null = null
   private cached: { at: number, frame: Frame } | null = null
   private readonly now: () => number
 
@@ -121,13 +125,29 @@ export class BrowserSession {
     return needsOk(parsed.data, this.last)
   }
 
-  async act(input: unknown, opts: { approved?: boolean } = {}): Promise<ActResult> {
+  /** One step at a time: the assistant can ask for two at once, and two hands on one page would trip over each other. */
+  private queue: Promise<unknown> = Promise.resolve()
+  act(input: unknown, opts: { approved?: boolean } = {}): Promise<ActResult> {
+    const run = this.queue.then(() => this.step(input, opts))
+    this.queue = run.catch(() => {})
+    return run
+  }
+
+  private async step(input: unknown, opts: { approved?: boolean }): Promise<ActResult> {
     this.live()
     if (this.control === 'person') throw new BrowserError('The person is using the page right now. Wait for them to hand it back.', 'limit')
     const parsed = actionSchema.safeParse(input)
     if (!parsed.success) throw new BrowserError('That is not an action the browser can do.', 'bad_input')
     const action = parsed.data
     if (++this.actions > BROWSER_LIMITS.maxActions) throw new BrowserError('This session reached its limit of steps. Start again if the job is not finished.', 'limit')
+    // The person had the page since the assistant last read it, so its numbers may mean something else now. A step on a
+    // control that is still the same control (same kind, same words) goes ahead; anything else needs a fresh read first.
+    if (this.unseen && !['read', 'open', 'scroll', 'back', 'wait'].includes(action.action)) {
+      const before = 'ref' in action ? this.held?.elements.find(e => e.ref === action.ref) : undefined
+      const now = 'ref' in action ? this.last?.elements.find(e => e.ref === action.ref) : undefined
+      if (!before || !now || before.name !== now.name || before.role !== now.role) throw new BrowserError('The page was in the person\'s hands since you last read it. Read the page again before the next step.', 'failed')
+    }
+    if (action.action === 'read' || action.action === 'open') this.unseen = false
     const gate = needsOk(action, this.last)
     if (gate.ask && !opts.approved) throw new BrowserError(`The person has not approved this step: ${gate.label}.`, 'unsafe')
 
@@ -155,7 +175,7 @@ export class BrowserSession {
     await this.guardUrl()
   }
 
-  takeOver() { this.live(); this.control = 'person'; this.cached = null }
+  takeOver() { this.live(); this.control = 'person'; this.unseen = true; this.held = this.last; this.cached = null }
   /** Hands the page back and re-reads it, because the person may have changed it. */
   async handBack(): Promise<PageState> { this.live(); this.control = 'assistant'; return await this.read() }
 
@@ -168,6 +188,11 @@ export class BrowserSession {
     }
     this.cached = { at: this.now(), frame }
     return frame
+  }
+
+  /** Where the page is, cheaply (no picture). */
+  async info(): Promise<{ url: string, title: string }> {
+    return { url: this.safeUrl(), title: (await this.page.title().catch(() => '')).slice(0, 200) }
   }
 
   async close(): Promise<void> {

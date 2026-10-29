@@ -24,6 +24,10 @@ assert(!needsOk({ action: 'click', ref: 2 }, s).ask && !needsOk({ action: 'click
 assert(needsOk({ action: 'click', ref: 4 }, s).ask, 'a form submit button asks even when its words are plain')
 assert(needsOk({ action: 'type', ref: 5, text: 'a@b.c', submit: true }, s).ask && !needsOk({ action: 'type', ref: 5, text: 'a@b.c' }, s).ask, 'typing and sending a form asks; typing alone does not')
 assert(needsOk({ action: 'press', key: 'Enter' }, state({ focus: { ref: 5, inSearch: false, inForm: true } })).ask && !needsOk({ action: 'press', key: 'Enter' }, state({ focus: { ref: 5, inSearch: true, inForm: true } })).ask, 'Enter in a form asks; Enter in a search box does not')
+const composer = state({ focus: { ref: 7, inSearch: false, inForm: false }, elements: [el(7, 'Write a message', { role: 'textbox' }), el(8, 'Pay now', { inView: true }), el(9, 'Search products', { role: 'textbox', inSearch: true })] })
+assert(needsOk({ action: 'press', key: 'Enter' }, composer).ask && needsOk({ action: 'type', ref: 7, text: 'hi', submit: true }, composer).ask, 'Enter in a message box outside any form asks first (it may send the message)')
+assert(!needsOk({ action: 'type', ref: 9, text: 'shoes', submit: true }, composer).ask, 'but a search box does not')
+assert(needsOk({ action: 'press', key: 'Enter' }, state({ focus: { ref: 8, inSearch: false, inForm: false }, elements: composer.elements })).ask, 'Enter on a focused "Pay now" button outside a form asks first')
 assert(describeAction({ action: 'click', ref: 1 }, s) === 'Clicking “Place order”' && describeAction({ action: 'open', url: 'https://www.example.com/x' }, null) === 'Opening example.com', 'actions are described in plain words')
 
 // ---- The guard proxy: every connection a browser makes is checked ----
@@ -59,6 +63,13 @@ assert(describeAction({ action: 'click', ref: 1 }, s) === 'Clicking “Place ord
     const plainOk = await get(local, `http://127.0.0.1:${echoPort}/x`)
     assert(plainOk.status === 200 && plainOk.body === 'hello from local', 'PROXY: an allowed plain request is passed through')
     assert((await get(strict, 'http://10.255.255.1/')).status === 403 && (await get(strict, 'http://metadata.google.internal/')).status === 403, 'PROXY: private and internal names are refused')
+    const closed = await new Promise<string>((resolve) => {
+      const dead = net.createServer().listen(0, '127.0.0.1', () => {
+        const port = (dead.address() as any).port
+        dead.close(() => { void connect(local, `127.0.0.1:${port}`).then(resolve) })
+      })
+    })
+    assert(closed.includes('502'), 'PROXY: a place that is not listening is answered with a clear failure')
     assert(strict.refused >= 6, 'PROXY: refusals are counted')
   } finally {
     await strict.close(); await local.close(); echo.close()
@@ -194,6 +205,19 @@ else {
     const back2 = await session.handBack()
     assert(back2.elements.find(e => e.name === 'Username')?.value === 'ann', 'what the person typed is there when the assistant takes the page back')
     assert(!JSON.stringify(back2).includes('secret-pass-123'), 'a password the person typed never appears in what the assistant sees')
+    const stalePress = await fails(() => session.act({ action: 'press', key: 'Tab' }))
+    assert(stalePress instanceof BrowserError && /in the person's hands/.test(stalePress.message), 'after the person held the page, a key press is refused until the page is read again')
+    const original = (session as any).held.elements.find((e: any) => e.ref === 1).name
+    ;(session as any).held = { ...(session as any).held, elements: (session as any).held.elements.map((e: any) => (e.ref === 1 ? { ...e, name: 'Something else' } : e)) }
+    const staleStep = await fails(() => session.act({ action: 'click', ref: 1 }, { approved: true }))
+    assert(staleStep instanceof BrowserError && /in the person's hands/.test(staleStep.message), 'a step on a control that is no longer the one that was read is refused')
+    ;(session as any).held = { ...(session as any).held, elements: (session as any).held.elements.map((e: any) => (e.ref === 1 ? { ...e, name: original } : e)) }
+    assert((await fails(() => session.act({ action: 'click', ref: 1 }))) === null, 'a step on the very same control still goes ahead (so an approval survives a take-over)')
+    await session.act({ action: 'read' })
+    assert((await fails(() => session.act({ action: 'scroll', direction: 'down' }))) === null, 'after reading, steps work again')
+    const t0 = Date.now()
+    await Promise.all([session.act({ action: 'wait', ms: 400 }), session.act({ action: 'wait', ms: 400 })])
+    assert(Date.now() - t0 >= 780, 'two steps asked at once run one after the other')
     const notOwner = await fails(() => session.input({ kind: 'type', text: 'x' }))
     assert(notOwner instanceof BrowserError, 'the person cannot type unless they have taken over')
 
@@ -221,6 +245,10 @@ else {
     clock += BROWSER_LIMITS.idleMs + 1
     await mgr.sweep()
     assert(mgr.count === 0 && mgr.get('u1:chatA') === null, 'idle sessions are swept away')
+    await mgr.open('u5:chatA')
+    await mgr.open('u5:chatB')
+    assert(mgr.get('u5:chatA') === null && mgr.get('u5:chatB') !== null && mgr.count === 1, 'one browser per person: a second chat\'s browser replaces the first')
+    await mgr.drop('u5:chatB')
     const [x, y] = await Promise.all([mgr.open('u9:race'), mgr.open('u9:race')])
     assert(x === y && mgr.count === 1, 'two requests at once for one chat start only one session')
     await mgr.shutdown()

@@ -105,14 +105,22 @@ export function needsOk(action: BrowserAction, state: PageState | null): { ask: 
   if (!state) return { ask: false, label: '' }
   const el = 'ref' in action ? state.elements.find(e => e.ref === action.ref) : undefined
   const host = hostOf(state.url)
-  const enterLabel = `Press Enter to send this form on ${host}`
+  const consequential = (e: PageElement) => CONSEQUENCE.test(e.name.trim()) && !SEARCHY.test(e.name.trim())
   if (action.action === 'click' && el) {
     const name = el.name.trim()
     const submit = el.type === 'submit' && !el.inSearch && !SEARCHY.test(name)
-    if (submit || (CONSEQUENCE.test(name) && !SEARCHY.test(name))) return { ask: true, label: `Click “${name || el.role}” on ${host}` }
+    if (submit || consequential(el)) return { ask: true, label: `Click “${name || el.role}” on ${host}` }
   }
-  if (action.action === 'press' && action.key === 'Enter' && state.focus.inForm && !state.focus.inSearch) return { ask: true, label: enterLabel }
-  if (action.action === 'type' && action.submit && el && el.inForm && !el.inSearch) return { ask: true, label: `Type into “${el.name || 'a field'}” and send the form on ${host}` }
+  if (action.action === 'press' && action.key === 'Enter') {
+    const focused = state.focus.ref ? state.elements.find(e => e.ref === state.focus.ref) : undefined
+    const inSearch = state.focus.inSearch || Boolean(focused?.inSearch)
+    // Enter in a form sends it; Enter in a message box often sends the message; Enter on a focused "Pay" button pays.
+    if (state.focus.inForm && !inSearch) return { ask: true, label: `Press Enter to send this form on ${host}` }
+    if (focused && focused.role === 'textbox' && !inSearch) return { ask: true, label: `Press Enter in “${focused.name || 'a text box'}” on ${host}` }
+    if (focused && focused.role !== 'textbox' && consequential(focused)) return { ask: true, label: `Press Enter on “${focused.name}” on ${host}` }
+  }
+  // Typing and pressing Enter in anything but a search box can send, post or submit, in a form or not.
+  if (action.action === 'type' && action.submit && el && !el.inSearch) return { ask: true, label: `Type into “${el.name || 'a field'}” and press Enter on ${host}` }
   return { ask: false, label: '' }
 }
 

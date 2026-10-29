@@ -17,7 +17,7 @@ One card per reply, wherever the first browser step is:
 
 | Situation | What happens |
 | --- | --- |
-| A step sends, buys, deletes, changes or posts something (a "Place order" or "Delete account" button, a form submit, Enter inside a form) | The card asks you first, naming the control and the site. Decline and nothing is done. |
+| A step sends, buys, deletes, changes or posts something (a "Place order" or "Delete account" button, a form submit, Enter in a form or in a message box) | The card asks you first, naming the control and the site. Decline and nothing is done. |
 | Search boxes, "Next", "Read more", scrolling, opening a page | No question asked. |
 | A password, a one-time code or a card number | The assistant never types it and never sees it. It tells you to press **Take over**. |
 | A sign-in page or a "verify you are human" page | It stops and tells you to take over. It does not try to get past it. |
@@ -32,7 +32,7 @@ One card per reply, wherever the first browser step is:
 
 ## Limits
 
-Per session: 80 steps, 10 minutes idle, 20 minutes in all, 4 tabs, 1,000 characters per typed step. Per person: 40 steps a minute, 400 steps and 60 opened pages a day. A busy worker answers "try again in a minute" rather than piling up browsers.
+One browser per person (opening one in another chat closes the first). Per session: 80 steps, 10 minutes idle, 20 minutes in all, 4 tabs, 1,000 characters per typed step. Per person: 40 steps a minute, 400 steps and 60 opened pages a day. A busy worker answers "try again in a minute" rather than piling up browsers.
 
 ## Where it runs
 

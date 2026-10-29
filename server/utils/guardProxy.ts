@@ -71,14 +71,24 @@ export async function startGuardProxy(options: { allowLocal?: boolean, idleMs?: 
     const port = Number(cut > 0 ? raw.slice(cut + 1) : 443)
     const verdict = Number.isInteger(port) ? check(host, port) : { ok: false, local: false }
     if (!verdict.ok) { refused++; client.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n'); return }
+    let open = false
     const upstream = net.connect({ host: host.replace(/^\[|\]$/g, ''), port, lookup: verdict.local ? undefined : safeLookup }, () => {
+      open = true
       client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
       if (head.length) upstream.write(head)
       upstream.pipe(client)
       client.pipe(upstream)
     })
-    for (const s of [upstream, client]) { s.setTimeout(idleMs, () => s.destroy()); s.on('error', () => { upstream.destroy(); client.destroy() }) }
-    upstream.on('error', () => { if (!client.destroyed && !client.writableEnded && !upstream.connecting) return; client.end('HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n') })
+    // Before the tunnel is up a failure is answered; after, the connection is simply dropped.
+    upstream.on('error', () => {
+      if (!open && client.writable) client.end('HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n')
+      else client.destroy()
+      upstream.destroy()
+    })
+    client.on('error', () => { upstream.destroy(); client.destroy() })
+    for (const s of [upstream, client]) s.setTimeout(idleMs, () => s.destroy())
+    client.on('close', () => upstream.destroy())
+    upstream.on('close', () => client.destroy())
   })
   server.on('clientError', (_e, socket) => { socket.destroy() })
 

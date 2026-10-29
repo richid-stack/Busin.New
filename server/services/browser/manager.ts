@@ -45,6 +45,9 @@ export class BrowserManager {
     const have = this.sessions.get(key)
     if (have && !have.isClosed && !have.expired()) return have
     if (have) await this.drop(key)
+    // One browser per person: a second chat's browser replaces the first, so nobody can use up the machine's few places.
+    const owner = key.split(':')[0]
+    for (const other of [...this.sessions.keys()]) if (other !== key && other.split(':')[0] === owner) await this.drop(other)
     const racing = this.pending.get(key)
     if (racing) return await racing
     if (this.sessions.size + this.pending.size >= this.max) throw new BrowserError('The browser is busy with other sessions. Try again in a minute.', 'limit')

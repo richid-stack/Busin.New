@@ -55,10 +55,8 @@ export class LocalBrowserService implements BrowserService {
   async status(key: string): Promise<SessionStatus | null> {
     const s = this.manager.get(key)
     if (!s) return null
-    const keep = s.lastUsed
-    const f = await s.frame().catch(() => null)
-    s.lastUsed = keep
-    return { url: f?.url ?? 'about:blank', title: f?.title ?? '', control: s.control, actions: s.actions, idleLeftMs: Math.max(0, BROWSER_LIMITS.idleMs - (Date.now() - s.lastUsed)) }
+    const info = await s.info()
+    return { url: info.url, title: info.title, control: s.control, actions: s.actions, idleLeftMs: Math.max(0, BROWSER_LIMITS.idleMs - (Date.now() - s.lastUsed)) }
   }
 
   async frame(key: string) {
@@ -66,9 +64,14 @@ export class LocalBrowserService implements BrowserService {
     const s = this.manager.get(key)
     if (!s) return null
     const keep = s.lastUsed
-    const f = await s.frame().catch(() => null)
-    s.lastUsed = keep
-    return f
+    try {
+      return await s.frame()
+    } catch {
+      // The page is there but could not be photographed just now (it was navigating). That is not "closed".
+      throw new BrowserError('The page could not be shown just now.', 'failed')
+    } finally {
+      s.lastUsed = keep
+    }
   }
 
   private session(key: string) {

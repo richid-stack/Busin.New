@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, toRef, useTemplateRef } from 'vue'
+import { computed, inject, ref, toRef, useTemplateRef, watch } from 'vue'
 import { controlName, hostOf, stepText } from '../../../../shared/utils/browserSteps'
 import { useBrowserView } from '../../../composables/useBrowserView'
 
@@ -47,6 +47,8 @@ const asking = computed(() => {
   return { id: p.approval?.id as string | undefined, text: stepText(p.input ?? {}, controlsBefore(i)), host, named }
 })
 const answered = ref<boolean | null>(null)
+// Each question is answered once; the next one in the same card starts fresh.
+watch(() => asking.value?.id, () => { answered.value = null })
 async function answer(approved: boolean) {
   if (answered.value !== null || !asking.value?.id) return
   answered.value = approved
