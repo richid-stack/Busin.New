@@ -1,4 +1,5 @@
-import { hostOf, type PageElement, type PageState } from './model'
+import { controlName, hostOf } from '../../../shared/utils/browserSteps'
+import type { PageElement, PageState } from './model'
 
 /**
  * What the assistant is told about a page: one line per control, numbered, then what the page says. Kept compact, because
@@ -50,11 +51,4 @@ export function formatPage(state: PageState): PageForModel {
   return out
 }
 
-/** Finds a control's words in an earlier result, so an approval card can say what a number means. */
-export function controlName(controls: string, ref: number): string | null {
-  const m = new RegExp(`^\\[${ref}\\] \\S+ ("(?:[^"\\\\]|\\\\.)*")`, 'm').exec(controls)
-  if (!m) return null
-  try { return JSON.parse(m[1]!) } catch { return null }
-}
-
-export { hostOf }
+export { controlName, hostOf }

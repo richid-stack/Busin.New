@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { isReasoningUIPart, isTextUIPart, isToolUIPart, isFileUIPart, getToolName } from 'ai'
 import type { UIMessage } from 'ai'
 import { isPartStreaming, isToolStreaming } from '@nuxt/ui/utils/ai'
@@ -20,6 +21,7 @@ import ChatToolTaskProposal from '../tool/TaskProposal.vue'
 import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatToolApproval from '../tool/Approval.vue'
+import ChatToolBrowser from '../tool/Browser.vue'
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
@@ -29,10 +31,17 @@ import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
 import type { CalculatorUIToolInvocation } from '../../../../server/utils/tools/calculator'
 
-defineProps<{
+const props = defineProps<{
   message: UIMessage
   editing: boolean
+  /** The chat this message is in, and whether it is the reply in front of the person (only that one shows the browser live). */
+  chatId?: string
+  live?: boolean
+  working?: boolean
 }>()
+
+/** All the browser steps in this reply: they are shown together, as one card, where the first one is. */
+const browserParts = computed(() => (props.message.parts ?? []).filter(p => isToolUIPart(p) && getToolName(p) === 'browser'))
 
 const emit = defineEmits<{
   save: [message: UIMessage, text: string]
@@ -85,8 +94,17 @@ const emit = defineEmits<{
     </UChatReasoning>
 
     <template v-else-if="isToolUIPart(part)">
+      <template v-if="getToolName(part) === 'browser'">
+        <ChatToolBrowser
+          v-if="part === browserParts[0] || browserParts.every(p => p !== part)"
+          :parts="browserParts"
+          :chat-id="chatId || ''"
+          :live="Boolean(live && chatId)"
+          :working="Boolean(working)"
+        />
+      </template>
       <ChatToolApproval
-        v-if="part.state === 'approval-requested'"
+        v-else-if="part.state === 'approval-requested'"
         :part="part"
       />
       <UChatTool

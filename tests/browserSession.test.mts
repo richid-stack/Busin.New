@@ -18,7 +18,7 @@ assert(isSensitiveField('Password') && isSensitiveField('Card number') && isSens
 
 const state = (over: Partial<PageState> = {}): PageState => ({ url: 'https://shop.example.com/cart', title: 'Cart', elements: [], text: '', scroll: { y: 0, max: 0 }, focus: { ref: null, inSearch: false, inForm: false }, hasPassword: false, blocker: null, dialogs: [], tabs: 1, truncated: false, ...over })
 const el = (ref: number, name: string, extra: Record<string, unknown> = {}) => ({ ref, role: 'button', name, inView: true, ...extra }) as PageState['elements'][number]
-let s = state({ elements: [el(1, 'Place order'), el(2, 'Search', { inSearch: true, type: 'submit' }), el(3, 'Read more'), el(4, 'Continue', { type: 'submit', inForm: true }), el(5, 'Email', { role: 'textbox', inForm: true })] })
+const s = state({ elements: [el(1, 'Place order'), el(2, 'Search', { inSearch: true, type: 'submit' }), el(3, 'Read more'), el(4, 'Continue', { type: 'submit', inForm: true }), el(5, 'Email', { role: 'textbox', inForm: true })] })
 assert(needsOk({ action: 'click', ref: 1 }, s).ask && needsOk({ action: 'click', ref: 1 }, s).label === 'Click “Place order” on shop.example.com', 'a click that places an order asks first, and says what and where')
 assert(!needsOk({ action: 'click', ref: 2 }, s).ask && !needsOk({ action: 'click', ref: 3 }, s).ask, 'search and reading buttons do not ask')
 assert(needsOk({ action: 'click', ref: 4 }, s).ask, 'a form submit button asks even when its words are plain')

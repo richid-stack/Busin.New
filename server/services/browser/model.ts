@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { hostOf } from '../../../shared/utils/browserSteps'
 
 /**
  * Browser use: what the assistant may ask a browser to do, what it gets back, and which actions need the person's OK.
@@ -115,9 +116,7 @@ export function needsOk(action: BrowserAction, state: PageState | null): { ask: 
   return { ask: false, label: '' }
 }
 
-export function hostOf(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, '') } catch { return 'this page' }
-}
+export { hostOf }
 
 /** Short, plain words for what an action does: used for the live card and the trace. */
 export function describeAction(action: BrowserAction, state: PageState | null): string {
