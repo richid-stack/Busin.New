@@ -7,7 +7,7 @@ Lobby is the voice of OpenLobs. You say what you want; it does the work and tell
 Lobby is the normal chat, with a voice. There is no separate screen.
 
 - **The waveform is where Send is.** With nothing typed, the circled waveform button beside the message box starts voice mode, and a small mic beside it dictates: speak and the words land in the box to read and send. Type a word and both become Send. On Home, the waveform starts a new chat and begins listening.
-- **In voice mode the message box becomes live waves.** They follow your voice while you talk, ripple while Lobby works, and move in a different colour while it speaks. A line above them has the OpenLobs lobster with a thin ring driven by real sound (how loud you are while it listens, how loud Lobby is while it speaks, a travelling arc while it works), the state, and the words just heard. What you say goes into the chat as your message the moment you stop, and the reply comes back in the same thread and is read aloud.
+- **In voice mode the message box becomes live waves.** They follow your voice while you talk, ripple while Lobby works, and move in a different colour while it speaks. A line above them has the OpenLobs lobster, moved by real sound, the state, and the words just heard. Listening: its claws lift to its ears and tremble with how loud you are. Speaking: a mouth opens with how loud Lobby is, with sound coming out. Working: the claws tap slowly and the antennae sweep. Paused: eyes closed, claws down. With reduced motion it holds the pose and does not move. What you say goes into the chat as your message the moment you stop, and the reply comes back in the same thread and is read aloud.
 - **One tap does the obvious thing.** While it listens, tap the waveform button to say "that is all". While it talks or works, tap to stop it mid-sentence; it then listens. Next to it are mute and end (Esc ends too), and the text box comes back.
 - **Approvals** are the usual approval card in the chat. Say "yes" or "no", or tap Approve / Decline. Only a clear yes or no counts; anything else it asks again, and after three tries it waits for the buttons.
 - **Typing:** end voice mode to type. Dictation (the small mic) works any time, with the chosen listening service.
@@ -63,7 +63,7 @@ Everyone else is asked to add a key. The free browser voice needs none, so Lobby
 
 ## Not done yet
 
-- With the browser's own listening, the loudness of your voice is read from a second microphone stream; on devices that cannot share the microphone that way (iPhone and iPad), the waves stay low and the mark's ring stays short while you talk. The browser's own voice reports no loudness, so while it speaks the ring and waves pulse with each word instead.
+- With the browser's own listening, the loudness of your voice is read from a second microphone stream; on devices that cannot share the microphone that way (iPhone and iPad), the waves stay low and the lobster's claws stay still while you talk. The browser's own voice reports no loudness, so while it speaks the mouth and waves pulse with each word instead.
 - Interrupting by voice while it is talking (today: tap the button).
 - A remote or hands-free mode that works while you are away from the screen.
 - Real-voice tests against every provider: the provider calls are covered by tests with stand-in models, not by live calls.

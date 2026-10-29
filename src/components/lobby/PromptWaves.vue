@@ -87,6 +87,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => { if (e.key === 'Escap
     <div class="flex items-center gap-2 text-xs">
       <span class="inline-flex shrink-0 items-center gap-1.5 font-medium text-highlighted">
         <LobbyMark
+          :size="30"
           :state="lobby.state"
           :level="signal"
         />{{ label }}
