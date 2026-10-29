@@ -6,18 +6,17 @@ It is a real browser, not a simulation. Everything here was built against a real
 
 ## What you see
 
-One card per reply, wherever the first browser step is:
+It looks like the rest of the chat, nothing new to learn:
 
-- An address bar with the site, the page title and who has the page (working, waiting for your OK, you are in control, finished).
-- The page, live (a fresh picture about once a second while it works).
-- The steps so far, in plain words ("Choosing “Kumasi” in “Delivery area”").
-- **Take over** (you hold the page) and **Stop** (close the browser).
+- **One line per step**, like every other tool call, with the same shimmer while it works ("Opening shop.example…", then "Opened shop.example"). Click a line to see what is behind it: the page it landed on, what was typed, anything that went wrong.
+- **One short rectangle for the live page**, with only the page in it (a fresh picture while the assistant works). **Take over** and **close** sit on the corner of the picture.
+- **Approvals use the same gradient card** as every other approval, naming the control and the site ("Clicking “Place order” on shop.example").
 
 ## The rules it works by
 
 | Situation | What happens |
 | --- | --- |
-| A step sends, buys, deletes, changes or posts something (a "Place order" or "Delete account" button, a form submit, Enter in a form or in a message box) | The card asks you first, naming the control and the site. Decline and nothing is done. |
+| A step sends, buys, deletes, changes or posts something (a "Place order" or "Delete account" button, a form submit, Enter in a form or in a message box) | The standard approval card asks you first, naming the control and the site. Decline and nothing is done. |
 | Search boxes, "Next", "Read more", scrolling, opening a page | No question asked. |
 | A password, a one-time code or a card number | The assistant never types it and never sees it. It tells you to press **Take over**. |
 | A sign-in page or a "verify you are human" page | It stops and tells you to take over. It does not try to get past it. |

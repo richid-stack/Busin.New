@@ -28,7 +28,7 @@ export function useBrowserView(chatId: Ref<string>, active: Ref<boolean>, busy: 
   const url = ref('')
   const title = ref('')
   const control = ref<'assistant' | 'person'>('assistant')
-  const size = ref<ViewSize>({ width: 1100, height: 700 })
+  const size = ref<ViewSize>({ width: 1100, height: 560 })
   /** There is (or was) a page to show. */
   const seen = ref(false)
   /** The browser for this chat was closed or timed out. */
@@ -66,7 +66,7 @@ export function useBrowserView(chatId: Ref<string>, active: Ref<boolean>, busy: 
       url.value = decodeURIComponent(res.headers.get('x-url') ?? '')
       title.value = decodeURIComponent(res.headers.get('x-title') ?? '')
       control.value = res.headers.get('x-control') === 'person' ? 'person' : 'assistant'
-      size.value = { width: Number(res.headers.get('x-width')) || 1100, height: Number(res.headers.get('x-height')) || 700 }
+      size.value = { width: Number(res.headers.get('x-width')) || 1100, height: Number(res.headers.get('x-height')) || 560 }
       seen.value = true
       ended.value = false
       failures = 0

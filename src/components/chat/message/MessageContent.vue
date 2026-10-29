@@ -21,7 +21,9 @@ import ChatToolTaskProposal from '../tool/TaskProposal.vue'
 import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
 import ChatToolApproval from '../tool/Approval.vue'
-import ChatToolBrowser from '../tool/Browser.vue'
+import ChatToolBrowserView from '../tool/BrowserView.vue'
+import ChatToolBrowserStep from '../tool/BrowserStep.vue'
+import { approvalInstruction, controlsBefore, hostBefore } from '../../../utils/browserTrace'
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
@@ -94,23 +96,30 @@ const emit = defineEmits<{
     </UChatReasoning>
 
     <template v-else-if="isToolUIPart(part)">
-      <template v-if="getToolName(part) === 'browser'">
-        <ChatToolBrowser
-          v-if="part === browserParts[0] || browserParts.every(p => p !== part)"
-          :parts="browserParts"
-          :chat-id="chatId || ''"
-          :live="Boolean(live && chatId)"
-          :working="Boolean(working)"
-        />
-      </template>
+      <!-- Browser steps: the live page once, at the first step; every step is its own trace line. -->
+      <ChatToolBrowserView
+        v-if="getToolName(part) === 'browser' && part === browserParts[0]"
+        :chat-id="chatId || ''"
+        :live="Boolean(live && chatId)"
+        :working="Boolean(working)"
+      />
       <ChatToolApproval
-        v-else-if="part.state === 'approval-requested'"
+        v-if="part.state === 'approval-requested'"
         :part="part"
+        :instruction="getToolName(part) === 'browser' ? approvalInstruction(browserParts, part) : undefined"
+        :label="getToolName(part) === 'browser' ? hostBefore(browserParts, browserParts.indexOf(part)) : undefined"
       />
       <UChatTool
         v-else-if="part.state === 'output-denied'"
         text="You declined this action. Nothing was changed."
         icon="i-lucide-ban"
+      />
+      <ChatToolBrowserStep
+        v-else-if="getToolName(part) === 'browser'"
+        :state="part.state"
+        :input="part.input"
+        :output="part.output"
+        :controls="controlsBefore(browserParts, browserParts.indexOf(part))"
       />
       <ChatToolChart
         v-else-if="getToolName(part) === 'chart'"
@@ -228,6 +237,5 @@ const emit = defineEmits<{
         </p>
       </template>
     </template>
-
   </template>
 </template>

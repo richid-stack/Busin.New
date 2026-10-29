@@ -7,7 +7,8 @@ import { hostOf } from '../../../shared/utils/browserSteps'
  */
 
 export const BROWSER_LIMITS = {
-  viewport: { width: 1100, height: 700 },
+  // Wide and short, like the live view in the chat, so what you see is exactly what the browser sees.
+  viewport: { width: 1100, height: 560 },
   maxElements: 120,
   maxTextChars: 4000,
   nameChars: 90,

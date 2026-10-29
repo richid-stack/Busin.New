@@ -5,7 +5,7 @@ import { accentGradient } from '../../../utils/accentGradient'
 import { appLogo } from '../../../utils/appLogo'
 import { mcpLogo } from '../../../utils/mcpLogo'
 
-const props = defineProps<{ part: any }>()
+const props = defineProps<{ part: any, /** What will be done, when the tool cannot say it in its own inputs (the browser). */ instruction?: string, /** Replaces the tool's name in the heading (the site, for the browser). */ label?: string }>()
 
 type Respond = (approvalId: string, approved: boolean) => void | Promise<void>
 const respond = inject<Respond | null>('respondToToolApproval', null)
@@ -15,6 +15,7 @@ const toolName = computed(() => getToolName(props.part) || 'tool')
 const input = computed<Record<string, unknown>>(() => (props.part.input && typeof props.part.input === 'object' ? props.part.input : {}))
 const isApp = computed(() => toolName.value === 'integration_execute')
 const isMcp = computed(() => toolName.value.startsWith('mcp_'))
+const isBrowser = computed(() => toolName.value === 'browser')
 
 const SPELLING: Record<string, string> = { github: 'GitHub', gitlab: 'GitLab', onedrive: 'OneDrive', one_drive: 'OneDrive', hubspot: 'HubSpot', paystack: 'Paystack', google_drive: 'Google Drive', google_calendar: 'Google Calendar' }
 const words = (text: string) => text.replace(/[_-]+/g, ' ').trim()
@@ -24,14 +25,15 @@ const title = computed(() => {
     return SPELLING[slug] ?? words(slug).replace(/\b\w/g, c => c.toUpperCase())
   }
   if (isMcp.value) return words(toolName.value.slice(4))
+  if (isBrowser.value) return props.label || 'a website'
   return words(toolName.value)
 })
-const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : mcpLogo(toolName.value)))
-const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : 'Action')
+const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : mcpLogo(toolName.value)))
+const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */
-const instruction = computed(() => isApp.value ? String(input.value.instruction || '') : '')
-const fields = computed(() => Object.entries(input.value)
+const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
+const fields = computed(() => isBrowser.value ? [] : Object.entries(input.value)
   .filter(([key]) => !(isApp.value && ['provider', 'instruction', 'access'].includes(key)))
   .map(([key, value]) => ({ key: words(key), value: (typeof value === 'string' ? value : JSON.stringify(value)) ?? '' }))
   .slice(0, 12))
