@@ -23,6 +23,7 @@ It looks like the rest of the chat, nothing new to learn:
 | A page that tells the assistant to do something | Page text is marked untrusted. It is information, never instructions. |
 | A link or redirect to a private address (your network, `localhost`, a cloud metadata address, `file://`) | Refused, and the page is left blank. |
 | A download, an upload, the camera, microphone or location | Blocked. |
+| The assistant repeats the same step on a page that is not changing (three times), or two or three steps in a circle | The browser refuses the repeat, says what it keeps doing and why it failed last time, and tells the assistant to try another way or ask you. It does not burn the step budget. |
 | Another tab opens | The assistant moves to it (up to 4 tabs). |
 
 **Who decides what needs your OK.** Not the assistant. The browser looks at the live page and decides from what is really there. The tool only asks it. Even if the assistant skipped the question and called the worker directly, the worker refuses a step like that unless it was approved. And if a page changes what a button says between the moment the assistant read it and the moment it clicks, the click is not done and the page is read again.

@@ -106,6 +106,7 @@ else {
     if (url.pathname === '/popup') return html('<h1>Popup</h1>')
     if (url.pathname === '/file.bin') { res.setHeader('Content-Disposition', 'attachment; filename=x.bin'); res.setHeader('Content-Type', 'application/octet-stream'); return void res.end('data') }
     if (url.pathname === '/bounce') { res.statusCode = 302; res.setHeader('Location', 'http://10.255.255.1/secret'); return void res.end() }
+    if (url.pathname === '/stuck') return html('<h1>Step 1 of 3</h1><button type="button">Next step</button>')
     if (url.pathname === '/captcha') return html('<h1>Hold on</h1><p>Please verify you are human.</p>')
     res.statusCode = 404; res.end('nope')
   })
@@ -226,6 +227,19 @@ else {
     assert(Date.now() - t0 >= 780, 'two steps asked at once run one after the other')
     const notOwner = await fails(() => session.input({ kind: 'type', text: 'x' }))
     assert(notOwner instanceof BrowserError, 'the person cannot type unless they have taken over')
+
+    // going in circles
+    const loopy = await BrowserSession.start(browser, { allowLocal: true, now: () => clock })
+    const ls = (await loopy.act({ action: 'open', url: `${base}/stuck` })).state
+    const nextRef = find(ls, 'Next step')
+    await loopy.act({ action: 'click', ref: nextRef })
+    await loopy.act({ action: 'click', ref: nextRef })
+    const circled = await fails(() => loopy.act({ action: 'click', ref: nextRef }))
+    assert(circled instanceof BrowserError && /already tried this 2 times/.test(circled.message) && /different way/.test(circled.message), 'the same click a third time on an unchanged page is refused, with what to do instead')
+    await loopy.act({ action: 'scroll', direction: 'down', amount: 100 }).catch(() => {})
+    const stillSame = await fails(() => loopy.act({ action: 'click', ref: nextRef }))
+    assert(stillSame === null || stillSame instanceof BrowserError, 'a different step in between does not break the session')
+    await loopy.close()
 
     // limits
     const small = await BrowserSession.start(browser, { allowLocal: true, now: () => clock })

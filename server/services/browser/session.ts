@@ -7,6 +7,7 @@ import {
   type BrowserAction, type PageState, type UserInput
 } from './model'
 import { hostOf } from '../../../shared/utils/browserSteps'
+import { LoopGuard } from './loops'
 import { nameExpression, snapshotExpression } from './snapshot'
 
 /**
@@ -54,6 +55,7 @@ export class BrowserSession {
   private pages: Page[] = []
   private page!: Page
   private notes: string[] = []
+  private readonly loops = new LoopGuard()
   private closed = false
   /** Set when the page's own navigation was refused or failed (a blocked address, a site that is down). */
   private failedNav = false
@@ -152,15 +154,25 @@ export class BrowserSession {
       const now = 'ref' in action ? this.last?.elements.find(e => e.ref === action.ref) : undefined
       if (!before || !now || before.name !== now.name || before.role !== now.role) throw new BrowserError('The page was in the person\'s hands since you last read it. Read the page again before the next step.', 'failed')
     }
+    // Going in circles burns the step budget and gets nowhere: refuse, and say what to do instead.
+    const circling = this.loops.check(action, this.last)
+    if (circling) throw new BrowserError(circling, 'failed')
     if (action.action === 'read' || action.action === 'open') this.unseen = false
     const gate = needsOk(action, this.last)
     if (gate.ask && !opts.approved) throw new BrowserError(`The person has not approved this step: ${gate.label}.`, 'unsafe')
 
     const before = this.page.url()
     this.failedNav = false
-    await this.run(action)
-    const state = await this.read()
-    return { state, navigated: state.url !== before }
+    const decidedOn = this.last
+    this.loops.record(action, decidedOn)
+    try {
+      await this.run(action)
+      const state = await this.read()
+      return { state, navigated: state.url !== before }
+    } catch (err) {
+      if (err instanceof BrowserError) this.loops.failed(action, decidedOn, err.message)
+      throw err
+    }
   }
 
   /** What the person does with their own hands. Never read back, never stored. */
