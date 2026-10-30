@@ -9,7 +9,7 @@ It is a real browser, not a simulation. Everything here was built against a real
 It looks like the rest of the chat, nothing new to learn:
 
 - **One line per step**, like every other tool call, with the same shimmer while it works ("Opening shop.example…", then "Opened shop.example"). Click a line to see what is behind it: the page it landed on, what was typed, anything that went wrong.
-- **One short rectangle for the live page**, with only the page in it (a fresh picture while the assistant works). **Take over** and **close** sit on the corner of the picture.
+- **One short rectangle for the live page, framed like a browser**: a tab for each open page (the one you see is raised), an address bar with the site, and the page below. **Take over** (then **Hand back**) and **close** sit in the address bar. Only the site name is shown, never the full address of other tabs.
 - **Approvals use the same gradient card** as every other approval, naming the control and the site ("Clicking “Place order” on shop.example").
 
 ## The rules it works by

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import http from 'node:http'
 import { BrowserError, type BrowserAction, type PageState } from '../server/services/browser/model'
+import { frameHeaders } from '../server/services/browser/frameWire'
 import { controlName, formatPage } from '../server/services/browser/format'
 import { LocalBrowserService, RemoteBrowserService, answerWorker, bearerMatches, browserKey, validKey, type BrowserService } from '../server/services/browser/service'
 import { createBrowserTool, toAction } from '../server/utils/tools/browser'
@@ -91,7 +92,7 @@ else {
     const reply = await answerWorker(service, path, JSON.parse(String(init?.body)))
     if (reply.image) {
       const f = reply.image
-      return new Response(f.bytes as unknown as BodyInit, { status: 200, headers: { 'X-Width': String(f.width), 'X-Height': String(f.height), 'X-Url': encodeURIComponent(f.url), 'X-Title': encodeURIComponent(f.title), 'X-Control': f.control } })
+      return new Response(f.bytes as unknown as BodyInit, { status: 200, headers: frameHeaders(f) })
     }
     return new Response(JSON.stringify(reply.json), { status: reply.status })
   }

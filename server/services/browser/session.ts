@@ -6,6 +6,7 @@ import {
   BROWSER_LIMITS, BrowserError, actionSchema, needsOk, userInputSchema,
   type BrowserAction, type PageState, type UserInput
 } from './model'
+import { hostOf } from '../../../shared/utils/browserSteps'
 import { nameExpression, snapshotExpression } from './snapshot'
 
 /**
@@ -35,7 +36,11 @@ export interface Frame {
   url: string
   title: string
   control: 'assistant' | 'person'
+  /** Every open tab, so the live view can look like a browser. Host only, never the full address. */
+  tabs: FrameTab[]
 }
+
+export interface FrameTab { title: string, host: string, active: boolean }
 
 const safeProtocol = (url: string) => /^https?:/i.test(url) || url === 'about:blank'
 
@@ -183,8 +188,13 @@ export class BrowserSession {
     this.live()
     if (this.cached && this.now() - this.cached.at < 250) return this.cached.frame
     const bytes = await this.page.screenshot({ type: 'jpeg', quality: 60, timeout: 6000 })
+    const tabs = await Promise.all(this.pages.map(async (p): Promise<FrameTab> => ({
+      title: (await p.title().catch(() => '')).slice(0, 60),
+      host: safeProtocol(p.url()) && p.url() !== 'about:blank' ? hostOf(p.url()) : '',
+      active: p === this.page
+    })))
     const frame: Frame = {
-      bytes, ...BROWSER_LIMITS.viewport, url: this.safeUrl(), title: (await this.page.title().catch(() => '')).slice(0, 200), control: this.control
+      bytes, ...BROWSER_LIMITS.viewport, url: this.safeUrl(), title: (await this.page.title().catch(() => '')).slice(0, 200), control: this.control, tabs
     }
     this.cached = { at: this.now(), frame }
     return frame

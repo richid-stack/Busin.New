@@ -1,5 +1,6 @@
 import { defineHandler } from 'nitro'
 import { createError } from 'nitro/h3'
+import { frameHeaders } from '../../../../services/browser/frameWire'
 import { browserCall, browserFor } from '../../../../utils/browserAccess'
 
 /** The live picture of the page, as a JPEG. Polled by the browser card while it is open. */
@@ -12,11 +13,7 @@ export default defineHandler(async (event) => {
       'Content-Type': 'image/jpeg',
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
-      'X-Width': String(frame.width),
-      'X-Height': String(frame.height),
-      'X-Control': frame.control,
-      'X-Url': encodeURIComponent(frame.url),
-      'X-Title': encodeURIComponent(frame.title)
+      ...frameHeaders(frame)
     }
   })
 })

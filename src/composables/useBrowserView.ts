@@ -16,6 +16,14 @@ const KEYS: Record<string, string> = {
   ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight', PageDown: 'PageDown', PageUp: 'PageUp', Home: 'Home', End: 'End'
 }
 
+/** The tab list from a frame's header. A bad header just means no tab strip. */
+function readTabs(value: string | null) {
+  try {
+    const raw = JSON.parse(decodeURIComponent(value ?? '[]'))
+    return Array.isArray(raw) ? raw.slice(0, 6).map(t => ({ title: String(t?.title ?? ''), host: String(t?.host ?? ''), active: t?.active === true })) : []
+  } catch { return [] }
+}
+
 export function useBrowserView(chatId: Ref<string>, active: Ref<boolean>, busy: Ref<boolean>) {
   const { csrf, headerName } = useCsrf()
   const headers = () => {
@@ -27,6 +35,7 @@ export function useBrowserView(chatId: Ref<string>, active: Ref<boolean>, busy: 
   const image = ref('')
   const url = ref('')
   const title = ref('')
+  const tabs = ref<{ title: string, host: string, active: boolean }[]>([])
   const control = ref<'assistant' | 'person'>('assistant')
   const size = ref<ViewSize>({ width: 1100, height: 560 })
   /** There is (or was) a page to show. */
@@ -65,6 +74,7 @@ export function useBrowserView(chatId: Ref<string>, active: Ref<boolean>, busy: 
       image.value = next
       url.value = decodeURIComponent(res.headers.get('x-url') ?? '')
       title.value = decodeURIComponent(res.headers.get('x-title') ?? '')
+      tabs.value = readTabs(res.headers.get('x-tabs'))
       control.value = res.headers.get('x-control') === 'person' ? 'person' : 'assistant'
       size.value = { width: Number(res.headers.get('x-width')) || 1100, height: Number(res.headers.get('x-height')) || 560 }
       seen.value = true
@@ -182,7 +192,7 @@ export function useBrowserView(chatId: Ref<string>, active: Ref<boolean>, busy: 
   }
 
   return {
-    image, url, title, control, size, seen, ended, error, working,
+    image, url, title, tabs, control, size, seen, ended, error, working,
     live: computed(() => seen.value && !ended.value),
     takeOver, handBack, close, click, typeText, key, pressKey, scroll, start, stop
   }

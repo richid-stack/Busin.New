@@ -3,6 +3,7 @@ import http from 'node:http'
 import { chromium } from 'playwright-core'
 import { BrowserManager } from '../server/services/browser/manager'
 import { BrowserSession } from '../server/services/browser/session'
+import { frameHeaders, parseTabs } from '../server/services/browser/frameWire'
 import { startGuardProxy } from '../server/utils/guardProxy'
 import { BROWSER_LIMITS, BrowserError, actionSchema, describeAction, isSensitiveField, needsOk, userInputSchema, type PageState } from '../server/services/browser/model'
 
@@ -174,6 +175,11 @@ else {
     st = (await session.act({ action: 'scroll', direction: 'up', amount: 3000 })).state
     const tab = await session.act({ action: 'click', ref: find(st, 'Open in new tab') })
     assert(tab.state.title === 'Popup' && tab.state.tabs === 2, 'a link that opens a new tab moves the session to that tab')
+    const shot = await session.frame()
+    assert(shot.tabs.length === 2 && shot.tabs.filter(t => t.active).length === 1 && shot.tabs[1]!.active && shot.tabs[1]!.title === 'Popup' && shot.tabs[0]!.host === '127.0.0.1', 'the live picture lists every tab, host only, with the active one marked')
+    const wire = new Headers(frameHeaders(shot))
+    assert(JSON.stringify(parseTabs(wire.get('x-tabs'))) === JSON.stringify(shot.tabs), 'tabs survive the trip through headers')
+    assert(parseTabs('%E0%A4%A').length === 0 && parseTabs(null).length === 0 && parseTabs(encodeURIComponent('{"a":1}')).length === 0, 'a bad tabs header means no tab strip, not an error')
     await session.act({ action: 'back' }).catch(() => {})
     st = (await session.act({ action: 'open', url: base })).state
     const dl = await session.act({ action: 'click', ref: find(st, 'Get the file') })

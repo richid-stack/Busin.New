@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import { timingSafeEqual } from 'node:crypto'
 import { InspectError, captureScreenshot } from '../server/services/inspect/browser'
+import { frameHeaders } from '../server/services/browser/frameWire'
 import { LocalBrowserService, answerWorker, bearerMatches } from '../server/services/browser/service'
 
 /**
@@ -54,7 +55,7 @@ createServer(async (req, res) => {
       const reply = await answerWorker(browsers, req.url.slice('/browser/'.length), body)
       if (reply.image) {
         const f = reply.image
-        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store', 'X-Width': String(f.width), 'X-Height': String(f.height), 'X-Url': encodeURIComponent(f.url), 'X-Title': encodeURIComponent(f.title), 'X-Control': f.control })
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store', ...frameHeaders(f) })
         return void res.end(f.bytes)
       }
       return send(res, reply.status, reply.json)

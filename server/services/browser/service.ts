@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { BROWSER_LIMITS, BrowserError, actionSchema, userInputSchema, type BrowserAction, type PageState, type UserInput } from './model'
 import { BrowserManager, type ManagerOptions } from './manager'
 import type { ActResult, Frame } from './session'
+import { frameFromHeaders } from './frameWire'
 
 /**
  * What the app needs from a browser, wherever it runs: on a hosted worker (the default), in the app itself (development),
@@ -139,16 +140,7 @@ export class RemoteBrowserService implements BrowserService {
     const res = await this.call('frame', { key }, undefined, 15_000)
     if (res.status === 404) return null
     if (!res.ok) throw new BrowserError('The browser service could not do that.', 'failed')
-    const bytes = Buffer.from(await res.arrayBuffer())
-    const h = res.headers
-    return {
-      bytes,
-      width: Number(h.get('x-width')) || BROWSER_LIMITS.viewport.width,
-      height: Number(h.get('x-height')) || BROWSER_LIMITS.viewport.height,
-      url: decodeURIComponent(h.get('x-url') ?? 'about:blank'),
-      title: decodeURIComponent(h.get('x-title') ?? ''),
-      control: h.get('x-control') === 'person' ? 'person' : 'assistant'
-    }
+    return frameFromHeaders(Buffer.from(await res.arrayBuffer()), res.headers)
   }
   async takeOver(key: string) { await this.json(await this.call('takeover', { key }, undefined, 15_000)) }
   async handBack(key: string) { return (await this.json<{ state: PageState }>(await this.call('handback', { key }, undefined, 30_000))).state }
