@@ -89,6 +89,7 @@ gcloud scheduler jobs create http openlobs-cron --location $REGION --schedule="*
 Tasks run in the background, started right when one is created and picked up again by this second timer if a server stops half way (this also takes over tasks whose worker disappeared):
 
 ```bash
+# The same 2-minute job also emails people whose browser page is waiting for them, and closes pages that waited 30 minutes.
 gcloud scheduler jobs create http openlobs-cron-tasks --location $REGION --schedule="*/2 * * * *" \
   --uri="$URL/api/cron/tasks" --http-method=POST \
   --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=CRON_SECRET)"

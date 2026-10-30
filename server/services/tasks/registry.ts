@@ -35,8 +35,8 @@ export const CAPABILITIES: Capability[] = [
   cap('inspect_design', 'Look at a page or picture', 'read', 70_000, ['visual']),
   // Changes files on a person's own computer (always into a new copy), so it needs a person present for now.
   { tool: 'computer_excel', label: 'Work on spreadsheets on your computer', location: 'local', risk: 'act', unattended: false, timeoutMs: 130_000, verifiedBy: ['file'] },
-  // A person is needed: it signs in, pays and sends things only with their hands or their OK.
-  { tool: 'browser', label: 'Use a browser', location: 'remote', risk: 'act', unattended: false, timeoutMs: 80_000, verifiedBy: ['visual'] },
+  // Safe to run unattended because it never acts alone: it signs in only with the person's hands and sends, buys or deletes only with their OK, and the task pauses ("needs you") until they answer.
+  { tool: 'browser', label: 'Use a browser', location: 'remote', risk: 'act', unattended: true, timeoutMs: 80_000, verifiedBy: ['visual'] },
   cap('chart', 'Draw a chart', 'read', 10_000, []),
   cap('plan', 'Outline a plan', 'read', 10_000, []),
   cap('weather', 'Check the weather', 'read', 15_000, []),

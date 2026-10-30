@@ -18,7 +18,8 @@ import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
 import { createReadDocumentTool } from '../../../utils/tools/readDocument'
 import { createInspectDesignTool } from '../../../utils/tools/inspectDesign'
 import { createBrowserTool } from '../../../utils/tools/browser'
-import { defaultBrowserService } from '../../../services/browser/service'
+import { browserKey, defaultBrowserService } from '../../../services/browser/service'
+import { holdStore, startWait } from '../../../services/browser/holds'
 import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
 import { bridgeStore } from '../../../services/bridge/store'
 import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
@@ -241,6 +242,18 @@ export default defineHandler(async (event) => {
     ? (lastMessage.parts ?? []).map((p: any) => (p?.type === 'text' ? String(p.text ?? '') : '')).join(' ')
     : ''
   const browserService = signedIn ? defaultBrowserService() : null
+  // The person is back and has answered (or said something): whatever the page was waiting for is over.
+  const browserSessionKey = browserKey(userId, id)
+  const waitHooks = browserService
+    ? {
+        start: (w: { reason: 'approval' | 'person', label: string }) => startWait({ service: browserService, store: holdStore() }, { key: browserSessionKey, userId, kind: 'chat', ref: id, ...w }),
+        end: () => holdStore().clear(browserSessionKey)
+      }
+    : undefined
+  if (browserService) {
+    await holdStore().clear(browserSessionKey).catch(() => {})
+    await browserService.hold(browserSessionKey, 0).catch(() => {})
+  }
   const allTools = {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
@@ -265,7 +278,7 @@ export default defineHandler(async (event) => {
           create_presentation: createPresentationTool(userId),
           inspect_design: createInspectDesignTool(userId, messages),
           // Only offered where a browser is set up, so the assistant is never told about a tool that cannot work.
-          ...(browserService ? { browser: createBrowserTool(userId, id, browserService) } : {}),
+          ...(browserService ? { browser: createBrowserTool(userId, id, browserService, waitHooks) } : {}),
           ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {})
         }
       : {})

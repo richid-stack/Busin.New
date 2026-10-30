@@ -241,6 +241,29 @@ else {
     assert(stillSame === null || stillSame instanceof BrowserError, 'a different step in between does not break the session')
     await loopy.close()
 
+    // waiting for the person: the page stays open for a long wait, and the wait does not eat the session's life
+    const waiter = await BrowserSession.start(browser, { allowLocal: true, now: () => clock })
+    await waiter.act({ action: 'open', url: `${base}/captcha` })
+    assert((await waiter.info()).viewedAgoMs === null, 'nobody has looked at the page yet')
+    await waiter.frame()
+    assert((await waiter.info()).viewedAgoMs === 0, 'looking at the live picture is noticed')
+    waiter.hold(BROWSER_LIMITS.holdMs)
+    clock += BROWSER_LIMITS.idleMs + BROWSER_LIMITS.maxLifeMs - 60_000
+    assert(waiter.expired() === null && waiter.holdLeftMs > 0, 'a page waiting for the person is not closed for idling or age')
+    clock += 2 * 60_000
+    assert(waiter.holdLeftMs === 0 && /time limit|without use/.test(waiter.expired() ?? ''), 'after the longest wait the page is closed')
+    await waiter.close()
+    const waiter2 = await BrowserSession.start(browser, { allowLocal: true, now: () => clock })
+    const born = waiter2.createdAt
+    waiter2.hold(BROWSER_LIMITS.holdMs)
+    clock += 20 * 60_000
+    await waiter2.act({ action: 'open', url: `${base}/captcha` })
+    assert(waiter2.holdLeftMs === 0 && waiter2.expired() === null && waiter2.createdAt - born === 20 * 60_000, 'when the person answers, the wait is over and does not count against the session\'s life')
+    waiter2.hold(60_000)
+    waiter2.takeOver()
+    assert(waiter2.holdLeftMs === 0, 'taking over the page ends the wait')
+    await waiter2.close()
+
     // limits
     const small = await BrowserSession.start(browser, { allowLocal: true, now: () => clock })
     await small.act({ action: 'open', url: `${base}/captcha` }).then(r => assert(r.state.blocker === 'captcha', 'a "verify you are human" page is reported as a blocker'))

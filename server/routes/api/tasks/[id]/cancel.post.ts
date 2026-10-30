@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { requireUser } from '../../../../utils/session'
 import { enforceRateLimit } from '../../../../utils/rateLimit'
 import { TaskError, publicTask, taskStore } from '../../../../services/tasks/store'
+import { endTaskBrowser } from '../../../../services/tasks/taskBrowser'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
@@ -12,6 +13,7 @@ export default defineHandler(async (event) => {
   try {
     const task = await taskStore().cancel(user.id, id)
     await taskStore().addEvent(id, 'status', task.outcome)
+    await endTaskBrowser(user.id, id)
     return publicTask(task)
   } catch (err) {
     if (err instanceof TaskError) throw new HTTPError({ statusCode: err.code === 'not_found' ? 404 : 409, statusMessage: err.message })

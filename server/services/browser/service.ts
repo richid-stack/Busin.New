@@ -16,6 +16,10 @@ export interface SessionStatus {
   actions: number
   /** Milliseconds until the session closes if nobody uses it. */
   idleLeftMs: number
+  /** Milliseconds left of a wait for the person (0 when the page is not waiting). */
+  holdLeftMs: number
+  /** How long ago someone last looked at the live picture; null if nobody has. Tells whether the person is here. */
+  viewedAgoMs: number | null
 }
 
 export interface BrowserService {
@@ -28,6 +32,8 @@ export interface BrowserService {
   takeOver(key: string): Promise<void>
   handBack(key: string): Promise<PageState>
   input(key: string, input: UserInput): Promise<void>
+  /** Keeps the page open while it waits for the person, up to the longest wait. A step or taking over ends the wait. */
+  hold(key: string, ms: number): Promise<void>
   close(key: string): Promise<void>
 }
 
@@ -57,7 +63,7 @@ export class LocalBrowserService implements BrowserService {
     const s = this.manager.get(key)
     if (!s) return null
     const info = await s.info()
-    return { url: info.url, title: info.title, control: s.control, actions: s.actions, idleLeftMs: Math.max(0, BROWSER_LIMITS.idleMs - (Date.now() - s.lastUsed)) }
+    return { url: info.url, title: info.title, control: s.control, actions: s.actions, idleLeftMs: Math.max(0, BROWSER_LIMITS.idleMs - (Date.now() - s.lastUsed)), holdLeftMs: info.holdLeftMs, viewedAgoMs: info.viewedAgoMs }
   }
 
   async frame(key: string) {
@@ -87,6 +93,7 @@ export class LocalBrowserService implements BrowserService {
     if (!parsed.success) throw new BrowserError('That is not something you can do on the page.', 'bad_input')
     await this.session(key).input(parsed.data)
   }
+  async hold(key: string, ms: number) { this.session(key).hold(ms) }
   async close(key: string) { await this.manager.drop(key) }
 }
 
@@ -145,6 +152,7 @@ export class RemoteBrowserService implements BrowserService {
   async takeOver(key: string) { await this.json(await this.call('takeover', { key }, undefined, 15_000)) }
   async handBack(key: string) { return (await this.json<{ state: PageState }>(await this.call('handback', { key }, undefined, 30_000))).state }
   async input(key: string, input: UserInput) { await this.json(await this.call('input', { key, input }, undefined, 15_000)) }
+  async hold(key: string, ms: number) { await this.json(await this.call('hold', { key, ms }, undefined, 15_000)) }
   async close(key: string) { await this.json(await this.call('close', { key }, undefined, 15_000)) }
 }
 
@@ -177,6 +185,7 @@ export async function answerWorker(service: BrowserService, path: string, body: 
       case 'takeover': await service.takeOver(key); return { status: 200, json: { ok: true } }
       case 'handback': return { status: 200, json: { state: await service.handBack(key) } }
       case 'input': await service.input(key, body.input); return { status: 200, json: { ok: true } }
+      case 'hold': await service.hold(key, Math.min(Math.max(Number(body.ms) || 0, 0), BROWSER_LIMITS.holdMs)); return { status: 200, json: { ok: true } }
       case 'close': await service.close(key); return { status: 200, json: { ok: true } }
       default: return { status: 404, json: { error: 'Not found', code: 'not_found' } }
     }

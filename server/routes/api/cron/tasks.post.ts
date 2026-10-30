@@ -4,6 +4,9 @@ import { processQueue } from '../../../services/tasks/run'
 import { runDueTaskSchedules } from '../../../services/tasks/scheduleTick'
 import { taskScheduleStore } from '../../../services/tasks/schedules'
 import { taskStore } from '../../../services/tasks/store'
+import { holdStore, processHolds } from '../../../services/browser/holds'
+import { defaultBrowserService } from '../../../services/browser/service'
+import { defaultNotifyDeps, notifyNeedsYou } from '../../../services/notifications/notify'
 import { secretMatches } from '../../../utils/secretCompare'
 
 /** The timer endpoint for tasks: makes tasks for schedules that are due, then starts waiting tasks and takes over ones whose worker stopped. Same secret as the workflow timer. */
@@ -22,6 +25,16 @@ export default defineHandler(async (event) => {
     console.error('[task-schedule] timer pass failed:', err?.message)
     return null
   })
+  // Pages waiting for a person: email the ones nobody is looking at, and close the ones that waited too long.
+  const holds = await processHolds({
+    store: holdStore(),
+    service: defaultBrowserService(),
+    notify: hold => notifyNeedsYou(defaultNotifyDeps(), hold),
+    onExpired: async (hold) => { if (hold.kind === 'task') await taskStore().expireWaiting(hold.userId, hold.ref) }
+  }).catch((err) => {
+    console.error('[browser-hold] timer pass failed:', err?.message)
+    return null
+  })
   const queue = await processQueue({ budgetMs: 120_000, maxTasks: 5 })
-  return { ...queue, schedules }
+  return { ...queue, schedules, holds }
 })

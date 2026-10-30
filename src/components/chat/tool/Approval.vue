@@ -5,7 +5,7 @@ import { accentGradient } from '../../../utils/accentGradient'
 import { appLogo } from '../../../utils/appLogo'
 import { mcpLogo } from '../../../utils/mcpLogo'
 
-const props = defineProps<{ part: any, /** What will be done, when the tool cannot say it in its own inputs (the browser). */ instruction?: string, /** Replaces the tool's name in the heading (the site, for the browser). */ label?: string }>()
+const props = defineProps<{ part: any, /** What will be done, when the tool cannot say it in its own inputs (the browser). */ instruction?: string, /** Replaces the tool's name in the heading (the site, for the browser). */ label?: string, /** Not a yes/no question: the page needs you to do something (sign in, a code), then press Continue. */ person?: boolean }>()
 
 type Respond = (approvalId: string, approved: boolean) => void | Promise<void>
 const respond = inject<Respond | null>('respondToToolApproval', null)
@@ -63,10 +63,10 @@ async function answer(approved: boolean) {
         </div>
         <div class="min-w-0">
           <p class="text-sm font-semibold text-highlighted">
-            Approve this before it runs
+            {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>
           <p class="text-xs text-muted mt-0.5">
-            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. It may change things or reach other people.
+            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : 'It may change things or reach other people.' }}
           </p>
         </div>
       </div>
@@ -97,6 +97,7 @@ async function answer(approved: boolean) {
 
       <div class="flex items-center justify-end gap-2">
         <UButton
+          v-if="!person"
           label="Decline"
           color="neutral"
           variant="ghost"
@@ -104,7 +105,7 @@ async function answer(approved: boolean) {
           @click="answer(false)"
         />
         <UButton
-          label="Approve"
+          :label="person ? 'Continue' : 'Approve'"
           icon="i-lucide-check"
           color="neutral"
           :loading="answered === true"

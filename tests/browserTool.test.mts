@@ -36,7 +36,7 @@ let failWith: Error | null = null
 const fake: BrowserService = {
   async check() { return { ask, label: ask ? 'Click “Place order” on shop.example.com' : '' } },
   async act(key, action, opts) { calls.push({ key, action, approved: opts?.approved }); if (failWith) throw failWith; return { state: state(), navigated: action.action === 'open' } },
-  async status() { return null }, async frame() { return null }, async takeOver() {}, async handBack() { return state() }, async input() {}, async close() {}
+  async status() { return null }, async frame() { return null }, async takeOver() {}, async handBack() { return state() }, async input() {}, async hold() {}, async close() {}
 }
 const t: any = createBrowserTool('ann', 'chat1', fake)
 const run = (input: Record<string, unknown>) => t.execute(input, { toolCallId: 'x', messages: [] })
@@ -68,7 +68,7 @@ assert(limited.status === 'failed', 'a person cannot run endless steps')
 
 // ---- Where it sits ----
 const group = TOOL_GROUPS.find(g => g.tools.includes('browser'))
-assert(group?.sensitive === true && allowedToolNames(['browser']).length === 0, 'it is a sensitive tool group and never runs in an unattended task')
+assert(group?.sensitive === true && allowedToolNames(['browser']).join() === 'browser', 'it is a sensitive tool group, and a task may use it because it pauses for the person instead of acting alone')
 assert(browserKey('u', 'c') === 'u:c' && validKey('u:c') && !validKey('../x') && !validKey('a b') && !validKey(''), 'session keys are checked')
 assert(bearerMatches('Bearer abc', 'abc') && !bearerMatches('Bearer abd', 'abc') && !bearerMatches(undefined, 'abc'), 'the worker checks its secret')
 
@@ -136,4 +136,73 @@ else {
     await service.manager.shutdown()
     site.close()
   }
+}
+
+// ---- Waiting for the person: in a chat, and inside a task ----
+{
+  const waits: Array<{ reason: string, label: string }> = []
+  let ended = 0
+  const hooks = { start: async (w: { reason: 'approval' | 'person', label: string }) => { waits.push(w) }, end: async () => { ended++ } }
+  const stepCalls: Array<{ approved?: boolean }> = []
+  let asking = false
+  let blocker: PageState['blocker'] = null
+  const svc: BrowserService = {
+    async check() { return { ask: asking, label: asking ? 'Click “Place order” on shop.example.com' : '' } },
+    async act(_k, action, opts) { stepCalls.push({ approved: opts?.approved }); return { state: state({ blocker, url: 'https://shop.example.com/login' }), navigated: action.action === 'open' } },
+    async status() { return { url: 'https://shop.example.com/', title: 'Shop', control: 'assistant', actions: 1, idleLeftMs: 1, holdLeftMs: 0, viewedAgoMs: null } },
+    async frame() { return null }, async takeOver() {}, async handBack() { return state() }, async input() {}, async hold() {}, async close() {}
+  }
+  const call = (tl: any, input: Record<string, unknown>) => tl.execute(input, { toolCallId: 'x', messages: [] })
+
+  // In a chat: the person is asked through the approval card; the wait is recorded when it is asked.
+  const chat: any = createBrowserTool('ann', 'chatW', svc, hooks)
+  asking = true
+  assert(await chat.needsApproval({ action: 'click', ref: 1 }) === true && waits.at(-1)?.reason === 'approval' && /Place order/.test(waits.at(-1)!.label), 'in a chat, a step that needs the OK starts a wait with what it is')
+  asking = false
+  const pre = waits.length
+  assert(await chat.needsApproval({ action: 'click', ref: 1 }) === false && waits.length === pre, 'a harmless step starts no wait')
+  await call(chat, { action: 'read' })
+  assert(ended === 1, 'a step that runs ends the wait')
+  const np: any = await call(chat, { action: 'need_person', reason: 'Sign in to Kente Studio' })
+  assert(np.status === 'waiting' && waits.at(-1)!.reason === 'person' && waits.at(-1)!.label === 'Sign in to Kente Studio' && /Take over/.test(np.note), 'asking for the person keeps the page open and tells the assistant to stop')
+  blocker = 'login'
+  await call(chat, { action: 'open', url: 'https://shop.example.com/login' })
+  assert(waits.at(-1)!.reason === 'person' && /Sign in on shop.example.com/.test(waits.at(-1)!.label), 'a sign-in page starts a wait by itself, even if the assistant says nothing')
+  blocker = 'captcha'
+  await call(chat, { action: 'read' })
+  assert(/Verify you are human on shop.example.com/.test(waits.at(-1)!.label), 'so does a "verify you are human" page')
+  blocker = null
+  const nobody: BrowserService = { ...svc, async status() { return null } }
+  const none: any = await call(createBrowserTool('ann', 'chatW', nobody, hooks), { action: 'need_person', reason: 'x' })
+  assert(none.status === 'failed' && none.code === 'not_found', 'with no page open there is nothing to wait on')
+
+  // In a task: nobody can be asked on the spot, so the task pauses.
+  const paused: Array<{ reason: string, label: string }> = []
+  const task = { pause: (p: { reason: 'approval' | 'person', label: string }) => { paused.push(p) }, approvedLabel: null as string | null }
+  const inTask: any = createBrowserTool('ann', 'task-t1', svc, hooks, task)
+  assert(inTask.needsApproval === undefined, 'in a task there is no approval card to wait for')
+  asking = true
+  stepCalls.length = 0
+  const held: any = await call(inTask, { action: 'click', ref: 1 })
+  assert(held.status === 'waiting' && paused.length === 1 && paused[0]!.reason === 'approval' && stepCalls.length === 0, 'a step that needs the OK is not done: the task pauses')
+  assert(waits.at(-1)!.reason === 'approval' && /Place order/.test(waits.at(-1)!.label), 'and the wait is recorded so the person is told')
+  // After the person approved exactly that step, it is done once.
+  const approvedTask = { pause: task.pause, approvedLabel: 'Click “Place order” on shop.example.com' }
+  const second: any = createBrowserTool('ann', 'task-t1', svc, hooks, approvedTask)
+  const ok: any = await call(second, { action: 'click', ref: 1 })
+  assert(ok.status === 'ok' && stepCalls.length === 1 && stepCalls[0]!.approved === true, 'the step the person approved goes ahead once')
+  const again: any = await call(second, { action: 'click', ref: 1 })
+  assert(again.status === 'waiting' && stepCalls.length === 1 && paused.length === 2, 'the same step again needs a new OK')
+  asking = true
+  svc.check = async () => ({ ask: true, label: 'Click “Delete account” on shop.example.com' })
+  const other: any = await call(createBrowserTool('ann', 'task-t1', svc, hooks, approvedTask), { action: 'click', ref: 2 })
+  assert(other.status === 'waiting' && stepCalls.length === 1, 'approving one step approves nothing else')
+  asking = false
+  svc.check = async () => ({ ask: false, label: '' })
+  const needs: any = await call(inTask, { action: 'need_person', reason: 'Enter the code sent to your phone' })
+  assert(needs.status === 'waiting' && paused.at(-1)!.reason === 'person' && /code/.test(paused.at(-1)!.label), 'asking for the person pauses the task')
+  blocker = 'login'
+  const before = paused.length
+  await call(inTask, { action: 'open', url: 'https://shop.example.com/login' })
+  assert(paused.length === before + 1 && paused.at(-1)!.reason === 'person', 'a sign-in page pauses the task')
 }

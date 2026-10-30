@@ -12,6 +12,16 @@ It looks like the rest of the chat, nothing new to learn:
 - **One short rectangle for the live page, framed like a browser**: a tab for each open page (the one you see is raised), an address bar with the site, and the page below. **Take over** (then **Hand back**) and **close** sit in the address bar. Only the site name is shown, never the full address of other tabs.
 - **Approvals use the same gradient card** as every other approval, naming the control and the site ("Clicking “Place order” on shop.example").
 
+## When it needs you (and you are not looking)
+
+A sign-in, a code, a "verify you are human" page, or a step that needs your OK stops the assistant. The page is then **held open for up to 30 minutes** (the wait does not use up the session's time).
+
+- **In a chat:** the approval card (or the browser card's Take over) is waiting for you. If nobody has looked at the page for a minute, you get **one email** ("Your assistant is waiting for you") with a link back. Answering ends the wait.
+- **In a task** (switch on "Let it use a browser" when you create it): the task goes to **Needs you** and the task page shows the live page with the usual approval card (Approve / Decline for a step, or Continue after you signed in yourself). Your answer puts the task back in the queue; the step you approved is allowed once and nothing else. Time spent waiting does not count against the task's minutes.
+- **If you never come back:** after 30 minutes the page closes, and a task stops with a plain note saying what it was waiting for.
+- The email can be switched off in Settings → Notifications ("Assistant needs you"). The check that sends it runs on the same 2-minute timer as tasks (`/api/cron/tasks`), so it arrives within a few minutes.
+- A task never acts alone in the browser: everything that sends, buys or deletes pauses for you, also at 3 a.m. in a scheduled task.
+
 ## The rules it works by
 
 | Situation | What happens |

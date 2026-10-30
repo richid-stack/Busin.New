@@ -46,7 +46,7 @@ export interface FrameTab { title: string, host: string, active: boolean }
 const safeProtocol = (url: string) => /^https?:/i.test(url) || url === 'about:blank'
 
 export class BrowserSession {
-  readonly createdAt: number
+  createdAt: number
   lastUsed: number
   actions = 0
   /** Who holds the page: the assistant, or the person who took over. */
@@ -55,6 +55,11 @@ export class BrowserSession {
   private pages: Page[] = []
   private page!: Page
   private notes: string[] = []
+  /** While the page waits for the person it is kept open until this time, however long that is. */
+  private holdUntil = 0
+  private heldAt = 0
+  /** When someone last looked at the live picture (0: never). Tells whether the person is here or away. */
+  viewedAt = 0
   private readonly loops = new LoopGuard()
   private closed = false
   /** Set when the page's own navigation was refused or failed (a blocked address, a site that is down). */
@@ -95,6 +100,7 @@ export class BrowserSession {
   get isClosed() { return this.closed }
   expired(): string | null {
     const t = this.now()
+    if (t < this.holdUntil) return null
     if (t - this.createdAt > BROWSER_LIMITS.maxLifeMs) return 'This browser session reached its time limit.'
     if (t - this.lastUsed > BROWSER_LIMITS.idleMs) return 'This browser session was closed after a while without use.'
     return null
@@ -125,6 +131,28 @@ export class BrowserSession {
     })
   }
 
+  /** Keeps the page open for up to `holdMs` while it waits for the person. Any step, or taking over, ends the wait. */
+  hold(ms: number) {
+    this.live()
+    if (ms <= 0) return this.release()
+    const t = this.now()
+    if (!this.holdUntil) this.heldAt = t
+    this.holdUntil = t + Math.max(0, Math.min(ms, BROWSER_LIMITS.holdMs))
+  }
+
+  /** The wait is over: the time spent waiting does not count against the session's life. */
+  release() {
+    if (!this.holdUntil) return
+    const t = this.now()
+    this.createdAt += Math.max(0, Math.min(t, this.holdUntil) - this.heldAt)
+    this.holdUntil = 0
+    this.heldAt = 0
+    this.lastUsed = t
+  }
+
+  /** Milliseconds left of the wait, or 0 when the page is not waiting. */
+  get holdLeftMs() { return Math.max(0, this.holdUntil - this.now()) }
+
   /** Does this action need the person's OK first? Decided here, from what is really on the page. */
   check(action: unknown): { ask: boolean, label: string } {
     const parsed = actionSchema.safeParse(action)
@@ -143,6 +171,7 @@ export class BrowserSession {
   private async step(input: unknown, opts: { approved?: boolean }): Promise<ActResult> {
     this.live()
     if (this.control === 'person') throw new BrowserError('The person is using the page right now. Wait for them to hand it back.', 'limit')
+    this.release()
     const parsed = actionSchema.safeParse(input)
     if (!parsed.success) throw new BrowserError('That is not an action the browser can do.', 'bad_input')
     const action = parsed.data
@@ -192,12 +221,13 @@ export class BrowserSession {
     await this.guardUrl()
   }
 
-  takeOver() { this.live(); this.control = 'person'; this.unseen = true; this.held = this.last; this.cached = null }
+  takeOver() { this.live(); this.release(); this.control = 'person'; this.unseen = true; this.held = this.last; this.cached = null }
   /** Hands the page back and re-reads it, because the person may have changed it. */
   async handBack(): Promise<PageState> { this.live(); this.control = 'assistant'; return await this.read() }
 
   async frame(): Promise<Frame> {
     this.live()
+    this.viewedAt = this.now()
     if (this.cached && this.now() - this.cached.at < 250) return this.cached.frame
     const bytes = await this.page.screenshot({ type: 'jpeg', quality: 60, timeout: 6000 })
     const tabs = await Promise.all(this.pages.map(async (p): Promise<FrameTab> => ({
@@ -213,8 +243,8 @@ export class BrowserSession {
   }
 
   /** Where the page is, cheaply (no picture). */
-  async info(): Promise<{ url: string, title: string }> {
-    return { url: this.safeUrl(), title: (await this.page.title().catch(() => '')).slice(0, 200) }
+  async info(): Promise<{ url: string, title: string, holdLeftMs: number, viewedAgoMs: number | null }> {
+    return { url: this.safeUrl(), title: (await this.page.title().catch(() => '')).slice(0, 200), holdLeftMs: this.holdLeftMs, viewedAgoMs: this.viewedAt ? this.now() - this.viewedAt : null }
   }
 
   async close(): Promise<void> {

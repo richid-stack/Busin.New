@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import { assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
 import { DEFAULT_CRITERION, FINAL_STATUSES, LIMITS, canTransition, isFinal } from './model'
-import type { Artifact, Criterion, EventKind, Task, TaskEvent, TaskInput, TaskStatus } from './model'
+import type { Artifact, Criterion, EventKind, ResumeNote, Task, TaskEvent, TaskInput, TaskStatus, Waiting } from './model'
 
 const COLLECTION = 'tasks'
 const LEASE_MS = 90_000
@@ -33,6 +33,9 @@ function fromDoc(id: string, d: Record<string, any>): Task {
     outcome: String(d.outcome || ''),
     error: String(d.error || ''),
     eventCount: d.eventCount ?? 0,
+    waiting: d.waiting ?? null,
+    workedMs: d.workedMs ?? 0,
+    resume: d.resume ?? null,
     scheduleId: d.scheduleId ?? null,
     leaseUntil: d.leaseUntil ?? null,
     leaseToken: d.leaseToken ?? null,
@@ -60,6 +63,9 @@ export interface TaskPatch {
   result?: string
   outcome?: string
   error?: string
+  waiting?: Waiting | null
+  workedMs?: number
+  resume?: ResumeNote | null
 }
 
 export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
@@ -93,7 +99,7 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
       const r = db.collection(COLLECTION).doc()
       const doc = {
         userId, goal: input.goal, status: 'queued', criteria, tools: input.tools, model: input.model, maxAttempts: input.maxAttempts, maxSteps: input.maxSteps, maxMinutes: input.maxMinutes,
-        attempts: 0, artifacts: [], result: '', outcome: '', error: '', eventCount: 0, scheduleId: opts.scheduleId ?? null, leaseUntil: null, leaseToken: null, createdAt: at, updatedAt: at, startedAt: null, finishedAt: null
+        attempts: 0, artifacts: [], result: '', outcome: '', error: '', eventCount: 0, waiting: null, workedMs: 0, resume: null, scheduleId: opts.scheduleId ?? null, leaseUntil: null, leaseToken: null, createdAt: at, updatedAt: at, startedAt: null, finishedAt: null
       }
       await r.set(doc)
       const task = fromDoc(r.id, doc)
@@ -169,6 +175,8 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
         if (patch.status && !canTransition(cur.status, patch.status)) throw new TaskError(`A task cannot go from ${cur.status} to ${patch.status}.`, 'conflict')
         const at = now().toISOString()
         const next: Record<string, unknown> = { ...patch, updatedAt: at, leaseUntil: new Date(now().getTime() + LEASE_MS).toISOString() }
+        // A task waiting for the person is held by nobody: whoever picks it up after they answer takes a fresh lease.
+        if (patch.status === 'needs_you') { next.leaseUntil = null; next.leaseToken = null }
         if (patch.status && (isFinal(patch.status) || patch.status === 'needs_review')) { next.finishedAt = at; next.leaseUntil = null; next.leaseToken = null }
         if (typeof patch.result === 'string') next.result = clip(patch.result, 6000)
         if (typeof patch.outcome === 'string') next.outcome = clip(patch.outcome, 600)
@@ -193,6 +201,42 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
         if (isFinal(cur.status)) throw new TaskError('This task has already finished.', 'conflict')
         const at = now().toISOString()
         const next = { status: 'cancelled', leaseToken: null, leaseUntil: null, updatedAt: at, finishedAt: at, outcome: 'Cancelled by you before it finished.' }
+        tx.update(ref(id), next)
+        return fromDoc(id, { ...snap.data(), ...next })
+      })
+    },
+
+    /** The person answers a paused task: it goes back in the queue with what they decided. */
+    async resume(userId: string, id: string, decision: 'approve' | 'decline' | 'continue'): Promise<Task> {
+      return await db.runTransaction(async (tx: any) => {
+        const snap = await tx.get(ref(id))
+        const cur = snap.exists ? fromDoc(snap.id, snap.data()) : null
+        if (!cur || cur.userId !== userId) throw new TaskError('Task not found.', 'not_found')
+        if (cur.status !== 'needs_you' || !cur.waiting) throw new TaskError('This task is not waiting for you.', 'conflict')
+        const w = cur.waiting
+        if (decision === 'approve' && w.reason !== 'approval') throw new TaskError('There is nothing here to approve: do what the page needs, then press Continue.', 'invalid')
+        if (decision === 'continue' && w.reason !== 'person') throw new TaskError('Approve or decline the step first.', 'invalid')
+        const resume: ResumeNote = decision === 'approve'
+          ? { note: `The person approved this step and it may be done once: ${w.label}. The browser is still open on the page you were on: read it, then do exactly that step and carry on.`, approvedLabel: w.label }
+          : decision === 'decline'
+            ? { note: `The person declined this step: ${w.label}. Do not do it and do not look for another way to the same result. Finish what you can without it and say plainly that you stopped there.`, approvedLabel: null }
+            : { note: `The person has dealt with what the page needed (${w.label}). The browser is still open on that page: read it first, then carry on.`, approvedLabel: null }
+        const at = now().toISOString()
+        const next = { status: 'queued', waiting: null, resume, leaseToken: null, leaseUntil: null, updatedAt: at }
+        tx.update(ref(id), next)
+        return fromDoc(id, { ...snap.data(), ...next })
+      })
+    },
+
+    /** The wait ran out and the person never came back: the task stops, and says why. */
+    async expireWaiting(userId: string, id: string): Promise<Task | null> {
+      return await db.runTransaction(async (tx: any) => {
+        const snap = await tx.get(ref(id))
+        const cur = snap.exists ? fromDoc(snap.id, snap.data()) : null
+        if (!cur || cur.userId !== userId || cur.status !== 'needs_you') return null
+        const at = now().toISOString()
+        const outcome = `Stopped: it was waiting for you (${cur.waiting?.label || 'in the browser'}) and you did not come back within 30 minutes. Run it again when you can be there.`
+        const next = { status: 'failed', waiting: null, resume: null, outcome, leaseToken: null, leaseUntil: null, updatedAt: at, finishedAt: at }
         tx.update(ref(id), next)
         return fromDoc(id, { ...snap.data(), ...next })
       })

@@ -22,6 +22,8 @@ export const BROWSER_LIMITS = {
   /** The longest a session lives at all. */
   maxLifeMs: 20 * 60_000,
   maxTabs: 4,
+  /** How long a page is kept open while it waits for the person (a sign-in, a code, an OK). */
+  holdMs: 30 * 60_000,
   maxTypeChars: 1000,
   maxUserTypeChars: 500
 } as const

@@ -2,6 +2,7 @@ import type { H3Event } from 'nitro'
 import { createError, getValidatedRouterParams } from 'nitro/h3'
 import { z } from 'zod'
 import { getChat } from './firebase'
+import { taskStore } from '../services/tasks/store'
 import { enforceRateLimit } from './rateLimit'
 import { requireUser } from './session'
 import { BrowserError } from '../services/browser/model'
@@ -18,8 +19,13 @@ export async function browserFor(event: H3Event, perMinute = 300): Promise<{ ser
   const user = await requireUser(event)
   const { chatId } = await getValidatedRouterParams(event, z.object({ chatId: z.string().min(1).max(128) }).parse)
   enforceRateLimit(event, 'browser-view', user.id, perMinute, 60_000)
-  const chat = await getChat(chatId)
-  if (!chat || chat.userId !== user.id) throw createError({ statusCode: 404, statusMessage: 'Chat not found' })
+  // A task's page is addressed as "task-<id>": it belongs to the task's owner, checked the same way a chat's is.
+  if (chatId.startsWith('task-')) {
+    if (!(await taskStore().get(user.id, chatId.slice(5)))) throw createError({ statusCode: 404, statusMessage: 'Task not found' })
+  } else {
+    const chat = await getChat(chatId)
+    if (!chat || chat.userId !== user.id) throw createError({ statusCode: 404, statusMessage: 'Chat not found' })
+  }
   const service = defaultBrowserService()
   if (!service) throw createError({ statusCode: 503, statusMessage: 'Browser use is not set up on this server.' })
   return { service, key: browserKey(user.id, chatId), userId: user.id }
