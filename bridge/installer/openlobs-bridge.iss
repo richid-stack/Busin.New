@@ -1,8 +1,8 @@
 ; OpenLobs Bridge: Windows installer (Inno Setup 6).
-; Build:  iscc /DAppVersion=0.4.0 /DDefaultServer=https://your-openlobs bridge\installer\openlobs-bridge.iss
+; Build:  iscc /DAppVersion=0.5.0 /DDefaultServer=https://your-openlobs bridge\installer\openlobs-bridge.iss
 ; Silent: OpenLobs-Bridge-Setup.exe /VERYSILENT /SERVER=https://your-openlobs /CODE=ABCD2345 /ALLOWBROWSER=1
 #ifndef AppVersion
-  #define AppVersion "0.4.0"
+  #define AppVersion "0.5.0"
 #endif
 #ifndef DefaultServer
   #define DefaultServer ""
@@ -39,6 +39,10 @@ Name: "{userprograms}\OpenLobs Bridge\Allow spreadsheet work in one folder"; Fil
 Name: "{userprograms}\OpenLobs Bridge\Stop allowing spreadsheet work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny excel & pause"
 Name: "{userprograms}\OpenLobs Bridge\Check that spreadsheets work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" selftest & pause"
 Name: "{userprograms}\OpenLobs Bridge\Stop allowing web page looks"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny browser & pause"
+Name: "{userprograms}\OpenLobs Bridge\Allow OpenLobs to use a browser"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow browser_use & pause"
+Name: "{userprograms}\OpenLobs Bridge\Stop allowing browser use"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny browser_use & pause"
+Name: "{userprograms}\OpenLobs Bridge\Sign in to sites for OpenLobs"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" browser login & pause"
+Name: "{userprograms}\OpenLobs Bridge\Sign out of all sites in the OpenLobs browser"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" browser forget & pause"
 Name: "{userprograms}\OpenLobs Bridge\Start the Bridge"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\bridge-hidden.vbs"""
 Name: "{userprograms}\OpenLobs Bridge\Recent activity"; Filename: "{win}\notepad.exe"; Parameters: """{userappdata}\OpenLobsBridge\bridge.log"""
 ; Starts by itself when you sign in to Windows.
@@ -46,6 +50,8 @@ Name: "{userstartup}\OpenLobs Bridge"; Filename: "{sys}\wscript.exe"; Parameters
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{userappdata}\OpenLobsBridge"
+; The browser profile OpenLobs used (its sign-ins) goes too.
+Type: filesandordirs; Name: "{localappdata}\OpenLobsBridge"
 
 [Code]
 var

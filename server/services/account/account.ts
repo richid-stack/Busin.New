@@ -231,7 +231,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     voice: { settings: voiceSettings.exists ? plain(voiceSettings.data()) : null, keys: voiceKeys },
     files,
     payments,
-    notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true },
+    notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true, emailNeedsYou: true },
     connectedKeys: keyDocs,
     connectorActivity: connectorAudit,
     notificationLog: notifLog,

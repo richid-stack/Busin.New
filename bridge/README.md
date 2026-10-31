@@ -1,6 +1,6 @@
 # OpenLobs Bridge
 
-A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.4: it can answer a ping, look at web pages, and work on spreadsheets in one folder, each only if you allow it.** It is the base for later steps (other apps).
+A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.5: it can answer a ping, look at web pages, let OpenLobs use a browser, and work on spreadsheets in one folder, each only if you allow it.** It is the base for later steps (other apps).
 
 ## What it will and will not do
 
@@ -25,6 +25,19 @@ You need Node.js 22 or newer and this repository.
 5. To let OpenLobs look at web pages (for example a site you are building on `localhost`), run `npm run bridge -- allow browser`. This needs Microsoft Edge or Google Chrome (Windows has Edge) and a one-time `npm install`. A running Bridge picks the change up within a minute. Turn it off with `npm run bridge -- deny browser`. On the Computers page, "Look at a page" then works, and so does "look at my site on my computer" in chat.
 
 A browser look opens the page in a fresh, empty browser (no logins, nothing remembered), takes a picture, and reports page errors. It never clicks or types. Pages on this computer and the public internet are opened; private-network addresses (router, intranet), local files, and anything a page tries to load from them are refused.
+
+### Letting OpenLobs use a browser (browser use)
+
+`bridge allow browser_use` (Start menu: "Allow OpenLobs to use a browser"). Then, in OpenLobs, turn on **Settings > Assistant browser > Use the browser on my computer**. The chat and Tasks then do their browser work on this computer instead of in the cloud.
+
+- **Its own profile.** It uses Edge or Chrome, in a profile of its own (`%LOCALAPPDATA%\OpenLobsBridge\browser-profile`), never the one you browse with: it has none of your history, bookmarks or logins, only what you sign in to for OpenLobs. Sign in yourself once with `bridge browser login https://the-site` (Start menu: "Sign in to sites for OpenLobs"): a normal window opens on that profile and nothing you type goes through OpenLobs. Sites that keep you signed in for days stay signed in; sites that sign you out when the browser closes will ask again after an hour with no use (the browser closes itself then). `bridge browser forget` signs out of everything.
+- **Same rules as the cloud browser.** The same engine runs here: OpenLobs asks you before anything that sends, pays, posts or deletes (the decision is made on this computer from the live page); it never types passwords, card numbers or codes (you take over for those); it stops when it is going in circles; you can take over the page at any time from the chat.
+- **Cannot reach your network.** Every connection the browser makes goes through a small local guard that refuses private-network addresses (router, intranet, other computers), this computer itself, and non-web ports, at every redirect. It does not open a port you can reach.
+- **One at a time.** One browser session at a time; a new chat replaces the old page.
+- **Stopping.** Pause (tray icon or `bridge pause`) closes the browser at once. So does quitting the Bridge or switching browser use off.
+- If the computer is off, asleep or the Bridge is not running, the chat says so; it does not quietly switch to the cloud (that browser has none of your sign-ins).
+
+Live steps (the picture of the page, a click) travel through the same calls the Bridge already makes to OpenLobs, are held in memory on the server and are never stored.
 
 ### Emergency stop and tray icon
 
@@ -51,7 +64,9 @@ The server address must be `https://`; plain `http://` is accepted only for `loc
 - A settings window (the tray menu and Start menu entries cover pause, activity and quit).
 - Storing the token in the Windows credential store (DPAPI) instead of a protected file.
 - Mac and Linux are untested.
-- Jobs other than `ping`, `browser_look` and the three `workbook_*` ones: no clicking, typing, signed-in browsing or other apps yet.
+- Other apps. (Browser use exists; the `browser_look` job itself still never clicks or types.)
+- Browser use has been tested here against real Chromium and a fake OpenLobs, not yet on a Windows computer with Edge.
+- Saved sign-ins kept in a vault, skills learned from your corrections, and more than one browser session at a time.
 - The Microsoft Excel engine is written but has only been tested against LibreOffice; run `bridge selftest` on a PC with Excel to confirm it there.
 
 ## Tests

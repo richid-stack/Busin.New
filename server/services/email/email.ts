@@ -116,3 +116,17 @@ export function taskFinishedEmail(i: { name?: string, goal: string, outcome: str
   const text = `${headline}\n\nHi ${i.name || 'there'}, ${goal}\n${i.outcome}\n${link ? `\n${link}\n` : ''}\nSwitch these off in Settings → Notifications.`
   return { subject: `${headline}: ${goal}`.slice(0, 150), html, text }
 }
+
+export function needsYouEmail(i: { name?: string, what: string, kind: 'chat' | 'task', minutesLeft: number, appUrl?: string, ref?: string }): Omit<EmailMessage, 'to'> {
+  const what = i.what.length > 200 ? `${i.what.slice(0, 200)}…` : i.what
+  const link = i.appUrl && i.ref ? `${i.appUrl}/${i.kind === 'task' ? 'tasks' : 'chat'}/${encodeURIComponent(i.ref)}` : ''
+  const where = i.kind === 'task' ? 'your task' : 'your chat'
+  const html = layout('Your assistant needs you', [
+    p(`Hi ${escapeHtml(i.name || 'there')}, ${where} paused in the browser and is waiting for you.`),
+    p(`<strong>${escapeHtml(what)}</strong>`),
+    p(`The page stays open for about ${i.minutesLeft} more minutes. After that it closes${i.kind === 'task' ? ' and the task stops' : ''}.`),
+    link ? button(link, 'Open it') : ''
+  ].join(''), 'We send one of these per wait. You can switch them off in Settings → Notifications.')
+  const text = `Your assistant needs you\n\nHi ${i.name || 'there'}, ${where} paused in the browser and is waiting for you.\n${what}\nThe page stays open for about ${i.minutesLeft} more minutes.\n${link ? `\n${link}\n` : ''}\nSwitch these off in Settings → Notifications.`
+  return { subject: 'Your assistant is waiting for you', html, text }
+}

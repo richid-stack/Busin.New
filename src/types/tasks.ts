@@ -1,4 +1,4 @@
-export type TaskStatus = 'queued' | 'running' | 'verifying' | 'needs_review' | 'done' | 'partial' | 'failed' | 'cancelled'
+export type TaskStatus = 'queued' | 'running' | 'needs_you' | 'verifying' | 'needs_review' | 'done' | 'partial' | 'failed' | 'cancelled'
 export type CriterionKind = 'file' | 'visual' | 'check' | 'manual'
 export type CriterionStatus = 'unchecked' | 'met' | 'unmet' | 'unsure' | 'pending'
 
@@ -30,6 +30,8 @@ export interface TaskItem {
   outcome: string
   error: string
   scheduleId?: string | null
+  /** Set while the task is paused for you: what it needs, and when the wait runs out. */
+  waiting?: { reason: 'approval' | 'person', label: string, since: string, until: string } | null
   createdAt: string
   updatedAt: string
   startedAt: string | null
@@ -49,6 +51,7 @@ export interface NewTask {
 export const TASK_STATUS: Record<TaskStatus, { label: string, dot: string, working: boolean }> = {
   queued: { label: 'Waiting', dot: 'bg-neutral-400', working: true },
   running: { label: 'Working', dot: 'bg-primary animate-pulse', working: true },
+  needs_you: { label: 'Needs you', dot: 'bg-warning animate-pulse', working: false },
   verifying: { label: 'Checking', dot: 'bg-primary animate-pulse', working: true },
   needs_review: { label: 'Needs your review', dot: 'bg-warning', working: false },
   done: { label: 'Done', dot: 'bg-success', working: false },

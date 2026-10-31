@@ -455,6 +455,9 @@ function handleTextAction(action: string, selectedText: string) {
             <ChatMessageContent
               :message="message"
               :editing="isOwner && editingMessageId === message.id"
+              :chat-id="data!.id"
+              :live="isOwner && message.id === messages[messages.length - 1]?.id"
+              :working="status === 'streaming' || status === 'submitted'"
               @save="saveEdit"
               @cancel-edit="cancelEdit"
             />
