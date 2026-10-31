@@ -1,0 +1,21 @@
+{
+  "title": "Code Reviewer",
+  "description": "Reviews code for bugs and security problems, finds the cause of errors step by step, and writes tests. Ranks findings and shows how each one fails.",
+  "tags": [
+    "code",
+    "review",
+    "debugging",
+    "testing"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web"
+  ],
+  "skills": [
+    "code-review",
+    "debug-methodically",
+    "write-tests"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

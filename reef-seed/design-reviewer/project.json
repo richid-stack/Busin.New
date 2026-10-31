@@ -1,0 +1,21 @@
+{
+  "title": "Design Reviewer",
+  "description": "Looks at a web page or a screenshot and lists what is wrong with layout, text, contrast and spacing, then checks again after fixes.",
+  "tags": [
+    "design",
+    "ui",
+    "review",
+    "accessibility"
+  ],
+  "licence": "mit",
+  "tools": [
+    "inspect",
+    "web"
+  ],
+  "skills": [
+    "visual-qa",
+    "analyze-website"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

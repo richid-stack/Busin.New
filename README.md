@@ -77,7 +77,7 @@ Give a goal and how you will know it worked. OpenLobs does the work, checks the 
 <td valign="top">
 
 ### 🤖 Agents and skills
-Save assistants with their own instructions, tools and model. Skills are plain-text playbooks, including 18 for small businesses in Ghana (invoices, VAT, payroll, reminders and more) that look current rules up instead of guessing.
+Save assistants with their own instructions, tools and model. Skills are plain-text playbooks: 30 for everyday professional work (writing, analysis, decks, planning, code review, study, browser errands) and 18 for small businesses in Ghana (invoices, VAT, payroll, reminders and more). Ones that depend on facts look them up instead of guessing. The Reef opens with 14 ready-made agents built from them.
 
 </td>
 <td valign="top">

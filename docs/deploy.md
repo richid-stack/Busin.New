@@ -193,7 +193,7 @@ Both cost a little for storage; raise the retention only when you need it. To re
 
 - **Indexes:** deploy the composite indexes once: `firebase deploy --only firestore:indexes --project $PROJECT` (the repository's `firebase.json` names the database). They take a few minutes to build; the Reef lists return an error until then.
 - **Moderators:** set `REEF_ADMINS` on the service to a comma-separated list of the emails (or account ids) of the people who may work the review queue and hand out badges.
-- **The official account:** sign in as the account that should speak for OpenLobs, make its Reef profile, then give it the official badge from its profile page (a moderator does this; the handle `openlobs` is reserved).
+- **The official account and the ready-made projects:** nobody signs in as OpenLobs. Open `/reef/review` as a moderator and press **Publish or update** under "Ready-made projects". That creates the official `openlobs` account (with its badges) and publishes the 14 projects kept in the repository's `reef-seed/` folder. Press it again after a release to bring them up to date; what has not changed is left alone. If someone already holds the handle `openlobs`, it stops and says so.
 
 ## 5f. Lobby (voice)
 

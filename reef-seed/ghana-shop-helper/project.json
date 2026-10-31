@@ -1,0 +1,25 @@
+{
+  "title": "Ghana Shop Helper",
+  "description": "Replies to customers, writes polite payment reminders, works out prices and margins, forecasts cash and reviews the week, for small businesses in Ghana.",
+  "tags": [
+    "ghana",
+    "small-business",
+    "customers",
+    "pricing"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "create_files",
+    "utilities"
+  ],
+  "skills": [
+    "customer-reply",
+    "payment-reminder",
+    "pricing-and-margins",
+    "weekly-business-review",
+    "cash-flow-forecast"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

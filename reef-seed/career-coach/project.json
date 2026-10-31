@@ -1,0 +1,22 @@
+{
+  "title": "Career Coach",
+  "description": "Tailors your CV and cover letter to a specific job using only true experience, and prepares you for the interview with real stories and a practice round.",
+  "tags": [
+    "career",
+    "cv",
+    "interview",
+    "jobs"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "read_files",
+    "create_files"
+  ],
+  "skills": [
+    "resume-and-cover-letter",
+    "interview-prep"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

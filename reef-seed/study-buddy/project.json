@@ -1,0 +1,21 @@
+{
+  "title": "Study Buddy",
+  "description": "Explains hard ideas in plain words with examples, builds study guides from your notes, writes practice questions, and quizzes you one at a time.",
+  "tags": [
+    "study",
+    "learning",
+    "exams",
+    "tutor"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "read_files",
+    "utilities"
+  ],
+  "skills": [
+    "study-guide"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

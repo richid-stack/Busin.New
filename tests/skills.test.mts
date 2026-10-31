@@ -33,7 +33,7 @@ for (const dir of readdirSync(root, { withFileTypes: true })) {
 const shipped = buildCatalog(files, m => { console.log('FAIL', m); process.exitCode = 1 })
 assert(shipped.length === Object.keys(files).length && shipped.length >= 6, `all ${Object.keys(files).length} shipped skills are valid`)
 assert(shipped.every(s => s.description.length >= 60 && /use when/i.test(s.description)), 'shipped descriptions say what the skill does and when to use it')
-const known = new Set(['web_search', 'web_fetch', 'plan', 'calculator', 'chart', 'integration_status', 'integration_execute', 'workflow_create', 'workflow_run', 'load_skill', 'create_document', 'create_spreadsheet', 'inspect_design', 'task_propose'])
+const known = new Set(['web_search', 'web_fetch', 'plan', 'calculator', 'chart', 'integration_status', 'integration_execute', 'workflow_create', 'workflow_run', 'load_skill', 'create_document', 'create_spreadsheet', 'create_presentation', 'read_document', 'inspect_design', 'task_propose'])
 const mentioned = new Set(shipped.flatMap(s => [...s.body.matchAll(/`([a-z]+_[a-z_]+|plan|calculator|chart)`/g)].map(m => m[1]!)))
 assert([...mentioned].every(t => known.has(t)), `skills only mention tools that exist (${[...mentioned].join(', ')})`)
 assert(shipped.every(s => !/^#{1,6}\s/m.test(s.body)), 'skills avoid markdown headings (the chat forbids them)')
@@ -56,3 +56,22 @@ assert(refs.every(r => skillNames.has(r)), 'skills that point to another skill p
 assert(shipped.length >= 24, `there are ${shipped.length} skills`)
 const sendy = shipped.filter(s => /payment-reminder|payment-reconciliation|weekly-business-review/.test(s.name))
 assert(sendy.every(s => /(wait for a yes|without (being )?ask|ask(ing)? first)/i.test(s.body)), 'skills that could send or change things say to ask first')
+
+// The same shape in every skill, so they read alike and none is a stub.
+const shaped = (s: { body: string }) => /^Goal: /.test(s.body) && /\*\*Steps\*\*/.test(s.body) && /\*\*Rules\*\*/.test(s.body) && /\*\*Output\*\*/.test(s.body)
+const unshaped = shipped.filter(s => !shaped(s)).map(s => s.name)
+assert(unshaped.length === 0, `every skill has a goal, steps, output and rules (${unshaped.join(', ') || 'all do'})`)
+assert(shipped.every(s => s.body.length >= 900), 'no skill is a stub')
+const professional = ['write-email', 'proofread-and-tighten', 'summarize-document', 'status-update', 'presentation-storyline', 'report-writer', 'resume-and-cover-letter', 'interview-prep', 'analyze-data', 'build-spreadsheet-model', 'decision-matrix', 'fact-check', 'market-sizing', 'project-plan', 'prioritize-work', 'postmortem', 'product-requirements', 'code-review', 'debug-methodically', 'write-tests', 'study-guide', 'browser-task', 'contract-summary']
+assert(professional.every(n => skillNames.has(n)), 'the professional skill set is all there')
+assert(professional.every(n => !/ghana|gh₵|cedi|paystack|mtn/i.test(shipped.find(s => s.name === n)!.body)), 'the professional skills are not tied to one country or provider')
+// Things that look facts up must send the assistant to look, and must cite.
+const lookers = ['market-sizing', 'fact-check', 'decision-matrix', 'report-writer', 'interview-prep']
+assert(lookers.every(n => /web_search/.test(shipped.find(s => s.name === n)!.body) && /web_fetch/.test(shipped.find(s => s.name === n)!.body) && /(cite|source)/i.test(shipped.find(s => s.name === n)!.body)), 'skills that rely on current facts look them up and cite them')
+// Things that could act for the user say to ask first; things that give advice say what they are not.
+assert(/wait for a yes/i.test(shipped.find(s => s.name === 'write-email')!.body), 'the email skill never sends without a yes')
+const browserBody = shipped.find(s => s.name === 'browser-task')!.body
+assert(/never (ask for or )?type[^.]*(passwords|card)/i.test(browserBody) && /approve/i.test(browserBody) && /(sign-in|CAPTCHA)/.test(browserBody) && /(twice|again and again)/.test(browserBody), 'the browser skill keeps the browser tool\'s own safety rules and stops loops')
+assert(/not legal advice/i.test(shipped.find(s => s.name === 'contract-summary')!.body), 'the contract skill says it is not legal advice')
+// Nothing invents: each says so.
+assert(professional.every(n => /(never invent|do not invent|not invent|does not invent|never claim|do not (make up|fake))/i.test(shipped.find(s => s.name === n)!.body.replace(/\n/g, ' '))), 'every professional skill says not to invent facts')
