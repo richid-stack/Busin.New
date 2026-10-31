@@ -9,7 +9,7 @@ import { createInspectDesignTool } from '../../utils/tools/inspectDesign'
 import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../utils/tools/createFiles'
 import { createBrowserTool } from '../../utils/tools/browser'
 import type { TaskBrowser } from '../../utils/tools/browser'
-import { defaultBrowserService } from '../browser/service'
+import type { BrowserService } from '../browser/service'
 import { holdStore, startWait } from '../browser/holds'
 import { browserKey } from '../browser/service'
 import { allowedToolNames } from './registry'
@@ -21,8 +21,7 @@ export interface TaskToolContext { taskId: string, pause: TaskBrowser['pause'], 
  * The tools a task may use. Every tool is built for the task's owner, then cut down to the groups chosen
  * for the task and to those the registry allows without a person watching.
  */
-export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolContext): Record<string, any> {
-  const browserService = ctx ? defaultBrowserService() : null
+export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolContext, browserService: BrowserService | null = null): Record<string, any> {
   const sessionKey = ctx ? browserKey(userId, `task-${ctx.taskId}`) : ''
   const all: Record<string, any> = {
     web_search: createWebSearchTool(userId),

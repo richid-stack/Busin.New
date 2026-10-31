@@ -21,6 +21,12 @@ import { nameExpression, snapshotExpression } from './snapshot'
 export interface SessionOptions {
   /** Development only: allow pages on this machine. Never set on a hosted server. */
   allowLocal?: boolean
+  /**
+   * The context belongs to someone else (a person's own browser profile on their computer, kept between sessions so a
+   * sign-in is remembered): closing the session closes only the pages it opened, never the context, and the caller has
+   * already put the request guard on the context.
+   */
+  sharedContext?: boolean
   now?: () => number
 }
 
@@ -61,6 +67,7 @@ export class BrowserSession {
   /** When someone last looked at the live picture (0: never). Tells whether the person is here or away. */
   viewedAt = 0
   private readonly loops = new LoopGuard()
+  private onPage: ((p: Page) => void) | null = null
   private closed = false
   /** Set when the page's own navigation was refused or failed (a blocked address, a site that is down). */
   private failedNav = false
@@ -85,13 +92,22 @@ export class BrowserSession {
       locale: 'en-US',
       javaScriptEnabled: true
     })
+    return await BrowserSession.attach(context, options)
+  }
+
+  /** Starts a session on a context that already exists. With `sharedContext` the context is left open when the session ends. */
+  static async attach(context: BrowserContext, options: SessionOptions = {}): Promise<BrowserSession> {
     const session = new BrowserSession(context, options)
     try {
-      await installRouteGuard(context as never, options.allowLocal, 1500)
-      context.on('page', (p) => { session.adopt(p) })
+      if (!options.sharedContext) await installRouteGuard(context as never, options.allowLocal, 1500)
+      session.onPage = (p) => { session.adopt(p) }
+      context.on('page', session.onPage)
+      // In a shared context the page it started with stays open for good: a browser whose last page closes may quit, and
+      // its sign-ins that live only while it runs would go with it. This session's own pages are closed when it ends.
       session.adopt(await context.newPage())
     } catch (err) {
-      await context.close().catch(() => {})
+      if (options.sharedContext) await session.close()
+      else await context.close().catch(() => {})
       throw err
     }
     return session
@@ -250,6 +266,12 @@ export class BrowserSession {
   async close(): Promise<void> {
     if (this.closed) return
     this.closed = true
+    if (this.options.sharedContext) {
+      if (this.onPage) this.context.off('page', this.onPage)
+      for (const p of [...this.pages]) await p.close().catch(() => {})
+      this.pages = []
+      return
+    }
     await this.context.close().catch(() => {})
   }
 

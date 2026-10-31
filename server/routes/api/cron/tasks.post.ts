@@ -5,7 +5,7 @@ import { runDueTaskSchedules } from '../../../services/tasks/scheduleTick'
 import { taskScheduleStore } from '../../../services/tasks/schedules'
 import { taskStore } from '../../../services/tasks/store'
 import { holdStore, processHolds } from '../../../services/browser/holds'
-import { defaultBrowserService } from '../../../services/browser/service'
+import { browserServiceFor } from '../../../services/browser/where'
 import { defaultNotifyDeps, notifyNeedsYou } from '../../../services/notifications/notify'
 import { secretMatches } from '../../../utils/secretCompare'
 
@@ -28,7 +28,8 @@ export default defineHandler(async (event) => {
   // Pages waiting for a person: email the ones nobody is looking at, and close the ones that waited too long.
   const holds = await processHolds({
     store: holdStore(),
-    service: defaultBrowserService(),
+    service: null,
+    serviceFor: userId => browserServiceFor(userId),
     notify: hold => notifyNeedsYou(defaultNotifyDeps(), hold),
     onExpired: async (hold) => { if (hold.kind === 'task') await taskStore().expireWaiting(hold.userId, hold.ref) }
   }).catch((err) => {

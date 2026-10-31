@@ -6,6 +6,7 @@ import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { useUserSession } from '../composables/useUserSession'
 import { useAccount } from '../composables/useAccount'
 import { useBilling } from '../composables/useBilling'
+import { useBrowserWhere } from '../composables/useBrowserWhere'
 
 import LobbyVoiceSettings from '../components/settings/LobbyVoiceSettings.vue'
 
@@ -18,12 +19,13 @@ const colorMode = useColorMode()
 const { openAuthModal, firebaseUser, signInMethod, sendPasswordReset, updateDisplayName, signOutUser } = useFirebaseAuth()
 const { user, loggedIn, clearSession } = useUserSession()
 const { usage, usageError, loadingUsage, fetchUsage, downloadExport } = useAccount()
+const { browserWhere, fetchBrowserWhere, setBrowserWhere } = useBrowserWhere()
 const { billing, billingFailed, notifications, fetchBilling, startCheckout, fetchNotifications, saveNotifications } = useBilling()
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
 // The signed-in state is the server session, which is what every API call here is checked against.
-const loadAll = () => { fetchUsage(); fetchBilling(); fetchNotifications() }
+const loadAll = () => { fetchUsage(); fetchBilling(); fetchNotifications(); fetchBrowserWhere() }
 onMounted(() => { if (loggedIn.value) loadAll() })
 watch(loggedIn, (v) => { if (v) loadAll() })
 
@@ -78,6 +80,15 @@ async function buy(period: 'month' | 'year') {
 async function setNotification(key: 'emailRenewals' | 'emailWorkflowFailures' | 'emailTaskResults' | 'emailNeedsYou', value: boolean) {
   try {
     await saveNotifications({ [key]: value })
+  } catch (err: any) {
+    toast.add({ title: 'Could not change that', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
+  }
+}
+
+// ---- Assistant browser ----
+async function setOnComputer(value: boolean) {
+  try {
+    await setBrowserWhere(value ? 'computer' : 'cloud')
   } catch (err: any) {
     toast.add({ title: 'Could not change that', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
   }
@@ -312,6 +323,21 @@ const LINKS = [
                 @click="colorMode = m.value"
               />
             </div>
+          </div>
+        </section>
+
+        <!-- Assistant browser -->
+        <section aria-labelledby="s-browser">
+          <h2 id="s-browser" class="text-sm font-semibold text-highlighted mb-3">Assistant browser</h2>
+          <div class="rounded-2xl border border-default bg-default divide-y divide-default">
+            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Use the browser on my computer</p>
+                <p class="text-xs text-muted leading-snug">The assistant works in a browser on your computer, in a profile of its own, so sites you signed in to there stay signed in. It still asks before anything that sends, pays or deletes, and never types your passwords. Off: it uses a fresh browser in the cloud.</p>
+              </div>
+              <USwitch :model-value="browserWhere?.where === 'computer'" :disabled="!browserWhere" aria-label="Use the browser on my computer" @update:model-value="setOnComputer(Boolean($event))" />
+            </div>
+            <p v-if="browserWhere" class="px-4 sm:px-5 py-3 text-xs leading-snug" :class="browserWhere.computer.ready ? 'text-dimmed' : 'text-warning'">{{ browserWhere.computer.note }}</p>
           </div>
         </section>
 

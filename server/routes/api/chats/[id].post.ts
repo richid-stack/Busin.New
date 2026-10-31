@@ -18,7 +18,8 @@ import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
 import { createReadDocumentTool } from '../../../utils/tools/readDocument'
 import { createInspectDesignTool } from '../../../utils/tools/inspectDesign'
 import { createBrowserTool } from '../../../utils/tools/browser'
-import { browserKey, defaultBrowserService } from '../../../services/browser/service'
+import { browserKey } from '../../../services/browser/service'
+import { browserServiceFor } from '../../../services/browser/where'
 import { holdStore, startWait } from '../../../services/browser/holds'
 import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
 import { bridgeStore } from '../../../services/bridge/store'
@@ -241,7 +242,7 @@ export default defineHandler(async (event) => {
   const userText = lastMessage?.role === 'user'
     ? (lastMessage.parts ?? []).map((p: any) => (p?.type === 'text' ? String(p.text ?? '') : '')).join(' ')
     : ''
-  const browserService = signedIn ? defaultBrowserService() : null
+  const browserService = signedIn ? await browserServiceFor(userId) : null
   // The person is back and has answered (or said something): whatever the page was waiting for is over.
   const browserSessionKey = browserKey(userId, id)
   const waitHooks = browserService

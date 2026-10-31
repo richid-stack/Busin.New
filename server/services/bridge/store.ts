@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
 import { JOB_PERMISSION, LIMITS, OPEN_JOB, PAIRING_ALPHABET, PERMISSION_LABEL, TOKEN_PREFIX, RESULT_SCHEMA, isJobKind, maxResultChars, parseJobInput } from './model'
+import { liveBroker } from './live'
 import type { Device, DeviceEvent, EventKind, Job, JobKind, Platform } from './model'
 
 export class BridgeError extends Error {
@@ -51,6 +52,8 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
   const jobRef = (id: string) => db.collection('bridge_jobs').doc(id)
   /** Wakes a device's waiting poll the moment a job for it is made on this server. */
   const waiters = new Map<string, () => void>()
+  const authCache = new Map<string, { device: Device, at: number }>()
+  const AUTH_CACHE_MS = 10_000
 
   async function ownedDevice(userId: string, id: string) {
     const snap = await devRef(id).get()
@@ -105,11 +108,18 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
     // ---- Devices ----
     async authenticate(token: string): Promise<Device | null> {
       if (!token.startsWith(TOKEN_PREFIX) || token.length > 200) return null
-      const snap = await db.collection('devices').where('tokenHash', '==', sha(token)).get()
+      // A computer using the browser calls in several times a second. Knowing it for a few seconds saves a database read
+      // each time; disconnecting a computer forgets it at once (below), so this never delays a disconnect on this server.
+      const hash = sha(token)
+      const known = authCache.get(hash)
+      if (known && now().getTime() - known.at < AUTH_CACHE_MS) return known.device
+      const snap = await db.collection('devices').where('tokenHash', '==', hash).get()
       const doc = snap.docs[0]
       if (!doc) return null
       const d = deviceFrom(doc.id, doc.data())
       if (d.revokedAt) return null
+      authCache.set(hash, { device: d, at: now().getTime() })
+      if (authCache.size > 200) authCache.delete(authCache.keys().next().value!)
       return d
     },
 
@@ -135,6 +145,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       const open = (await db.collection('bridge_jobs').where('deviceId', '==', id).get()).docs.filter((d: any) => OPEN_JOB.includes(d.data().status))
       for (const j of open) await j.ref.update({ status: 'cancelled', finishedAt: now().toISOString(), cancelAcked: true })
       await self.addEvent(id, 'revoked', 'Disconnected from OpenLobs.')
+      for (const [hash, k] of authCache) if (k.device.id === id) authCache.delete(hash)
       self.wake(id)
     },
 
@@ -289,3 +300,5 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
 export type BridgeStore = ReturnType<typeof createBridgeStore>
 let shared: BridgeStore | undefined
 export const bridgeStore = () => (shared ??= createBridgeStore(getFirebaseDb() as unknown as BridgeDb))
+/** The live browser steps of this server process (see live.ts). */
+export const bridgeLive = () => liveBroker(id => bridgeStore().wake(id))

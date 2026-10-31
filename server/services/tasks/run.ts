@@ -14,6 +14,7 @@ import type { Task } from './model'
 import { taskStore } from './store'
 import type { TaskStore } from './store'
 import { buildTaskTools } from './tools'
+import { browserServiceFor } from '../browser/where'
 import { endTaskBrowser } from './taskBrowser'
 import { modelJudge, verifyCriteria } from './verify'
 
@@ -27,7 +28,7 @@ export function liveDeps(store: TaskStore = taskStore()): RunDeps {
   }
   return {
     store,
-    tools: (task, ctx) => buildTaskTools(task.userId, task.tools, ctx),
+    tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null),
     model: task => pick(task.model, task.userId),
     costOf: id => (parseMyModelId(id) ? 0 : modelCost(id)),
     charge: chargeUsage,

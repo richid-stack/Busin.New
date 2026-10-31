@@ -3,7 +3,7 @@ import { getHeader, readBody } from 'nitro/h3'
 import { requireDevice } from '../../../utils/bridgeAuth'
 import { enforceRateLimit } from '../../../utils/rateLimit'
 import { ApiError, pollForJobs } from '../../../services/bridge/api'
-import { bridgeStore } from '../../../services/bridge/store'
+import { bridgeLive, bridgeStore } from '../../../services/bridge/store'
 
 /**
  * The Bridge asks "anything for me?" and the answer waits up to 25 seconds if there is nothing yet. The Bridge
@@ -12,10 +12,10 @@ import { bridgeStore } from '../../../services/bridge/store'
  */
 export default defineHandler(async (event) => {
   const device = await requireDevice(event)
-  enforceRateLimit(event, 'bridge-poll', device.id, 30, 60_000)
+  enforceRateLimit(event, 'bridge-poll', device.id, 300, 60_000)
   const token = (getHeader(event, 'authorization') || '').replace(/^Bearer\s+/i, '').trim()
   try {
-    return await pollForJobs(bridgeStore(), device, token, await readBody(event).catch(() => ({})))
+    return await pollForJobs(bridgeStore(), device, token, await readBody(event).catch(() => ({})), { live: bridgeLive() })
   } catch (err) {
     if (err instanceof ApiError) throw new HTTPError({ statusCode: err.status, statusMessage: err.message })
     throw err

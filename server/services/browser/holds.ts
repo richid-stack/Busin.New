@@ -71,6 +71,8 @@ export async function startWait(deps: { service: BrowserService, store: HoldStor
 export interface HoldPassDeps {
   store: HoldStore
   service: BrowserService | null
+  /** The browser service for one person, when it depends on the person (their own computer or the cloud). */
+  serviceFor?: (userId: string) => Promise<BrowserService | null>
   now?: () => Date
   /** Emails the person; true when it was sent. */
   notify: (hold: Hold) => Promise<boolean>
@@ -86,15 +88,16 @@ export async function processHolds(deps: HoldPassDeps): Promise<HoldPassSummary>
   for (const hold of await deps.store.all()) {
     summary.checked++
     try {
+      const service = deps.serviceFor ? await deps.serviceFor(hold.userId).catch(() => null) : deps.service
       if (new Date(hold.expiresAt).getTime() <= now) {
-        await deps.service?.close(hold.key).catch(() => {})
+        await service?.close(hold.key).catch(() => {})
         await deps.onExpired(hold).catch(err => console.warn('[browser-hold] expiry handler failed:', err?.message))
         await deps.store.clear(hold.key)
         summary.expired++
         continue
       }
-      if (hold.notifiedAt || now - new Date(hold.createdAt).getTime() < AWAY_AFTER_MS || !deps.service) continue
-      const status = await deps.service.status(hold.key).catch(() => undefined)
+      if (hold.notifiedAt || now - new Date(hold.createdAt).getTime() < AWAY_AFTER_MS || !service) continue
+      const status = await service.status(hold.key).catch(() => undefined)
       // The page is gone (closed, or the worker restarted): there is nothing left to wait for.
       if (status === null) { await deps.store.clear(hold.key); summary.cleared++; continue }
       if (status === undefined) continue

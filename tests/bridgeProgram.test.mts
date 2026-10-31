@@ -52,7 +52,7 @@ try {
 
   const ping = await server.store.enqueue('tester', dev.id, 'ping')
   await waitFor('ping', async () => (await server.store.getJob('tester', ping.id)).status === 'done')
-  assert((((await server.store.getJob('tester', ping.id)).result) as any).bridgeVersion === '0.4.0', 'the program answers a ping')
+  assert((((await server.store.getJob('tester', ping.id)).result) as any).bridgeVersion === '0.5.0', 'the program answers a ping')
 
   const look = await server.store.enqueue('tester', dev.id, 'browser_look', { url: `${server.url}/page`, width: 500, height: 340 })
   await waitFor('browser look', async () => ['done', 'failed'].includes((await server.store.getJob('tester', look.id)).status), 60_000)

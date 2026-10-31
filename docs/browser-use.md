@@ -70,7 +70,7 @@ The proxy is also what keeps the screenshot worker safe: Chromium follows redire
 
 ## Not done yet
 
-- It runs on the hosted worker only. The same engine is meant to run on your own computer through the Bridge, so it can use your own signed-in browser. That needs its own permission design.
+- It can run on the hosted worker (default) or on your own computer through the Bridge (Settings > Assistant browser; see `bridge/README.md`, "Letting OpenLobs use a browser"). On your computer it is the same engine in a browser profile of its own, with the same approvals, a local guard against the private network, and sign-ins you made yourself. Not yet tested on a real Windows computer.
 - Pages inside frames (some payment forms) are not numbered; take over for those.
 - No file downloads or uploads, by design for now.
 - No metering in credits yet (only the daily and per-minute limits above). Decide whether a browsing session should cost credits before opening it to everyone.

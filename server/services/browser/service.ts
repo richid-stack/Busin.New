@@ -51,7 +51,7 @@ export class LocalBrowserService implements BrowserService {
     return this.manager.get(key)?.check(action) ?? { ask: false, label: '' }
   }
 
-  async act(key: string, action: BrowserAction, opts: { approved?: boolean } = {}) {
+  async act(key: string, action: BrowserAction, opts: { approved?: boolean, signal?: AbortSignal } = {}) {
     const parsed = actionSchema.safeParse(action)
     if (!parsed.success) throw new BrowserError('That is not an action the browser can do.', 'bad_input')
     if (parsed.data.action !== 'open' && !this.manager.get(key)) throw new BrowserError('No page is open. Open a web address first.', 'not_found')

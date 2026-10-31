@@ -9,6 +9,8 @@ import { clearQuit, fileControl, setPaused } from './control'
 import { pickFolder } from './pickFolder'
 import { startTray } from './tray'
 import { openWorkspace } from './workspace'
+import { DeviceBrowser, launchProfile } from './deviceBrowser'
+import { createLiveHost } from './liveHost'
 import type { Config } from './core'
 
 /**
@@ -19,6 +21,8 @@ import type { Config } from './core'
  *   bridge pause | resume
  *   bridge allow browser | bridge deny browser
  *   bridge allow excel --folder "C:\path\to\folder" | bridge deny excel
+ *   bridge allow browser_use | bridge deny browser_use
+ *   bridge browser login [https://site] | bridge browser forget
  *   bridge status
  *   bridge disconnect
  */
@@ -54,7 +58,11 @@ function log(line: string) {
   } catch { /* logging must never stop the Bridge */ }
 }
 const control = fileControl(dir)
-const deps = { ...defaultDeps(log), control }
+/** The browser OpenLobs may use on this computer lives in a folder of its own, apart from the person's everyday browser. */
+// (Local, not Roaming: it is large and belongs to this computer.)
+const profileDir = path.join(process.platform === 'win32' ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'OpenLobsBridge') : dir, 'browser-profile')
+const deviceBrowser = new DeviceBrowser({ profileDir })
+const deps = { ...defaultDeps(log), control, liveBrowser: createLiveHost(deviceBrowser) }
 
 /** Only one Bridge runs per computer: a second one would just double the polling. */
 const lockFile = path.join(dir, 'run.lock')
@@ -102,6 +110,7 @@ try {
     tray?.on('exit', () => log('The tray icon closed.'))
     process.on('exit', () => { try { tray?.kill() } catch { /* already gone */ } })
     const result = await run(config, deps, stop.signal, load)
+    await deviceBrowser.closeBrowser()
     try { tray?.kill() } catch { /* already gone */ }
     if (result === 'disconnected') { fs.rmSync(file, { force: true }); process.exitCode = 1 }
     else console.log('Stopped.')
@@ -133,6 +142,20 @@ try {
     save({ ...config, allow: [...set], workspace })
     if (command === 'allow' && name === 'excel') console.log(`Folder: ${workspace}`)
     console.log(command === 'allow' ? `Allowed: ${PERMISSIONS[name]!.label}. A running Bridge picks this up within a minute.` : `No longer allowed: ${PERMISSIONS[name]!.label}.`)
+  } else if (command === 'browser') {
+    const sub = args[0]
+    if (sub === 'login') {
+      // A normal browser window on the same profile OpenLobs uses. You sign in yourself; nothing you type goes through OpenLobs.
+      const start = args[1] && /^https?:\/\//i.test(args[1]) ? args[1] : null
+      const context = await launchProfile(profileDir, null, true)
+      const page = context.pages()[0] ?? await context.newPage()
+      if (start) await page.goto(start).catch(() => {})
+      console.log('A browser window opened. Sign in to the sites you want OpenLobs to use, then close the window. You are done: OpenLobs will not see your passwords, only use the signed-in pages when you ask it to.')
+      await new Promise<void>(resolve => context.on('close', () => resolve()))
+    } else if (sub === 'forget') {
+      fs.rmSync(profileDir, { recursive: true, force: true })
+      console.log('The OpenLobs browser profile was deleted: every site is signed out there.')
+    } else throw new Error('Usage: bridge browser login [https://site] | bridge browser forget')
   } else if (command === 'pause' || command === 'resume') {
     setPaused(dir, command === 'pause')
     console.log(command === 'pause' ? 'Paused. Everything running stops within a second and nothing new is accepted. Undo with: bridge resume' : 'Resumed.')
@@ -150,7 +173,7 @@ try {
     fs.rmSync(file, { force: true })
     console.log('Disconnected.')
   } else {
-    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE] [--no-tray]\n  bridge pause | resume\n  bridge allow browser | deny browser\n  bridge allow excel --folder <folder> | deny excel\n  bridge selftest\n  bridge status\n  bridge disconnect`)
+    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE] [--no-tray]\n  bridge pause | resume\n  bridge allow browser | deny browser\n  bridge allow excel --folder <folder> | deny excel\n  bridge allow browser_use | deny browser_use   (OpenLobs may use a browser here)\n  bridge browser login [https://site]   (sign in to sites in the OpenLobs browser)\n  bridge browser forget   (sign out of everything there)\n  bridge selftest\n  bridge status\n  bridge disconnect`)
   }
 } catch (err: any) {
   console.error(err.message)

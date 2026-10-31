@@ -15,7 +15,7 @@ import { BROWSER_LIMITS } from '../browser/model'
 
 export interface RunDeps {
   store: TaskStore
-  tools: (task: Task, ctx: TaskToolContext) => Record<string, any>
+  tools: (task: Task, ctx: TaskToolContext) => Record<string, any> | Promise<Record<string, any>>
   model: (task: Task) => { id: string, model: LanguageModel } | null | Promise<{ id: string, model: LanguageModel } | null>
   verify: (criteria: Criterion[], ctx: VerifyContext, task: Task) => Promise<Criterion[]>
   charge: (userId: string, cost: number) => Promise<{ refund: () => Promise<void> }>
@@ -146,7 +146,7 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
           model: chosen.model,
           system: SYSTEM(task, feedback, before, resumeNote),
           prompt: attempt === 1 ? 'Begin the task.' : 'Continue: fix what the check found.',
-          tools: deps.tools(task, toolContext),
+          tools: await deps.tools(task, toolContext),
           stopWhen: isStepCount(task.maxSteps),
           abortSignal: AbortSignal.any([stopper.signal, AbortSignal.timeout(remaining)]),
           onStepFinish: async (step: any) => {

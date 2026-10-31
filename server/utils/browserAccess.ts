@@ -6,7 +6,8 @@ import { taskStore } from '../services/tasks/store'
 import { enforceRateLimit } from './rateLimit'
 import { requireUser } from './session'
 import { BrowserError } from '../services/browser/model'
-import { browserKey, defaultBrowserService, type BrowserService } from '../services/browser/service'
+import { browserKey, type BrowserService } from '../services/browser/service'
+import { browserServiceFor } from '../services/browser/where'
 
 const STATUS: Record<string, number> = { bad_input: 400, unsafe: 400, not_found: 404, limit: 429, failed: 502 }
 
@@ -26,7 +27,7 @@ export async function browserFor(event: H3Event, perMinute = 300): Promise<{ ser
     const chat = await getChat(chatId)
     if (!chat || chat.userId !== user.id) throw createError({ statusCode: 404, statusMessage: 'Chat not found' })
   }
-  const service = defaultBrowserService()
+  const service = await browserServiceFor(user.id)
   if (!service) throw createError({ statusCode: 503, statusMessage: 'Browser use is not set up on this server.' })
   return { service, key: browserKey(user.id, chatId), userId: user.id }
 }

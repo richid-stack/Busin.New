@@ -11,6 +11,11 @@ export interface ManagerOptions extends SessionOptions {
   maxSessions?: number
   /** Starts the browser pointed at the guard proxy. The default starts Chromium. */
   launch?: (proxy: GuardProxy) => Promise<Browser>
+  /**
+   * Starts a session some other way than a fresh context in the shared browser. Used on a person's own computer,
+   * where the session runs in their own browser profile so sign-ins are remembered.
+   */
+  start?: (key: string) => Promise<BrowserSession>
 }
 
 export class BrowserManager {
@@ -52,7 +57,7 @@ export class BrowserManager {
     if (racing) return await racing
     if (this.sessions.size + this.pending.size >= this.max) throw new BrowserError('The browser is busy with other sessions. Try again in a minute.', 'limit')
     const starting = (async () => {
-      const session = await BrowserSession.start(await this.engine(), this.options)
+      const session = this.options.start ? await this.options.start(key) : await BrowserSession.start(await this.engine(), this.options)
       this.sessions.set(key, session)
       this.watch()
       return session
