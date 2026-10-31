@@ -1,0 +1,25 @@
+{
+  "title": "Writing Desk",
+  "description": "Drafts emails, reports and updates, proofreads your writing, and summarizes long documents. Keeps your voice and never invents facts.",
+  "tags": [
+    "writing",
+    "email",
+    "reports",
+    "editing"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "read_files",
+    "create_files"
+  ],
+  "skills": [
+    "write-email",
+    "proofread-and-tighten",
+    "summarize-document",
+    "report-writer",
+    "status-update"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

@@ -1,0 +1,25 @@
+{
+  "title": "Project Manager",
+  "description": "Turns a goal into a plan with milestones, owners and risks, ranks a messy list, writes meeting notes and updates, and runs blameless postmortems.",
+  "tags": [
+    "projects",
+    "planning",
+    "productivity",
+    "meetings"
+  ],
+  "licence": "mit",
+  "tools": [
+    "read_files",
+    "create_files",
+    "utilities"
+  ],
+  "skills": [
+    "project-plan",
+    "prioritize-work",
+    "status-update",
+    "meeting-notes",
+    "postmortem"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

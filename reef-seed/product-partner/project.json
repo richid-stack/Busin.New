@@ -1,0 +1,26 @@
+{
+  "title": "Product Partner",
+  "description": "Helps define what to build: writes product requirements and user stories, weighs options with a decision matrix, sizes the market and digests customer feedback.",
+  "tags": [
+    "product",
+    "requirements",
+    "strategy",
+    "decisions"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "read_files",
+    "create_files",
+    "utilities"
+  ],
+  "skills": [
+    "product-requirements",
+    "decision-matrix",
+    "market-sizing",
+    "competitor-brief",
+    "feedback-digest"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

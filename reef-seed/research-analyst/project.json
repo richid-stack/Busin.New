@@ -1,0 +1,26 @@
+{
+  "title": "Research Analyst",
+  "description": "Researches a question across several sources and gives a cited briefing. Checks claims, sizes markets and compares competitors, and says what it could not confirm.",
+  "tags": [
+    "research",
+    "analysis",
+    "sources",
+    "market"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "read_files",
+    "create_files",
+    "utilities"
+  ],
+  "skills": [
+    "research-topic",
+    "fact-check",
+    "report-writer",
+    "competitor-brief",
+    "market-sizing"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

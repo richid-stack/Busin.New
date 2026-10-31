@@ -84,6 +84,7 @@ export function useReef() {
 
     queue: () => call<{ items: QueueItem[] }>('/admin/queue', 'Could not load the queue.'),
     resolve: (body: { targetType: 'project' | 'post', targetId: string, action: 'restore' | 'remove' }) => call<{ success: boolean }>('/admin/queue', 'Could not do that.', { method: 'POST', body }),
+    seed: () => call<{ results: Array<{ name: string, status: 'created' | 'updated' | 'unchanged' | 'blocked', detail?: string }> }>('/admin/seed', 'Could not publish the ready-made projects.', { method: 'POST', body: {} }),
     badge: (body: { handle: string, verified?: boolean, official?: boolean }) => call<ReefProfile>('/admin/badges', 'Could not change the badge.', { method: 'POST', body })
   }
 }

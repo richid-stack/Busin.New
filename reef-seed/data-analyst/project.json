@@ -1,0 +1,23 @@
+{
+  "title": "Data Analyst",
+  "description": "Cleans and checks a spreadsheet or CSV, finds what stands out, and builds working spreadsheet models with formulas and checks.",
+  "tags": [
+    "data",
+    "spreadsheets",
+    "analysis",
+    "excel"
+  ],
+  "licence": "mit",
+  "tools": [
+    "read_files",
+    "create_files",
+    "utilities",
+    "web"
+  ],
+  "skills": [
+    "analyze-data",
+    "build-spreadsheet-model"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

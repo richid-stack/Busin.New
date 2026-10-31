@@ -56,11 +56,45 @@ async function act(i: QueueItem, action: 'restore' | 'remove') {
     working.value = null
   }
 }
+// ---- The ready-made projects ----
+type SeedRow = { name: string, status: 'created' | 'updated' | 'unchanged' | 'blocked', detail?: string }
+const seeding = ref(false)
+const seeded = ref<SeedRow[] | null>(null)
+const SEED_WORDS: Record<SeedRow['status'], string> = { created: 'Published', updated: 'Updated', unchanged: 'Already up to date', blocked: 'Not published' }
+async function runSeed() {
+  seeding.value = true
+  try {
+    seeded.value = (await api.seed()).results
+    const changed = seeded.value.filter(r => r.status === 'created' || r.status === 'updated').length
+    toast.add({ title: changed ? `${changed} ready-made ${changed === 1 ? 'project' : 'projects'} published` : 'Everything was already up to date', icon: 'i-lucide-check', color: 'success' })
+  } catch (err: any) {
+    toast.add({ title: 'Could not publish them', description: err?.message, icon: 'i-lucide-alert-circle', color: 'error' })
+  } finally {
+    seeding.value = false
+  }
+}
 const denied = computed(() => loaded.value && !admin.value)
 </script>
 
 <template>
   <ReefShell title="Review">
+    <section v-if="loaded && admin" class="px-4 py-4 border-b border-default">
+      <div class="flex items-start gap-3">
+        <UIcon name="i-lucide-sparkles" class="size-5 mt-0.5 text-muted shrink-0" />
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold text-highlighted">Ready-made projects</p>
+          <p class="text-xs text-muted mt-0.5 leading-snug">Publishes the official agents from the repository under the openlobs account, through the same safety check as everyone's. Pressing it again only changes what has changed.</p>
+          <ul v-if="seeded" class="mt-3 space-y-1.5">
+            <li v-for="r in seeded" :key="r.name" class="flex items-center justify-between gap-3 text-sm">
+              <RouterLink v-if="r.status !== 'blocked'" :to="`/reef/openlobs/${r.name}`" class="text-highlighted hover:underline truncate">{{ r.name }}</RouterLink>
+              <span v-else class="text-highlighted truncate">{{ r.name }}</span>
+              <UBadge :label="SEED_WORDS[r.status]" :color="r.status === 'blocked' ? 'error' : r.status === 'unchanged' ? 'neutral' : 'success'" variant="subtle" size="sm" :title="r.detail" />
+            </li>
+          </ul>
+        </div>
+        <UButton label="Publish or update" color="neutral" variant="outline" size="sm" :loading="seeding" @click="runSeed" />
+      </div>
+    </section>
     <ReefState v-if="denied" icon="i-lucide-lock" title="Only the people who run The Reef can see this" />
     <ReefSkeleton v-else-if="loading" :rows="3" />
     <ReefState v-else-if="error" tone="error" icon="i-lucide-cloud-off" title="Could not load the queue" :text="error"><UButton label="Try again" color="neutral" variant="outline" @click="load" /></ReefState>
