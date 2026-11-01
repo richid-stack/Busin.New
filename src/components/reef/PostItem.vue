@@ -34,10 +34,13 @@ const likes = ref(props.post.likes)
 watch(() => props.post, (p) => { liked.value = p.liked; likes.value = p.likes })
 
 let liking = false
+/** Set once the person has pressed like, so the pop plays for their press and not for every liked post on page load. */
+const touched = ref(false)
 async function toggleLike() {
   if (liking) return
   if (!requireProfile(toggleLike)) return
   liking = true
+  touched.value = true
   const was = liked.value
   liked.value = !was
   likes.value += was ? -1 : 1
@@ -131,7 +134,7 @@ const onArticle = (e: MouseEvent) => {
           :aria-label="`${liked ? 'Unlike' : 'Like'}, ${likes} so far`"
           @click.stop="toggleLike"
         >
-          <UIcon name="i-lucide-heart" class="size-4 transition-transform" :class="liked ? 'scale-110 [&>*]:fill-current' : ''" />{{ fmt(likes) }}
+          <UIcon name="i-lucide-heart" class="size-4" :class="liked ? [touched ? 'pop' : '', '[&>*]:fill-current'] : ''" />{{ fmt(likes) }}
         </button>
         <UButton v-if="canAccept && post.type === 'answer' && !post.isAccepted" label="This worked" icon="i-lucide-circle-check" size="xs" color="success" variant="soft" @click.stop="emit('accept', post.id)" />
         <button type="button" class="inline-flex items-center rounded-full px-2 py-1 transition-colors hover:text-sky-500 hover:bg-sky-500/10 active:scale-95" aria-label="Copy link" @click.stop="share"><UIcon name="i-lucide-share" class="size-4" /></button>

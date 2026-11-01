@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import StateCard from '../../components/state/StateCard.vue'
+import PageSkeleton from '../../components/state/PageSkeleton.vue'
 import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTasks } from '../../composables/useTasks'
@@ -133,44 +135,17 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
         /> Tasks
       </RouterLink>
 
-      <div
-        v-if="missing"
-        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-      >
-        <h2 class="text-base font-semibold text-highlighted mb-1">
-          Task not found
-        </h2>
-        <p class="text-sm text-muted">
-          It may have been deleted.
-        </p>
-      </div>
-      <div
-        v-else-if="loadError"
-        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-      >
-        <h2 class="text-base font-semibold text-highlighted mb-1">
-          Could not load this task
-        </h2>
-        <p class="text-sm text-muted mb-5">
-          {{ loadError }}
-        </p>
+      <StateCard v-if="missing" icon="i-lucide-search-x" title="Task not found" text="It may have been deleted." />
+      <StateCard v-else-if="loadError" icon="i-lucide-cloud-off" title="Could not load this task" :text="loadError">
         <UButton
-          label="Try again"
-          icon="i-lucide-refresh-cw"
-          color="neutral"
-          variant="subtle"
-          @click="load"
-        />
-      </div>
-      <div
-        v-else-if="!task"
-        class="py-12 flex justify-center"
-      >
-        <UIcon
-          name="i-lucide-loader-2"
-          class="size-6 animate-spin text-muted"
-        />
-      </div>
+                  label="Try again"
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="subtle"
+                  @click="load"
+                />
+      </StateCard>
+      <PageSkeleton v-else-if="!task" shape="rows" />
 
       <template v-else>
         <div class="flex items-center gap-2 text-sm mb-3">

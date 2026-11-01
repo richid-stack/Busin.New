@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageSkeleton from '../../components/state/PageSkeleton.vue'
+import StateCard from '../../components/state/StateCard.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTasks } from '../../composables/useTasks'
@@ -101,29 +103,14 @@ async function start() {
         </p>
       </div>
 
-      <div
-        v-if="unauthorized"
-        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-      >
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon
-            name="i-lucide-lock"
-            class="size-5 text-muted"
-          />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">
-          Sign in to run tasks
-        </h2>
-        <p class="text-sm text-muted mb-5">
-          Tasks use your account, so only you can see them.
-        </p>
+      <StateCard v-if="unauthorized" icon="i-lucide-lock" title="Sign in to run tasks" text="Tasks use your account, so only you can see them.">
         <UButton
-          label="Sign in"
-          icon="i-lucide-log-in"
-          color="neutral"
-          @click="openAuthModal"
-        />
-      </div>
+                  label="Sign in"
+                  icon="i-lucide-log-in"
+                  color="neutral"
+                  @click="openAuthModal"
+                />
+      </StateCard>
 
       <template v-else>
         <form
@@ -285,53 +272,20 @@ async function start() {
 
         <TaskSchedules />
 
-        <div
-          v-if="loadError"
-          class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-        >
-          <h2 class="text-base font-semibold text-highlighted mb-1">
-            Could not load your tasks
-          </h2>
-          <p class="text-sm text-muted mb-5">
-            {{ loadError }}
-          </p>
+        <StateCard v-if="loadError" icon="i-lucide-cloud-off" title="Could not load your tasks" :text="loadError">
           <UButton
-            label="Try again"
-            icon="i-lucide-refresh-cw"
-            color="neutral"
-            variant="subtle"
-            :loading="loading"
-            @click="fetchTasks"
-          />
-        </div>
+                      label="Try again"
+                      icon="i-lucide-refresh-cw"
+                      color="neutral"
+                      variant="subtle"
+                      :loading="loading"
+                      @click="fetchTasks"
+                    />
+        </StateCard>
 
-        <div
-          v-else-if="!loaded"
-          class="py-12 flex justify-center"
-        >
-          <UIcon
-            name="i-lucide-loader-2"
-            class="size-6 animate-spin text-muted"
-          />
-        </div>
+        <PageSkeleton v-else-if="!loaded" shape="rows" />
 
-        <div
-          v-else-if="!tasks.length"
-          class="rounded-2xl border border-dashed border-default p-10 text-center"
-        >
-          <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-            <UIcon
-              name="i-lucide-list-checks"
-              class="size-5 text-muted"
-            />
-          </div>
-          <h2 class="text-base font-semibold text-highlighted mb-1">
-            No tasks yet
-          </h2>
-          <p class="text-sm text-muted">
-            Describe a goal above. You can close this page: it keeps working.
-          </p>
-        </div>
+        <StateCard v-else-if="!tasks.length" icon="i-lucide-list-checks" title="No tasks yet" text="Describe a goal above. You can close this page: it keeps working." kind="empty" />
 
         <template v-else>
           <h2

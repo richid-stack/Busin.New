@@ -88,11 +88,13 @@ const tabs = computed(() => p.value ? [
 ] as const : [])
 
 const starBusy = ref(false)
+const starTouched = ref(false)
 async function toggleStar() {
   const cur = p.value
   if (!cur || starBusy.value) return
   if (!requireProfile(toggleStar)) return
   starBusy.value = true
+  starTouched.value = true
   const was = cur.starred
   p.value = { ...cur, starred: !was, stars: cur.stars + (was ? -1 : 1) }
   try {
@@ -167,7 +169,7 @@ const fileNote = (name: string) => ({ 'instructions.md': 'What the agent is told
           </div>
           <div class="ml-auto flex items-center gap-2">
             <UButton v-if="p.licence.id !== 'all-rights-reserved'" :label="`Fork ${fmt(p.forks)}`" icon="i-lucide-git-fork" color="neutral" variant="outline" size="sm" @click="fork" />
-            <UButton :label="`${p.starred ? 'Starred' : 'Star'} ${fmt(p.stars)}`" icon="i-lucide-star" :class="p.starred ? 'text-amber-500' : ''" color="neutral" variant="outline" size="sm" :aria-pressed="p.starred" @click="toggleStar" />
+            <UButton :label="`${p.starred ? 'Starred' : 'Star'} ${fmt(p.stars)}`" icon="i-lucide-star" :class="p.starred ? 'text-amber-500' : ''" :ui="{ leadingIcon: p.starred && starTouched ? 'pop' : '' }" color="neutral" variant="outline" size="sm" :aria-pressed="p.starred" @click="toggleStar" />
             <UButton label="Add to OpenLobs" icon="i-lucide-plus" color="primary" size="sm" @click="add" />
             <UDropdownMenu :items="menu" :content="{ align: 'end' }"><UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="sm" aria-label="More" /></UDropdownMenu>
           </div>

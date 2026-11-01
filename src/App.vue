@@ -2,7 +2,10 @@
 import { computed } from 'vue'
 import { useHead } from '@unhead/vue'
 import { useColorMode } from '@vueuse/core'
+import PendingScreen from './components/state/PendingScreen.vue'
+import { useOnlineNotice } from './composables/useOnlineNotice'
 
+useOnlineNotice()
 const colorMode = useColorMode()
 const themeColor = computed(() => colorMode.value === 'dark' ? '#09090b' : '#fafafa')
 
@@ -19,9 +22,7 @@ useHead({
       <Suspense v-if="Component">
         <component :is="Component" />
         <template #fallback>
-          <div class="h-screen w-screen flex items-center justify-center bg-default">
-            <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-primary" />
-          </div>
+          <PendingScreen fill="screen" />
         </template>
       </Suspense>
     </RouterView>
