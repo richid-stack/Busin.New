@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OpenLobs: say what you need, watch it get done, know it was checked</title>
+<meta name="description" content="OpenLobs is an open-source AI assistant for real work. It chats, uses your apps, runs tasks that check their own result, and can work on your computer only when you allow it. Bring your own model keys.">
+<meta name="theme-color" content="#0a0b10">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="OpenLobs: say what you need, watch it get done, know it was checked">
+<meta property="og:description" content="An open-source AI assistant that uses your apps, runs tasks with built-in checks, and works on your computer only when you allow it.">
+<meta property="og:image" content="media/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OpenLobs","applicationCategory":"BusinessApplication","operatingSystem":"Web; Bridge for Windows","description":"An open-source AI assistant that chats, uses your apps, runs tasks with built-in checks, and works on your computer only when you allow it."}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="OpenLobs home"><img src="assets/logo.svg" alt="" width="30" height="30"><span>OpenLobs</span></a>
+    <nav class="links" aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#videos">Videos</a>
+      <a href="#run-it">Run it</a>
+      <a href="#status">Status</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn ghost sm" data-github href="#run-it">GitHub</a>
+      <a class="btn solid sm" data-app href="#run-it">Open OpenLobs</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<!-- ============ HERO ============ -->
+<section class="hero" id="top">
+  <div class="glow g-a" aria-hidden="true"></div><div class="glow g-b" aria-hidden="true"></div>
+  <div class="wrap">
+    <p class="pill-note"><span class="dot"></span> Open source · Free to start · Early and improving every week</p>
+    <h1>Say what you need.<br><span class="grad">Watch it get done.</span><br>Know it was checked.</h1>
+    <p class="lede">OpenLobs is an AI assistant for real work. It chats, uses your apps, runs tasks and checks its own result, and can work on your own computer, but only when you allow it.</p>
+    <div class="cta">
+      <a class="btn solid lg" data-app href="#run-it">Open OpenLobs</a>
+      <button class="btn ghost lg" type="button" data-video="media/video/ad-main.mp4" data-title="OpenLobs in 50 seconds" data-poster="media/video/ad-main.webp"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch the 50-second tour</button>
+    </div>
+
+    <div class="stage reveal">
+      <video id="heroVideo" class="stage-video" muted loop playsinline preload="none" poster="media/video/ad-main.webp" width="1280" height="720" aria-label="A 50-second tour of OpenLobs, filmed on the real app"><source src="media/video/ad-main.mp4" type="video/mp4"></video>
+      <button class="stage-sound" type="button" data-video="media/video/ad-main.mp4" data-title="OpenLobs in 50 seconds" data-poster="media/video/ad-main.webp">▶ Play with sound</button>
+    </div>
+    <p class="fine center">Filmed on the real app, running on sample content (a sample account and scripted model replies, so every take is the same).</p>
+  </div>
+</section>
+
+<!-- ============ OUTCOMES ============ -->
+<section class="band">
+  <div class="wrap">
+    <div class="trio">
+      <article class="card reveal"><span class="num">1</span><h3>Ask, and get real work back</h3><p>It does the sum with a calculator, lays out the plan, draws the chart, and shows every step it took, so you are never taking its word for it.</p></article>
+      <article class="card reveal"><span class="num">2</span><h3>Know it actually worked</h3><p>Give a task a goal and how you will know it worked. OpenLobs checks the result, tells you what passed and what did not, and never claims more than it did.</p></article>
+      <article class="card reveal"><span class="num">3</span><h3>Stay in charge</h3><p>Anything that changes things waits for your OK. Your computer is touched only for a short, fixed list of jobs, and you can stop it in one click.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="features" class="section">
+  <div class="wrap">
+    <p class="eyebrow center">What is in the app</p>
+    <h2 class="center">Everything here is something you can open today.</h2>
+    <p class="sub center">Each part below is a page in the app. The pictures are real screens, not mock-ups.</p>
+
+    <!-- Chat -->
+    <div class="feature">
+      <div class="copy reveal">
+        <p class="eyebrow">Chat</p>
+        <h3>A chat that does things, and shows its work</h3>
+        <p>Ask in plain words. OpenLobs picks the tools, runs them, and lays every step out under the answer.</p>
+        <ul class="ticks">
+          <li><b>Real tools:</b> calculator, planning, charts, files and web look-ups.</li>
+          <li><b>Your apps:</b> Gmail, Google Calendar and Drive, Slack, GitHub, Notion and more, each through your own connection.</li>
+          <li><b>Asks first.</b> Before anything that changes things it shows exactly what, on which app, and waits for you.</li>
+          <li><b>Voice (new):</b> dictate into the box, or let it talk through what it is doing.</li>
+        </ul>
+        <button class="btn ghost" type="button" data-video="media/video/feature-chat.mp4" data-title="Chat that uses real tools" data-poster="media/video/feature-chat.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch it (17 s)</button>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/chat-trace-light.webp" width="2880" height="1800" alt="A chat where OpenLobs files a bug on GitHub and tells the team on Slack, with each step listed under the answer."></figure>
+        <figure class="shot inset"><img loading="lazy" src="media/shots/chat-approval-light.webp" width="2880" height="1800" alt="An approval card that says: Approve this before it runs, naming the app and the exact action."></figure>
+      </div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="feature flip">
+      <div class="copy reveal">
+        <p class="eyebrow">Tasks <span class="tag ok">Working</span></p>
+        <h3>Done means checked</h3>
+        <p>Give it a goal, and if you like, how you will know it worked. It does the work on its own, checks the result, and tells you honestly how it went.</p>
+        <ul class="ticks">
+          <li><b>Checks you can read:</b> each one is marked met or not met, with the evidence beside it. AI judgement is labelled as such.</li>
+          <li><b>Honest when it falls short:</b> “Partly done” shows exactly which check failed.</li>
+          <li><b>A browser when a site needs clicking.</b> It stops and asks before it sends, buys or deletes.</li>
+          <li><b>On a schedule</b> if you want it to repeat. It pauses itself after repeated failures.</li>
+        </ul>
+        <button class="btn ghost" type="button" data-video="media/video/feature-tasks.mp4" data-title="Tasks with checks" data-poster="media/video/feature-tasks.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch it (12 s)</button>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/task-partial-light.webp" width="2880" height="1800" alt="A task marked Partly done: one check met, and one not met because the Buy button sat below the first screen on a phone."></figure>
+        <figure class="shot inset"><img loading="lazy" src="media/shots/tasks-light.webp" width="2880" height="1800" alt="The Tasks page: a goal box, how will you know it worked, and a list of finished tasks."></figure>
+      </div>
+    </div>
+
+    <!-- Workflows -->
+    <div class="feature">
+      <div class="copy reveal">
+        <p class="eyebrow">Workflow Studio <span class="tag ok">Working</span></p>
+        <h3>Automations on a canvas</h3>
+        <p>Chain triggers, actions and AI steps into something that runs on its own, with you in the loop where it matters.</p>
+        <ul class="ticks">
+          <li><b>Triggers:</b> on a timer, from a webhook, or a button.</li>
+          <li><b>Steps:</b> AI agents, your apps, if / else, switch, loops, and a human-approval step.</li>
+          <li><b>Start from a recipe</b> such as “Weekly competitor snapshot”, then change it.</li>
+          <li><b>Test run and history</b> so you can see what it did.</li>
+        </ul>
+        <button class="btn ghost" type="button" data-video="media/video/feature-workflows.mp4" data-title="Workflow Studio" data-poster="media/video/feature-workflows.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch it (9 s)</button>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/workflow-canvas-light.webp" width="2880" height="1800" alt="The workflow canvas: Schedule, Read their page, Write the brief, Email me the brief."></figure>
+        <figure class="shot inset"><img loading="lazy" src="media/shots/workflows-light.webp" width="2880" height="1800" alt="The Workflows page with saved workflows and a shelf of templates."></figure>
+      </div>
+    </div>
+
+    <!-- Agents, skills, memory -->
+    <div class="feature flip">
+      <div class="copy reveal">
+        <p class="eyebrow">Agents, skills and memory</p>
+        <h3>An assistant that is set up the way you work</h3>
+        <p>Save an assistant with its own instructions, tools and skills. Tell it once what it should remember, and it does not ask again.</p>
+        <ul class="ticks">
+          <li><b>Agents:</b> an inbox helper, a research assistant, a deck builder, or your own.</li>
+          <li><b>Skills:</b> reusable instructions an agent follows, so good habits travel with it.</li>
+          <li><b>Memory only on your word:</b> you decide what is kept, and it refuses passwords and card numbers.</li>
+        </ul>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/agents-light.webp" width="2880" height="1800" alt="The Agents page with an Inbox helper, a Research assistant and a Deck builder."></figure>
+        <figure class="shot inset"><img loading="lazy" src="media/shots/memory-light.webp" width="2880" height="1800" alt="The Memory page: notes OpenLobs keeps about you, with a switch to turn memory off."></figure>
+      </div>
+    </div>
+
+    <!-- Reef -->
+    <div class="feature">
+      <div class="copy reveal">
+        <p class="eyebrow">The Reef <span class="tag early">Early</span></p>
+        <h3>Share what works. Fork what you like.</h3>
+        <p>A community for sharing agents: profiles, stars, forks, and questions with answers. Anything shared goes through a safety scan, and a review queue catches what the scan cannot.</p>
+        <ul class="ticks">
+          <li><b>Browse and fork</b> agents other people made, then change them.</li>
+          <li><b>Ask a question</b> and mark the answer that solved it.</li>
+          <li><b>Honest status:</b> built and tested against a stand-in database, not yet run on real Firestore.</li>
+        </ul>
+        <button class="btn ghost" type="button" data-video="media/video/feature-agents-reef.mp4" data-title="Agents, memory and the Reef" data-poster="media/video/feature-agents-reef.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch it (12 s)</button>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/reef-light.webp" width="2880" height="1800" alt="The Reef home: a feed of posts, trending projects and who to follow."></figure>
+        <figure class="shot inset"><img loading="lazy" src="media/shots/reef-projects-light.webp" width="2880" height="1800" alt="The Reef projects list: agents with tags, stars and forks."></figure>
+      </div>
+    </div>
+
+    <!-- Computers -->
+    <div class="feature flip">
+      <div class="copy reveal">
+        <p class="eyebrow">Computers and the Bridge <span class="tag early">Early · Windows first</span></p>
+        <h3>Your computer is part of it, on your terms</h3>
+        <p>The Bridge is a small program that lets OpenLobs do a short, fixed list of approved things on your computer. It only calls out. It opens no port and runs no commands.</p>
+        <ul class="ticks">
+          <li><b>Look at a page:</b> open a site (even one running on your own machine) in an empty browser and send back a picture. It never clicks or types.</li>
+          <li><b>Browser use:</b> in a profile of its own that only you sign in to. It asks before anything that sends, pays or deletes, and never types your passwords.</li>
+          <li><b>Spreadsheets:</b> reads one folder you pick and saves changed <em>copies</em>. The original is never changed.</li>
+          <li><b>One click stops it.</b> Pause everything from the tray icon or disconnect on the Computers page.</li>
+        </ul>
+        <button class="btn ghost" type="button" data-video="media/video/feature-computers.mp4" data-title="Connect a computer" data-poster="media/video/feature-computers.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch it (8 s)</button>
+        <button class="btn ghost" type="button" data-video="media/video/tutorial-bridge.mp4" data-title="Tutorial: connect your computer" data-poster="media/video/tutorial-bridge.webp">Tutorial: connect yours</button>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/computers-light.webp" width="2880" height="1800" alt="The Computers page: a Windows laptop online, with Test and Look at a page buttons, and what the Bridge can and cannot do."></figure>
+      </div>
+    </div>
+
+    <!-- Integrations -->
+    <div class="feature">
+      <div class="copy reveal">
+        <p class="eyebrow">Integrations and MCP servers <span class="tag ok">Working</span></p>
+        <h3>Your apps, one connection each</h3>
+        <p>Connect an app once and every chat, agent and workflow can use it. Bring your own MCP servers too; you approve each tool before it can be used.</p>
+        <ul class="ticks">
+          <li><b>Read and search</b> your mail, files, tickets and records.</li>
+          <li><b>Create and update:</b> drafts, issues, rows, messages.</li>
+          <li><b>MCP tools are pinned.</b> You approve each by its name, description and inputs, and a change switches it off.</li>
+        </ul>
+        <button class="btn ghost" type="button" data-video="media/video/feature-integrations.mp4" data-title="Integrations and your own keys" data-poster="media/video/feature-integrations.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch it (12 s)</button>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/integrations-light.webp" width="2880" height="1800" alt="The Integrations page with Gmail, Google Drive, Google Calendar, Slack, Notion and GitHub installed, and an MCP servers entry."></figure>
+      </div>
+    </div>
+
+    <!-- Models -->
+    <div class="feature flip">
+      <div class="copy reveal">
+        <p class="eyebrow">Models <span class="tag new">New</span></p>
+        <h3>Bring your own key</h3>
+        <p>Use the models you already pay for. Messages sent to your own models use your account with that provider, so they cost no OpenLobs credits.</p>
+        <ul class="ticks">
+          <li><b>Many providers:</b> OpenAI, Anthropic, Google Gemini, OpenRouter, Groq, Mistral, DeepSeek, Kimi, Qwen and xAI.</li>
+          <li><b>Sealed keys:</b> checked by asking the provider for its models, stored encrypted, never shown again.</li>
+          <li><b>Honest status:</b> tested against stand-ins. Give it a real key and tell us what breaks.</li>
+        </ul>
+        <button class="btn ghost" type="button" data-video="media/video/tutorial-keys.mp4" data-title="Tutorial: bring your own key" data-poster="media/video/tutorial-keys.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Tutorial (21 s)</button>
+      </div>
+      <div class="art reveal">
+        <figure class="shot"><img loading="lazy" src="media/shots/models-light.webp" width="2880" height="1800" alt="The Models page: choose a provider and press Connect to add your own key."></figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TRUST ============ -->
+<section class="band alt" id="trust">
+  <div class="wrap">
+    <p class="eyebrow center">Built to be trusted</p>
+    <h2 class="center">An assistant that can act in your accounts must be easy to stop and hard to trick.</h2>
+    <div class="grid3">
+      <article class="card slim reveal"><h4>Nothing that changes things runs unasked</h4><p>The model cannot approve for you. Approval requests are signed by the server, and a forged or moved one is refused.</p></article>
+      <article class="card slim reveal"><h4>Reading and changing are separate</h4><p>A read-only task can only use read-only actions.</p></article>
+      <article class="card slim reveal"><h4>Keys are sealed</h4><p>Your own model keys and tokens are encrypted at rest and never sent back to the browser.</p></article>
+      <article class="card slim reveal"><h4>The web is fenced</h4><p>Fetching, MCP and your own addresses go through public-address checks: no private networks, no redirects into them.</p></article>
+      <article class="card slim reveal"><h4>Your data is yours</h4><p>Download everything as JSON, or delete the account and the data with it.</p></article>
+      <article class="card slim reveal"><h4>The Bridge only calls out</h4><p>It opens no port, runs no commands, and can be paused in one click.</p></article>
+    </div>
+    <p class="fine center">Each rule is enforced in the code and has a test. <a data-github="/blob/main/README.md#built-to-be-trusted" href="#run-it">Read them in the README</a>.</p>
+  </div>
+</section>
+
+<!-- ============ VIDEOS ============ -->
+<section id="videos" class="section">
+  <div class="wrap">
+    <p class="eyebrow center">Videos</p>
+    <h2 class="center">See it, then set it up.</h2>
+    <p class="sub center">A 50-second tour, short clips of each part, and three step-by-step tutorials.</p>
+
+    <h3 class="vh">Tutorials</h3>
+    <div class="vgrid three">
+      <button class="vcard" type="button" data-video="media/video/tutorial-install.mp4" data-title="Tutorial: run OpenLobs on your computer" data-poster="media/video/tutorial-install.webp"><span class="vthumb"><img loading="lazy" src="media/video/tutorial-install.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:38</em></span><b>Run OpenLobs on your computer</b><small>Five commands, from clone to first chat</small></button>
+      <button class="vcard" type="button" data-video="media/video/tutorial-bridge.mp4" data-title="Tutorial: connect your computer" data-poster="media/video/tutorial-bridge.webp"><span class="vthumb"><img loading="lazy" src="media/video/tutorial-bridge.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:43</em></span><b>Connect your computer</b><small>Install the Bridge and pair it with a code</small></button>
+      <button class="vcard" type="button" data-video="media/video/tutorial-keys.mp4" data-title="Tutorial: bring your own key" data-poster="media/video/tutorial-keys.webp"><span class="vthumb"><img loading="lazy" src="media/video/tutorial-keys.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:21</em></span><b>Bring your own model key</b><small>Connect a provider on the Models page</small></button>
+    </div>
+
+    <h3 class="vh">Quick looks</h3>
+    <div class="vgrid">
+      <button class="vcard" type="button" data-video="media/video/feature-chat.mp4" data-title="Chat that uses real tools" data-poster="media/video/feature-chat.webp"><span class="vthumb"><img loading="lazy" src="media/video/feature-chat.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:17</em></span><b>Chat and approvals</b></button>
+      <button class="vcard" type="button" data-video="media/video/feature-tasks.mp4" data-title="Tasks with checks" data-poster="media/video/feature-tasks.webp"><span class="vthumb"><img loading="lazy" src="media/video/feature-tasks.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:12</em></span><b>Tasks with checks</b></button>
+      <button class="vcard" type="button" data-video="media/video/feature-workflows.mp4" data-title="Workflow Studio" data-poster="media/video/feature-workflows.webp"><span class="vthumb"><img loading="lazy" src="media/video/feature-workflows.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:09</em></span><b>Workflow Studio</b></button>
+      <button class="vcard" type="button" data-video="media/video/feature-agents-reef.mp4" data-title="Agents, memory and the Reef" data-poster="media/video/feature-agents-reef.webp"><span class="vthumb"><img loading="lazy" src="media/video/feature-agents-reef.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:12</em></span><b>Agents, memory, the Reef</b></button>
+      <button class="vcard" type="button" data-video="media/video/feature-computers.mp4" data-title="Connect a computer" data-poster="media/video/feature-computers.webp"><span class="vthumb"><img loading="lazy" src="media/video/feature-computers.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:08</em></span><b>Computers</b></button>
+      <button class="vcard" type="button" data-video="media/video/feature-integrations.mp4" data-title="Integrations and your own keys" data-poster="media/video/feature-integrations.webp"><span class="vthumb"><img loading="lazy" src="media/video/feature-integrations.webp" width="1280" height="720" alt=""><i class="play" aria-hidden="true"></i><em>0:12</em></span><b>Integrations and keys</b></button>
+    </div>
+    <p class="fine center">The app footage is the real app on sample content, with scripted model replies. In the tutorials, the command and installer steps are illustrated; the commands are the ones in the README.</p>
+  </div>
+</section>
+
+<!-- ============ GALLERY ============ -->
+<section class="band alt" id="gallery">
+  <div class="wrap">
+    <p class="eyebrow center">Screens</p>
+    <h2 class="center">Light, dark, and phone-sized.</h2>
+    <div class="tabs" role="tablist" aria-label="Screen style">
+      <button role="tab" aria-selected="true" data-tab="light">Light</button>
+      <button role="tab" aria-selected="false" data-tab="dark">Dark</button>
+      <button role="tab" aria-selected="false" data-tab="phone">Phone</button>
+    </div>
+    <div class="gal" id="gal" data-mode="light"></div>
+  </div>
+</section>
+
+<!-- ============ RUN IT ============ -->
+<section id="run-it" class="section">
+  <div class="wrap">
+    <p class="eyebrow center">Free to start, open source, your keys, your computer</p>
+    <h2 class="center">Yours to run, yours to keep.</h2>
+    <div class="quad">
+      <article class="card slim reveal"><h4>Free to start</h4><p>A free plan with daily and monthly credits. Messages on your own model keys cost no credits at all.</p></article>
+      <article class="card slim reveal"><h4>Open source</h4><p>Read it, run it, change it. The whole app, server and Bridge are in the repository.</p></article>
+      <article class="card slim reveal"><h4>Your own keys</h4><p>Use the model providers you already have. Keys are sealed and never shown again.</p></article>
+      <article class="card slim reveal"><h4>Your computer</h4><p>Run it on your own machine, or on Google Cloud Run, from the same code.</p></article>
+    </div>
+
+    <div class="run reveal">
+      <div class="run-copy">
+        <h3>Run it on your computer</h3>
+        <p>You need Node.js 22 or newer, and a Firebase project (or <code>gcloud auth application-default login</code> for local use). Add at least one model key in <code>.env</code>.</p>
+        <p class="fine">One-command Docker setup is planned, not here yet.</p>
+        <div class="cta left">
+          <button class="btn ghost" type="button" data-video="media/video/tutorial-install.mp4" data-title="Tutorial: run OpenLobs on your computer" data-poster="media/video/tutorial-install.webp"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg> Watch the install (38 s)</button>
+          <a class="btn ghost" data-github="/blob/main/docs/deploy.md" href="#run-it">Deploy to Google Cloud</a>
+        </div>
+      </div>
+      <div class="code" data-copy>
+        <button class="copy-btn" type="button" aria-label="Copy the commands">Copy</button>
+<pre><code>git clone <span data-repo>https://github.com/richid-stack/Busin.New.git</span>
+cd Busin.New
+npm install
+cp .env.example .env   # add at least one model key
+gcloud auth application-default login
+npm run dev            # then open http://localhost:3000</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ STATUS ============ -->
+<section class="band alt" id="status">
+  <div class="wrap narrow">
+    <p class="eyebrow center">Status</p>
+    <h2 class="center">What works today, honestly.</h2>
+    <p class="sub center">OpenLobs is in active development. This is straight from the project README.</p>
+    <div class="table" role="table" aria-label="Status of each part">
+      <div class="tr" role="row"><span role="cell">Chat, agents, skills, memory, files, usage limits, account export and delete</span><span class="tag ok" role="cell">Working</span></div>
+      <div class="tr" role="row"><span role="cell">Apps through Composio, MCP servers and the recommended shelf (each app needs your own connection)</span><span class="tag ok" role="cell">Working</span></div>
+      <div class="tr" role="row"><span role="cell">Approval gate for anything that changes things</span><span class="tag ok" role="cell">Working, tested</span></div>
+      <div class="tr" role="row"><span role="cell">Workflow Studio, timer and webhook triggers</span><span class="tag ok" role="cell">Working</span></div>
+      <div class="tr" role="row"><span role="cell">Tasks with self-checks and browser inspection</span><span class="tag ok" role="cell">Working</span></div>
+      <div class="tr" role="row"><span role="cell">Scheduled tasks (repeat or once; pauses itself after repeated failures)</span><span class="tag ok" role="cell">Working, new</span></div>
+      <div class="tr" role="row"><span role="cell">Bring your own model key (many providers)</span><span class="tag new" role="cell">New</span></div>
+      <div class="tr" role="row"><span role="cell">Lobby: voice in, narration out, approve by voice</span><span class="tag new" role="cell">New</span></div>
+      <div class="tr" role="row"><span role="cell">Bridge for Windows (browser look, spreadsheets, tray, installer)</span><span class="tag early" role="cell">Early</span></div>
+      <div class="tr" role="row"><span role="cell">The Reef: share agents, stars, forks, questions, safety scan and review queue</span><span class="tag early" role="cell">Early</span></div>
+      <div class="tr" role="row"><span role="cell">One-command Docker setup</span><span class="tag plan" role="cell">Planned</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq" class="section">
+  <div class="wrap narrow">
+    <p class="eyebrow center">Questions</p>
+    <h2 class="center">Questions, answered.</h2>
+    <details class="qa reveal"><summary>Is it free?</summary><p>There is a free plan with daily and monthly credits, and a normal message costs one credit. Messages on your own model keys cost no OpenLobs credits. Paid plans are not available yet.</p></details>
+    <details class="qa reveal"><summary>Do I need my own model key?</summary><p>No. You can chat with the built-in models using your free credits. If you would rather use a provider you already pay for, add your own key on the Models page.</p></details>
+    <details class="qa reveal"><summary>Is my key safe?</summary><p>Your key is checked by asking the provider which models it offers, then stored encrypted and never shown again. It is never sent back to your browser.</p></details>
+    <details class="qa reveal"><summary>Will it do things in my accounts without asking?</summary><p>Not for anything that changes things. It shows exactly what it is about to do, on which app, and waits for your approval. The model cannot approve for you.</p></details>
+    <details class="qa reveal"><summary>What can the Bridge do on my computer?</summary><p>Only a short fixed list, and only the parts you allow: answer a ping, look at a web page in an empty browser, use a browser in a profile of its own, and work on spreadsheet copies in one folder. It opens no port, runs no commands, and you can pause or disconnect it at once.</p></details>
+    <details class="qa reveal"><summary>Is it only for Windows?</summary><p>The web app works anywhere you have a browser. The Bridge is Windows first and still early; from source it also runs elsewhere.</p></details>
+    <details class="qa reveal"><summary>Where does my data live?</summary><p>In your own Firebase project when you run it yourself. You can download everything as JSON, or delete your account and its data, from Settings.</p></details>
+    <details class="qa reveal"><summary>Can I trust the videos?</summary><p>They are the real app running on sample content, with scripted model replies so every take is the same. The installer and command steps in the tutorials are illustrated, and say so.</p></details>
+  </div>
+</section>
+
+<!-- ============ CLOSING ============ -->
+<section class="closing">
+  <div class="glow g-a" aria-hidden="true"></div>
+  <div class="wrap center">
+    <img src="assets/logo.svg" alt="" width="84" height="84">
+    <h2>Your next job, done and checked.</h2>
+    <div class="cta"><a class="btn solid lg" data-app href="#run-it">Open OpenLobs</a><a class="btn ghost lg" data-github href="#run-it">View on GitHub</a></div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="brand sm"><img src="assets/logo.svg" alt="" width="22" height="22"><span>OpenLobs</span></span>
+    <nav aria-label="Footer"><a data-app="/privacy" href="#run-it">Privacy</a><a data-app="/terms" href="#run-it">Terms</a><a data-github href="#run-it">GitHub</a><a data-github="/blob/main/docs/reference.md" href="#run-it">Docs</a></nav>
+    <span class="muted">Open source · Made in Ghana</span>
+  </div>
+</footer>
+
+<dialog id="vmodal" aria-label="Video player">
+  <div class="vbox">
+    <button class="vclose" type="button" aria-label="Close video">×</button>
+    <video id="vplayer" controls playsinline preload="none"></video>
+    <p id="vtitle" class="vtitle"></p>
+  </div>
+</dialog>
+
+<script src="site.config.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

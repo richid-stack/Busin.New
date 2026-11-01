@@ -9,7 +9,7 @@
  *    traces are stored sample messages.
  *  - It is for capture only. It is never part of the app or its deploy.
  *
- *    npx tsx landing/capture/server.mts        (serves http://localhost:4010)
+ *    npx tsx landing/capture/server.mts        (serves http://localhost:3000)
  */
 import http from 'node:http'
 import { createServer as createVite } from 'vite'
@@ -20,7 +20,7 @@ import ui from '@nuxt/ui/vite'
 import { readdirSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 
-const PORT = Number(process.env.CAPTURE_PORT || 4010)
+const PORT = Number(process.env.CAPTURE_PORT || 3000)
 
 // The app asks Composio which accounts the person has connected. There is no Composio account here, so this one
 // question is answered with a sample list; nothing else about integrations is changed.
@@ -32,7 +32,7 @@ globalThis.fetch = (async (input: any, init?: any) => {
     const item = (id: string, slug: string, name: string, who: string) => ({
       id, user_id: 'ama', status: 'ACTIVE', status_reason: null, is_disabled: false, toolkit: { slug }, word_id: null, alias: null,
       auth_config: { id: `ac_${slug}`, auth_scheme: 'OAUTH2', is_composio_managed: true, is_disabled: false },
-      params: { user_info: { name: who } }, data: {}, state: null, test_request_endpoint: null,
+      params: { user_info: { name: who } }, data: {}, state: null, test_request_endpoint: '',
       created_at: '2026-10-01T09:00:00Z', updated_at: '2026-10-01T09:00:00Z'
     })
     return new Response(JSON.stringify({ items: [

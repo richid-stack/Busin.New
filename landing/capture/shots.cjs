@@ -3,7 +3,7 @@
 const { chromium } = require('playwright')
 const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
-const BASE = process.env.CAPTURE_BASE || 'http://localhost:4010'
+const BASE = process.env.CAPTURE_BASE || 'http://localhost:3000'
 const OUT = 'landing/media/shots'
 const RAW = '/tmp/claude-0/shotsraw'
 fs.mkdirSync(OUT, { recursive: true }); fs.mkdirSync(RAW, { recursive: true })

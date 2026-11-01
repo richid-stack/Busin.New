@@ -1,0 +1,4 @@
+# Full-size masters, raw recordings and intermediate scenes are large and rebuilt by landing/capture; the web copies in media/video are what the site serves.
+media/master/
+media/raw/
+media/scenes/

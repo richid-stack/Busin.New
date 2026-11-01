@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<style>
+  :root { --ink:#0a0b10; --paper:#f7f7f5; --coral:#ff6b5e; --coral2:#d93a3a; --blue:#2f7bff; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); font-family: 'Inter', system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+  .bg { position: absolute; inset: 0; background: var(--ink); overflow: hidden; }
+  .glow { position: absolute; border-radius: 50%; filter: blur(140px); opacity: .55; }
+  .g1 { width: 1100px; height: 1100px; background: radial-gradient(circle, #ff6b5e 0%, transparent 65%); }
+  .g2 { width: 1000px; height: 1000px; background: radial-gradient(circle, #2f7bff 0%, transparent 65%); opacity: .42; }
+  .dots { position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.07) 1.4px, transparent 1.6px); background-size: 44px 44px; }
+  .vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
+  .abs { position: absolute; }
+  .word { position: absolute; left: 0; right: 0; text-align: center; font-weight: 800; letter-spacing: -0.045em; line-height: 1; white-space: nowrap; will-change: transform, opacity, filter; }
+  .coral { background: linear-gradient(180deg, #ff8a7a, #ff4a4a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .logo { position: absolute; will-change: transform, opacity; }
+  .chip { position: absolute; padding: 18px 34px; border-radius: 999px; font-weight: 650; font-size: 40px; letter-spacing: -0.02em; background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.22); backdrop-filter: blur(8px); white-space: nowrap; will-change: transform, opacity; }
+  .shot { position: absolute; border-radius: 22px; overflow: hidden; box-shadow: 0 50px 120px -20px rgba(0,0,0,.75), 0 0 0 1.5px rgba(255,255,255,.14); background: #fff; will-change: transform, opacity; }
+  .shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+  .phone { border-radius: 54px; box-shadow: 0 50px 120px -20px rgba(0,0,0,.8), 0 0 0 10px #15161c, 0 0 0 11.5px rgba(255,255,255,.2); }
+  .cap { position: absolute; font-weight: 700; letter-spacing: -0.03em; will-change: transform, opacity; }
+  /* tutorial pieces */
+  .term { position: absolute; background: #0f1117; border-radius: 22px; box-shadow: 0 50px 120px -20px rgba(0,0,0,.8), 0 0 0 1.5px rgba(255,255,255,.14); overflow: hidden; }
+  .term .bar { height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 22px; background: #181a22; font: 500 20px Inter; color: #8b90a0; }
+  .term .bar i { width: 14px; height: 14px; border-radius: 50%; background: #3a3d4a; display: block; }
+  .term pre { font: 500 34px/1.55 'DejaVu Sans Mono', monospace; padding: 34px 40px; color: #e8eaf2; white-space: pre-wrap; }
+  .term .p { color: #7ee2a8; } .term .c { color: #7b8094; } .term .k { color: #ffb4a8; }
+  .caret { display: inline-block; width: 18px; height: 34px; background: #e8eaf2; vertical-align: -6px; margin-left: 2px; }
+  .stepno { position: absolute; font-weight: 800; letter-spacing: -0.05em; }
+  .note { position: absolute; font-weight: 500; color: rgba(255,255,255,.62); letter-spacing: -0.01em; }
+  .card { position: absolute; border-radius: 26px; background: #fff; color: #14151b; box-shadow: 0 50px 120px -20px rgba(0,0,0,.75); }
+</style></head>
+<body>
+<div class="bg" id="bg"><div class="glow g1" id="g1"></div><div class="glow g2" id="g2"></div><div class="dots"></div><div class="vig"></div></div>
+<div id="root"></div>
+<script>
+const $ = (h) => { const d = document.createElement('div'); d.innerHTML = h.trim(); return d.firstChild }
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
+const seg = (t, a, b) => clamp((t - a) / (b - a))
+const eo3 = x => 1 - Math.pow(1 - x, 3)
+const eo5 = x => 1 - Math.pow(1 - x, 5)
+const ei3 = x => x * x * x
+const eio = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+const back = x => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
+const root = document.getElementById('root'), g1 = document.getElementById('g1'), g2 = document.getElementById('g2')
+const LOGO = '<img src="logo.svg" style="width:100%;height:100%">'
+// The glow never moves: every scene (and the edited footage) sits on the same background, so cuts never jump.
+function ambient() {
+  g1.style.transform = 'translate(300px, -200px)'
+  g2.style.transform = 'translate(1000px, 420px)'
+}
+const scenes = {}
+
+/* ---------- intro: three beats ---------- */
+scenes.intro = { dur: 3.0, build() {
+  const w = ['Ask it.', 'Watch it work.', 'Know it’s done.']
+  this.w = w.map((s, i) => { const e = $(`<div class="word ${i === 2 ? 'coral' : ''}" style="top:${i === 2 ? 392 : 400}px;font-size:${i === 1 ? 200 : 230}px">${s}</div>`); root.appendChild(e); return e })
+  this.logo = $(`<div class="logo" style="left:60px;top:54px;width:70px;height:70px">${LOGO}</div>`); root.appendChild(this.logo)
+  this.name = $(`<div class="abs" style="left:146px;top:62px;font-weight:800;font-size:46px;letter-spacing:-.04em">OpenLobs</div>`); root.appendChild(this.name)
+}, draw(t) {
+  ambient(t)
+  this.w.forEach((e, i) => {
+    const a = i * 1.0, p = seg(t, a, a + .34), o = seg(t, a + .78, a + 1.0)
+    const last = i === 2
+    const s = .72 + .28 * back(p)
+    const out = last ? 0 : eo3(o)
+    const xo = last ? -eo3(seg(t, 2.7, 3.0)) * 420 : 0
+    e.style.opacity = clamp(p * 2) * (1 - out) * (last ? 1 - seg(t, 2.8, 3.0) : 1)
+    e.style.transform = `translate(${xo}px, ${(1 - eo5(p)) * 80 - out * 60}px) scale(${s + out * .12})`
+    e.style.filter = `blur(${(1 - p) * 22 + out * 16}px)`
+  })
+  const lp = seg(t, .1, .6); this.logo.style.opacity = lp; this.name.style.opacity = lp
+  this.logo.style.transform = `rotate(${(1 - eo3(lp)) * -25}deg) scale(${.6 + .4 * back(lp)})`
+}}
+
+/* ---------- montage: light, dark, phone ---------- */
+scenes.bg = { dur: 1, build() {}, draw(t) { ambient() } }
+scenes.montage = { dur: 4.0, build() {
+  const mk = (src, l, t, w, h, cls = '') => { const e = $(`<div class="shot ${cls}" style="left:${l}px;top:${t}px;width:${w}px;height:${h}px"><img src="../../media/shots/${src}.webp"></div>`); root.appendChild(e); return e }
+  this.a = mk('tasks-light', 120, 190, 1120, 700)
+  this.b = mk('workflow-canvas-dark', 520, 130, 1120, 700)
+  this.c = mk('m-chat-trace-light', 1330, 130, 380, 822, 'phone')
+  this.t1 = $(`<div class="cap" style="left:120px;top:90px;font-size:82px">Light.</div>`); this.t2 = $(`<div class="cap" style="left:120px;top:90px;font-size:82px;color:#9bb9ff">Dark.</div>`); this.t3 = $(`<div class="cap coral" style="left:120px;top:90px;font-size:82px">Phone-sized.</div>`)
+  ;[this.t1, this.t2, this.t3].forEach(e => root.appendChild(e))
+}, draw(t) {
+  ambient(t, 2)
+  const pa = seg(t, 0, .6), pb = seg(t, 1.2, 1.85), pc = seg(t, 2.35, 3.0), end = seg(t, 3.6, 4.0)
+  const slide = (e, p, fromX, toX, y, rot = 0, sc = 1) => { e.style.opacity = clamp(p * 3) * (1 - end); e.style.transform = `translate(${fromX + (toX - fromX) * eo5(p)}px, ${y + end * 40}px) rotate(${rot * eo3(p)}deg) scale(${sc})` }
+  slide(this.a, pa, 1500, 0, (1 - eo3(pa)) * 40 - 20 * seg(t, 0, 4), -1.2)
+  slide(this.b, pb, 1500, 120, 190 - 190 + 90 * seg(t, 1.2, 4) - 40, 1.4)
+  slide(this.c, pc, 900, 0, (1 - eo3(pc)) * 120, 2.2)
+  const cap = (e, a, b) => { const p = seg(t, a, a + .3), q = seg(t, b - .25, b); e.style.opacity = p * (1 - q); e.style.transform = `translateY(${(1 - eo5(p)) * 40 - q * 30}px)`; e.style.filter = `blur(${(1 - p) * 10 + q * 8}px)` }
+  cap(this.t1, .1, 1.3); cap(this.t2, 1.3, 2.45); cap(this.t3, 2.45, 3.85)
+}}
+
+/* ---------- outro: logo + promise ---------- */
+scenes.outro = { dur: 5.0, build() {
+  this.logo = $(`<div class="logo" style="left:${960 - 90}px;top:210px;width:180px;height:180px">${LOGO}</div>`); root.appendChild(this.logo)
+  this.name = $(`<div class="word" style="top:420px;font-size:170px">OpenLobs</div>`); root.appendChild(this.name)
+  this.tag = $(`<div class="word" style="top:610px;font-size:62px;letter-spacing:-0.035em;color:rgba(255,255,255,.88)">Describe it. Watch it get done. Know it was checked.</div>`); root.appendChild(this.tag)
+  const items = ['Free to start', 'Open source', 'Bring your own keys', 'Runs on your computer']
+  const widths = [330, 310, 450, 530], gap = 26, total = widths.reduce((a, b) => a + b, 0) + gap * 3
+  let x = 960 - total / 2
+  this.chips = items.map((s, i) => { const e = $(`<div class="chip" style="left:${x}px;top:790px;width:${widths[i]}px;text-align:center">${s}</div>`); x += widths[i] + gap; root.appendChild(e); return e })
+}, draw(t) {
+  ambient(t, 4)
+  const lp = seg(t, 0, .7)
+  this.logo.style.opacity = clamp(lp * 2)
+  this.logo.style.transform = `translateY(${(1 - eo5(lp)) * -260}px) scale(${.5 + .5 * back(lp)}) rotate(${(1 - eo3(lp)) * 20}deg)`
+  const np = seg(t, .45, 1.0); this.name.style.opacity = np; this.name.style.transform = `translateY(${(1 - eo5(np)) * 70}px)`; this.name.style.filter = `blur(${(1 - np) * 20}px)`
+  const tp = seg(t, 1.3, 1.9); this.tag.style.opacity = tp; this.tag.style.transform = `translateY(${(1 - eo5(tp)) * 40}px)`
+  this.chips.forEach((e, i) => { const p = seg(t, 2.0 + i * .25, 2.35 + i * .25); e.style.opacity = p; e.style.transform = `translateY(${(1 - back(p)) * 60}px) scale(${.85 + .15 * back(p)})` })
+  const fo = seg(t, 4.55, 5.0); root.style.opacity = 1 - fo
+}}
+
+/* ---------- tag: a short sign-off for the feature clips ---------- */
+scenes.tag = { dur: 2.5, build() {
+  this.logo = $(`<div class="logo" style="left:${960 - 70}px;top:330px;width:140px;height:140px">${LOGO}</div>`); root.appendChild(this.logo)
+  this.name = $(`<div class="word" style="top:500px;font-size:130px">OpenLobs</div>`); root.appendChild(this.name)
+  this.line = $(`<div class="word" style="top:670px;font-size:44px;font-weight:600;color:rgba(255,255,255,.75);letter-spacing:-0.02em">Open source · Bring your own keys · Runs on your computer</div>`); root.appendChild(this.line)
+}, draw(t) {
+  ambient()
+  const lp = seg(t, 0, .5); this.logo.style.opacity = clamp(lp * 2); this.logo.style.transform = `translateY(${(1 - eo5(lp)) * -160}px) scale(${.6 + .4 * back(lp)})`
+  const np = seg(t, .25, .75); this.name.style.opacity = np; this.name.style.transform = `translateY(${(1 - eo5(np)) * 50}px)`; this.name.style.filter = `blur(${(1 - np) * 14}px)`
+  const tp = seg(t, .7, 1.2); this.line.style.opacity = tp; this.line.style.transform = `translateY(${(1 - eo5(tp)) * 30}px)`
+  root.style.opacity = 1 - seg(t, 2.25, 2.5)
+}}
+
+
+/* ---------- tutorials: step cards with typed commands (illustrated; the commands are the ones in the README) ---------- */
+function stepsScene(spec) {
+  const total = spec.title ? spec.titleDur : 0
+  const steps = []; let at = total
+  spec.steps.forEach(st => { steps.push({ ...st, at, end: at + st.dur }); at += st.dur })
+  return { dur: spec.tail ? at + spec.tail : at, build() {
+    this.head = $(`<div class="abs" style="left:0;right:0;top:420px;text-align:center"><div class="word" style="position:relative;font-size:104px">${spec.title || ''}</div><div class="note" style="position:relative;margin-top:34px;font-size:42px">${spec.sub || ''}</div></div>`); root.appendChild(this.head)
+    this.no = $(`<div class="stepno coral" style="left:120px;top:210px;font-size:340px;line-height:1"></div>`); root.appendChild(this.no)
+    this.ttl = $(`<div class="abs" style="left:128px;top:560px;width:720px;font-weight:800;font-size:68px;letter-spacing:-.04em;line-height:1.05"></div>`); root.appendChild(this.ttl)
+    this.nt = $(`<div class="note" style="left:128px;top:740px;width:700px;font-size:34px;line-height:1.4"></div>`); root.appendChild(this.nt)
+    this.prog = $(`<div class="abs" style="left:128px;top:96px;display:flex;gap:12px"></div>`); root.appendChild(this.prog)
+    this.dots = Array.from({ length: spec.count || spec.steps.length }, () => { const d = $(`<div style="width:64px;height:8px;border-radius:4px;background:rgba(255,255,255,.18)"></div>`); this.prog.appendChild(d); return d })
+    this.term = $(`<div class="term" style="left:930px;top:200px;width:880px;height:640px"><div class="bar"><i></i><i></i><i></i><span style="margin-left:14px">${spec.termTitle || 'Terminal'}</span></div><pre></pre></div>`); root.appendChild(this.term)
+    this.pre = this.term.querySelector('pre')
+    this.list = $(`<div class="card" style="left:930px;top:200px;width:880px;height:640px;padding:46px 54px"></div>`); root.appendChild(this.list)
+    this.foot = $(`<div class="note" style="left:0;right:0;bottom:46px;text-align:center;font-size:26px;color:rgba(255,255,255,.5)">${spec.foot || ''}</div>`); root.appendChild(this.foot)
+    this.shot = spec.shot ? $(`<div class="shot" style="left:300px;top:150px;width:1320px;height:780px;background:#fff"><div style="height:60px;background:#eceef2;display:flex;align-items:center;padding:0 22px;gap:10px"><i style="width:14px;height:14px;border-radius:50%;background:#c9ccd4;display:block"></i><i style="width:14px;height:14px;border-radius:50%;background:#c9ccd4;display:block"></i><i style="width:14px;height:14px;border-radius:50%;background:#c9ccd4;display:block"></i><div style="margin-left:20px;flex:1;height:34px;border-radius:17px;background:#fff;color:#444;font:500 22px Inter;display:flex;align-items:center;padding:0 18px">${spec.shot.url}</div></div><img src="../../media/shots/${spec.shot.img}.webp" style="display:block;width:100%;height:720px;object-fit:cover;object-position:top left"></div>`) : null
+    if (this.shot) root.appendChild(this.shot)
+  }, draw(t) {
+    ambient()
+    const inTitle = spec.title && t < total
+    this.head.style.opacity = inTitle ? clamp(seg(t, .15, .7)) * (1 - seg(t, total - .4, total)) : 0
+    this.head.style.transform = `translateY(${inTitle ? (1 - eo5(seg(t, .15, .7))) * 40 : 0}px)`
+    const cur = steps.find(s => t >= s.at && t < s.end)
+    const show = !!cur && !cur.shot
+    ;[this.no, this.ttl, this.nt, this.term, this.list, this.prog].forEach(e => e.style.display = show ? 'block' : 'none')
+    this.prog.style.display = show ? 'flex' : 'none'
+    this.foot.style.opacity = show || inTitle ? 1 : 0
+    if (this.shot) { const ss = steps.find(s => s.shot); const on = ss && t >= ss.at && t < ss.end; this.shot.style.display = on ? 'block' : 'none'; if (on) { const p = seg(t, ss.at, ss.at + .6), q = seg(t, ss.end - .35, ss.end); this.shot.style.opacity = p * (1 - q); this.shot.style.transform = `translateY(${(1 - eo5(p)) * 70}px) scale(${.96 + .04 * eo5(p)})` } }
+    if (!show) return
+    const i = steps.indexOf(cur), lt = t - cur.at
+    const gi = i + (spec.offset || 0)
+    this.dots.forEach((d, k) => d.style.background = k < gi ? 'rgba(255,107,94,.55)' : k === gi ? '#ff6b5e' : 'rgba(255,255,255,.18)')
+    this.no.textContent = cur.no; this.ttl.textContent = cur.title; this.nt.textContent = cur.note || ''
+    const a = eo5(seg(lt, 0, .45))
+    ;[this.no, this.ttl, this.nt].forEach((e, k) => { e.style.opacity = a; e.style.transform = `translateY(${(1 - a) * (30 + k * 10)}px)` })
+    const out = seg(lt, cur.dur - .3, cur.dur)
+    this.term.style.opacity = this.list.style.opacity = (1 - out) * clamp(lt * 4)
+    this.term.style.transform = this.list.style.transform = `translateX(${(1 - eo5(seg(lt, 0, .5))) * 90 - out * 60}px)`
+    if (cur.kind === 'list') {
+      this.term.style.display = 'none'; this.list.style.display = 'block'
+      this.list.innerHTML = (cur.items || []).map((it, k) => { const p = seg(lt, .6 + k * .5, 1.0 + k * .5); return `<div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:30px;opacity:${p};transform:translateY(${(1 - eo5(p)) * 20}px)"><div style="flex:none;width:44px;height:44px;border-radius:50%;background:#ff6b5e;color:#fff;font-weight:800;font-size:26px;display:flex;align-items:center;justify-content:center;margin-top:4px">${k + 1}</div><div style="font-size:35px;line-height:1.3;font-weight:600;letter-spacing:-.02em">${it}</div></div>` }).join('')
+    } else {
+      this.list.style.display = 'none'
+      // typed command lines, then a blinking caret
+      let out_ = '', clock = .7
+      for (const ln of cur.lines) {
+        if (ln.c) { out_ += `<span class="c">${ln.c}</span>\n`; continue }
+        const n = Math.floor(Math.max(0, Math.min(ln.cmd.length, (lt - clock) * 30))); clock += ln.cmd.length / 30 + .35
+        out_ += `<span class="p">$ </span>${ln.cmd.slice(0, n).replace(/</g, '&lt;')}${n < ln.cmd.length || ln === cur.lines[cur.lines.length - 1] ? '<span class="caret" style="opacity:' + (Math.floor(t * 2.2) % 2 ? 0.15 : 1) + '"></span>' : ''}\n`
+        if (n < ln.cmd.length) break
+      }
+      this.pre.innerHTML = out_
+    }
+  } }
+}
+scenes.tut_install = stepsScene({
+  title: 'Run OpenLobs on your computer', sub: 'Node.js 22 or newer · a Firebase project, or a gcloud login for local use', titleDur: 3.2,
+  foot: 'Illustrated steps. The commands are the ones in the project README.', termTitle: 'Terminal',
+  steps: [
+    { no: '1', title: 'Get the code', note: 'Clone the repository and go into it.', dur: 5.8, lines: [{ cmd: 'git clone https://github.com/richid-stack/Busin.New.git' }, { cmd: 'cd Busin.New' }] },
+    { no: '2', title: 'Install', note: 'One command pulls in everything it needs.', dur: 4.2, lines: [{ cmd: 'npm install' }] },
+    { no: '3', title: 'Add one model key', note: 'Add at least one: GEMINI, GROQ, OPENAI or ANTHROPIC. Or add your own key later on the Models page.', dur: 6.4, lines: [{ cmd: 'cp .env.example .env' }, { c: '# open .env and add one model key' }] },
+    { no: '4', title: 'Let the server reach Firestore', note: 'A one-time sign-in so your local server can use Firestore and Auth.', dur: 5.6, lines: [{ cmd: 'gcloud auth application-default login' }] },
+    { no: '5', title: 'Start it', note: 'Then open it in your browser.', dur: 5.2, lines: [{ cmd: 'npm run dev' }, { c: '# open http://localhost:3000' }] },
+    { no: '', title: '', dur: 5.0, shot: { url: 'localhost:3000', img: 'home-light' } }
+  ], tail: 0 })
+const BRIDGE = [
+  { no: '1', title: 'Add a computer', note: 'In OpenLobs open Computers and press Add a computer. You get a one-time code.', dur: 4.6, kind: 'list', items: ['Open <b>Computers</b>', 'Press <b>Add a computer</b>', 'Copy the code (it expires in 10 minutes)'] },
+  { no: '2', title: 'Install the Bridge', note: 'Not signed yet, so Windows will ask you to confirm.', dur: 7.4, kind: 'list', items: ['Download <b>OpenLobs-Bridge-Setup.exe</b>', 'If Windows says the publisher is unknown, choose <b>More info</b>', 'Then choose <b>Run anyway</b>'] },
+  { no: '3', title: 'Pair it', note: 'It asks for your OpenLobs address and the code.', dur: 6.0, kind: 'list', items: ['Enter your <b>OpenLobs address</b>', 'Enter the <b>pairing code</b>', 'Choose whether it may <b>look at web pages</b>'] },
+  { no: '4', title: 'You are connected', note: 'It starts by itself when you sign in. Press Test on the Computers page to check.', dur: 6.0, kind: 'list', items: ['The tray icon turns <b>green</b>', 'Computers shows <b>Online now</b>', 'Pause everything any time from the tray icon'] },
+  { no: '5', title: 'Developers: from source', note: 'Same result with two commands (Node.js 22 or newer).', dur: 8.0, lines: [{ cmd: 'npm run bridge -- pair K7M2QX4R --server https://your-openlobs-address' }, { cmd: 'npm run bridge -- run' }] }
+]
+scenes.tut_bridge_a = stepsScene({ title: 'Connect your computer', sub: 'The Bridge: a small program that lets OpenLobs do approved things on it', titleDur: 3.2, foot: 'Illustrated steps, then the real Computers page.', count: 5, steps: [BRIDGE[0]] })
+scenes.tut_bridge_b = stepsScene({ foot: 'Illustrated steps. Windows installer first; developers use the commands in the last step.', termTitle: 'Terminal', count: 5, offset: 1, titleDur: 0, steps: BRIDGE.slice(1) })
+scenes.tut_keys = stepsScene({
+  title: 'Bring your own key', sub: 'Use the models you already pay for. Nothing is added to your OpenLobs credits.', titleDur: 3.0,
+  foot: 'Illustrated steps. The next shot is the real Models page.',
+  steps: [
+    { no: '1', title: 'Open Models', note: 'Pick a provider from the list.', dur: 4.0, kind: 'list', items: ['Open <b>Models</b> in the sidebar', 'Choose a provider, for example <b>Google Gemini</b>', 'Press <b>Connect</b>'] },
+    { no: '2', title: 'Paste your key', note: 'It is checked by asking the provider which models it offers.', dur: 5.0, kind: 'list', items: ['Create a key on the provider’s site (the box links to it)', 'Paste it in the <b>API key</b> field', 'Press <b>Get models</b>'] }
+  ], tail: 0 })
+
+const params = new URLSearchParams(location.search)
+const sc = scenes[params.get('scene')]
+if (sc) { sc.build(); window.DUR = sc.dur; window.render = t => sc.draw(t); window.render(0) }
+window.scenes = scenes; window.helpers = { $, clamp, seg, eo3, eo5, ei3, eio, back, root, ambient, LOGO }
+</script>
+</body></html>
