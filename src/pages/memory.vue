@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageSkeleton from '../components/state/PageSkeleton.vue'
+import StateCard from '../components/state/StateCard.vue'
 import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { useMemory } from '../composables/useMemory'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
@@ -132,27 +134,15 @@ const PILLARS = [
         </div>
       </div>
 
-      <div v-if="unauthorized" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to use memory</h2>
-        <p class="text-sm text-muted mb-5">Memory belongs to your account, so only you can see it.</p>
+      <StateCard v-if="unauthorized" icon="i-lucide-lock" title="Sign in to use memory" text="Memory belongs to your account, so only you can see it.">
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
-      </div>
+      </StateCard>
 
-      <div v-else-if="loadError" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-cloud-off" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Could not load your memory</h2>
-        <p class="text-sm text-muted mb-5">{{ loadError }}</p>
+      <StateCard v-else-if="loadError" icon="i-lucide-cloud-off" title="Could not load your memory" :text="loadError">
         <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" @click="fetchMemory" />
-      </div>
+      </StateCard>
 
-      <div v-else-if="!loaded" class="py-12 flex justify-center">
-        <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-      </div>
+      <PageSkeleton v-else-if="!loaded" shape="rows" />
 
       <template v-if="showList">
         <div class="flex items-center justify-between gap-4 rounded-2xl border border-default bg-default p-4 sm:p-5 mb-6">
@@ -179,13 +169,7 @@ const PILLARS = [
         <p v-if="addError" class="text-xs text-error mb-2" role="alert">{{ addError }}</p>
         <p v-else class="text-xs text-dimmed mb-6">Please do not save passwords, keys or card numbers here.</p>
 
-        <div v-if="isEmpty" class="rounded-2xl border border-dashed border-default p-10 text-center">
-          <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-            <UIcon name="i-lucide-brain" class="size-5 text-muted" />
-          </div>
-          <h2 class="text-base font-semibold text-highlighted mb-1">Nothing saved yet</h2>
-          <p class="text-sm text-muted">Add a note above, or tell OpenLobs in a chat: “Remember that I work in Accra and prefer British spelling.”</p>
-        </div>
+        <StateCard v-if="isEmpty" icon="i-lucide-brain" title="Nothing saved yet" text="Add a note above, or tell OpenLobs in a chat: “Remember that I work in Accra and prefer British spelling.”" kind="empty" />
 
         <ul v-else class="flex flex-col gap-2">
           <li v-for="item in items" :key="item.id" class="group rounded-xl border border-default bg-default px-4 py-3 hover:bg-elevated/60 transition-colors">

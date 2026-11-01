@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import StateCard from '../components/state/StateCard.vue'
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useColorMode } from '@vueuse/core'
@@ -165,14 +166,9 @@ const LINKS = [
         <p class="text-muted text-base md:text-lg">Your account, your usage, and your data, all in one place.</p>
       </div>
 
-      <div v-if="!loggedIn" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to see your settings</h2>
-        <p class="text-sm text-muted mb-5">Settings belong to your account, so only you can see them.</p>
+      <StateCard v-if="!loggedIn" icon="i-lucide-lock" title="Sign in to see your settings" text="Settings belong to your account, so only you can see them.">
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
-      </div>
+      </StateCard>
 
       <div v-else class="flex flex-col gap-8">
         <!-- Profile -->

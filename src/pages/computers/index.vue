@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageSkeleton from '../../components/state/PageSkeleton.vue'
+import StateCard from '../../components/state/StateCard.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useBridge } from '../../composables/useBridge'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
@@ -206,25 +208,16 @@ async function remove(c: ComputerItem) {
         <p class="text-muted text-base md:text-lg">Connect a computer so OpenLobs can work with the apps on it. The connection only goes out from your computer, and OpenLobs can only ask for a short, fixed list of things.</p>
       </div>
 
-      <div v-if="unauthorized" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to connect a computer</h2>
-        <p class="text-sm text-muted mb-5">Computers are tied to your account, so only you can see and use them.</p>
+      <StateCard v-if="unauthorized" icon="i-lucide-lock" title="Sign in to connect a computer" text="Computers are tied to your account, so only you can see and use them.">
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
-      </div>
+      </StateCard>
 
       <template v-else>
-        <div v-if="loadError" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-          <h2 class="text-base font-semibold text-highlighted mb-1">Could not load your computers</h2>
-          <p class="text-sm text-muted mb-5">{{ loadError }}</p>
+        <StateCard v-if="loadError" icon="i-lucide-cloud-off" title="Could not load your computers" :text="loadError">
           <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" @click="fetchComputers" />
-        </div>
+        </StateCard>
 
-        <div v-else-if="!loaded" class="py-12 flex justify-center">
-          <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-        </div>
+        <PageSkeleton v-else-if="!loaded" shape="rows" />
 
         <template v-else>
           <section class="rounded-2xl border border-default bg-default">

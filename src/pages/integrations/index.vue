@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageSkeleton from '../../components/state/PageSkeleton.vue'
+import StateCard from '../../components/state/StateCard.vue'
 import { PILLARS } from '../../utils/integrationShowcase'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -126,45 +128,27 @@ function clearFilters() {
       </RouterLink>
 
       <!-- Not signed in -->
-      <div
-        v-if="loaded && unauthorized"
-        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-      >
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to connect your apps</h2>
-        <p class="text-sm text-muted mb-5">
-          Integrations are tied to your account, so only you can use what you connect.
-        </p>
+      <StateCard v-if="loaded && unauthorized" icon="i-lucide-lock" title="Sign in to connect your apps" text="Integrations are tied to your account, so only you can use what you connect.">
         <UButton
-          label="Sign in"
-          icon="i-lucide-log-in"
-          color="neutral"
-          :loading="!authReady"
-          @click="openAuthModal"
-        />
-      </div>
+                  label="Sign in"
+                  icon="i-lucide-log-in"
+                  color="neutral"
+                  :loading="!authReady"
+                  @click="openAuthModal"
+                />
+      </StateCard>
 
       <!-- Load failure -->
-      <div
-        v-else-if="loaded && loadError && integrations.length === 0"
-        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-      >
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-cloud-off" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Could not load integrations</h2>
-        <p class="text-sm text-muted mb-5">{{ loadError }}</p>
+      <StateCard v-else-if="loaded && loadError && integrations.length === 0" icon="i-lucide-cloud-off" title="Could not load integrations" :text="loadError">
         <UButton
-          label="Try again"
-          icon="i-lucide-refresh-cw"
-          color="neutral"
-          variant="subtle"
-          :loading="loading"
-          @click="fetchIntegrations"
-        />
-      </div>
+                  label="Try again"
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="subtle"
+                  :loading="loading"
+                  @click="fetchIntegrations"
+                />
+      </StateCard>
 
       <template v-else>
         <UAlert
@@ -240,12 +224,7 @@ function clearFilters() {
             {{ isFiltering ? 'Results' : 'Popular' }}
           </h2>
 
-          <div
-            v-if="!loaded || (loading && integrations.length === 0)"
-            class="py-12 flex justify-center"
-          >
-            <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-          </div>
+          <PageSkeleton v-if="!loaded || (loading && integrations.length === 0)" shape="cards" />
 
           <div
             v-else-if="filteredIntegrations.length === 0"

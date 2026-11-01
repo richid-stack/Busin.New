@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageSkeleton from '../components/state/PageSkeleton.vue'
+import StateCard from '../components/state/StateCard.vue'
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useModelProviders } from '../composables/useModelProviders'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
@@ -61,27 +63,15 @@ const host = (url: string) => { try { return new URL(url).host } catch { return 
         <p class="text-muted text-base md:text-lg">Bring your own key and use the models a provider offers today. Messages sent to your own models use your account with that provider, so they cost no OpenLobs credits.</p>
       </div>
 
-      <div v-if="unauthorized" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to connect your own models</h2>
-        <p class="text-sm text-muted mb-5">Your keys belong to your account.</p>
+      <StateCard v-if="unauthorized" icon="i-lucide-lock" title="Sign in to connect your own models" text="Your keys belong to your account.">
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
-      </div>
+      </StateCard>
 
-      <div v-else-if="loadError" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-cloud-off" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Could not load your providers</h2>
-        <p class="text-sm text-muted mb-5">{{ loadError }}</p>
+      <StateCard v-else-if="loadError" icon="i-lucide-cloud-off" title="Could not load your providers" :text="loadError">
         <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" @click="fetchProviders" />
-      </div>
+      </StateCard>
 
-      <div v-else-if="!loaded" class="py-12 flex justify-center">
-        <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-      </div>
+      <PageSkeleton v-else-if="!loaded" shape="rows" />
 
       <template v-else>
         <section v-if="mine.length" class="mb-10" aria-labelledby="mine-heading">

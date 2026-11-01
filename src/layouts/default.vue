@@ -7,6 +7,8 @@ import { useUserSession } from '../composables/useUserSession'
 import { useChatActions } from '../composables/useChatActions'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import ModalAuth from '../components/ModalAuth.vue'
+import ErrorBoundary from '../components/state/ErrorBoundary.vue'
+import PendingScreen from '../components/state/PendingScreen.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -223,19 +225,20 @@ defineShortcuts({
       }, ...groups]"
     />
 
-    <div class="flex-1 flex min-w-0 h-full overflow-hidden">
-      <RouterView :key="route.path" v-slot="{ Component }">
-        <template v-if="Component">
-          <Suspense>
+    <div class="page-host flex-1 flex min-w-0 h-full overflow-hidden">
+      <ErrorBoundary>
+        <RouterView
+          :key="route.path"
+          v-slot="{ Component }"
+        >
+          <Suspense v-if="Component">
             <component :is="Component" />
             <template #fallback>
-              <div class="flex items-center justify-center w-full h-full">
-                <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-              </div>
+              <PendingScreen />
             </template>
           </Suspense>
-        </template>
-      </RouterView>
+        </RouterView>
+      </ErrorBoundary>
     </div>
 
     <ModalAuth />
