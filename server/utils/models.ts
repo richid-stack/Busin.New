@@ -73,8 +73,15 @@ function missingKey(envName: string): never {
   })
 }
 
+let modelOverride: ((modelId: string) => LanguageModel) | null = null
+/** Tests and the capture server hand in a scripted model so the chat route can run without a provider key. Pass null to undo. */
+export function useLanguageModelForTests(make: ((modelId: string) => LanguageModel) | null) {
+  modelOverride = make
+}
+
 /** Resolves a "provider/model" id (as used in shared/utils/models.ts) to an AI SDK model. */
 export function getLanguageModel(modelId: string): LanguageModel {
+  if (modelOverride) return modelOverride(modelId)
   const normalized = normalizeModelId(modelId)
   const provider = providerOf(normalized)
   if (!provider) {
