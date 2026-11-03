@@ -18,9 +18,10 @@ assert(!/linear-gradient\(135deg,#ff6b5e|#ff6b5e/i.test(html), 'no coral gradien
 const refs = [...markup.matchAll(/(?:src|href|data-video|data-poster|poster)="([^"#]+)"/g)].map(m => m[1]!).filter(r => !/^(https?:|mailto:|\/\/)/.test(r))
 const tiles = [...script.matchAll(/\['((?:crops|shots)\/[a-z0-9-]+)',\d+,/g)].map(m => `media/${m[1]}.webp`)
 const tourClips = [...script.matchAll(/'(feature-[a-z-]+)'/g)].flatMap(m => [`media/video/${m[1]}.mp4`, `media/video/${m[1]}.webp`])
-const all = [...new Set([...refs, ...tiles, ...tourClips, 'assets/logo.svg', 'site.config.js'])]
+const logoNames = [...new Set([...script.matchAll(/assets\/logos\/([a-z0-9-]+)\.svg/g)].map(m => m[1]!).concat([...script.matchAll(/\['([a-z0-9-]+)','[A-Z][^']*'\]/g)].map(m => m[1]!), [...(script.match(/\['openai','claude-color'[^\]]*\]/)?.[0].matchAll(/'([a-z0-9-]+)'/g) ?? [])].map(m => m[1]!)))].map(n => `assets/logos/${n}.svg`)
+const all = [...new Set([...refs, ...tiles, ...logoNames, ...tourClips, 'assets/logo.svg', 'site.config.js'])]
 const missing = all.filter(r => !existsSync(join(L, r)))
-assert(all.length > 40 && tiles.length >= 18, `the page references its media (${all.length} files, ${tiles.length} in the screens rows)`)
+assert(all.length > 60 && logoNames.length >= 40, `the page references its media (${all.length} files, ${logoNames.length} logos)`)
 assert(missing.length === 0, `every local file the page uses exists (${missing.join(', ') || 'none missing'})`)
 
 // ---- In-page links land somewhere ----
