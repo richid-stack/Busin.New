@@ -67,4 +67,4 @@ Needs Node 22, Playwright (Chromium), ffmpeg, Python 3 with numpy, scipy and Pil
 
 ### Swapping in your own recordings
 
-Keep the file names. Replace `media/video/<name>.mp4` (and `<name>.webp` for the poster) and the page picks them up. A real recording of the Windows installer would replace `tutorial-bridge.mp4`; if you do that, change the "animated rather than screen recordings" note above the tutorials.
+Keep the file names. Replace `media/video/<name>.mp4` (and `<name>.webp` for the poster) and the page picks them up. A real recording of the Windows installer would replace `tutorial-bridge.mp4`; if you do that, change the "illustrated from the README steps" note above the tutorials.

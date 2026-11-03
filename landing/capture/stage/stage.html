@@ -53,7 +53,7 @@ const scenes = {}
 
 /* ---------- intro: three beats ---------- */
 scenes.intro = { dur: 3.0, build() {
-  const w = ['Ask it.', 'Watch it work.', 'Know it’s done.']
+  const w = ['Delegate.', 'Verify.', 'Approve.']
   this.w = w.map((s, i) => { const e = $(`<div class="word ${i === 2 ? 'coral' : ''}" style="top:${i === 2 ? 392 : 400}px;font-size:${i === 1 ? 200 : 230}px">${s}</div>`); root.appendChild(e); return e })
   this.logo = $(`<div class="logo" style="left:60px;top:54px;width:70px;height:70px">${LOGO}</div>`); root.appendChild(this.logo)
   this.name = $(`<div class="abs" style="left:146px;top:62px;font-weight:600;font-size:40px;letter-spacing:-.04em">OpenLobs</div>`); root.appendChild(this.name)
@@ -80,7 +80,7 @@ scenes.montage = { dur: 4.0, build() {
   this.a = mk('tasks-light', 120, 190, 1120, 700)
   this.b = mk('workflow-canvas-dark', 520, 130, 1120, 700)
   this.c = mk('m-chat-trace-dark', 1330, 130, 380, 822, 'phone')
-  this.t1 = $(`<div class="cap" style="left:120px;top:90px;font-size:82px">Light.</div>`); this.t2 = $(`<div class="cap" style="left:120px;top:90px;font-size:82px;color:#fff">Dark.</div>`); this.t3 = $(`<div class="cap coral" style="left:120px;top:90px;font-size:82px">Phone-sized.</div>`)
+  this.t1 = $(`<div class="cap" style="left:120px;top:90px;font-size:82px">Light theme.</div>`); this.t2 = $(`<div class="cap" style="left:120px;top:90px;font-size:82px;color:#fff">Dark theme.</div>`); this.t3 = $(`<div class="cap coral" style="left:120px;top:90px;font-size:82px">On mobile.</div>`)
   ;[this.t1, this.t2, this.t3].forEach(e => root.appendChild(e))
 }, draw(t) {
   ambient(t, 2)
@@ -97,7 +97,7 @@ scenes.montage = { dur: 4.0, build() {
 scenes.outro = { dur: 5.0, build() {
   this.logo = $(`<div class="logo" style="left:${960 - 90}px;top:210px;width:180px;height:180px">${LOGO}</div>`); root.appendChild(this.logo)
   this.name = $(`<div class="word" style="top:420px;font-size:170px">OpenLobs</div>`); root.appendChild(this.name)
-  this.tag = $(`<div class="word" style="top:610px;font-size:62px;letter-spacing:-0.035em;color:rgba(255,255,255,.88)">Describe it. Watch it get done. Know it was checked.</div>`); root.appendChild(this.tag)
+  this.tag = $(`<div class="word" style="top:610px;font-size:62px;letter-spacing:-0.035em;color:rgba(255,255,255,.88)">An assistant that checks its work and asks first.</div>`); root.appendChild(this.tag)
   const items = ['Free to start', 'Open source', 'Bring your own keys', 'Runs on your computer']
   const widths = [330, 310, 450, 530], gap = 26, total = widths.reduce((a, b) => a + b, 0) + gap * 3
   let x = 960 - total / 2
@@ -188,7 +188,7 @@ scenes.tut_install = stepsScene({
   foot: 'Illustrated steps. The commands are the ones in the project README.', termTitle: 'Terminal',
   steps: [
     { no: '1', title: 'Get the code', note: 'Clone the repository and go into it.', dur: 5.8, lines: [{ cmd: 'git clone https://github.com/richid-stack/Busin.New.git' }, { cmd: 'cd Busin.New' }] },
-    { no: '2', title: 'Install', note: 'One command pulls in everything it needs.', dur: 4.2, lines: [{ cmd: 'npm install' }] },
+    { no: '2', title: 'Install', note: 'Installs the project’s dependencies.', dur: 4.2, lines: [{ cmd: 'npm install' }] },
     { no: '3', title: 'Add one model key', note: 'Add at least one: GEMINI, GROQ, OPENAI or ANTHROPIC. Or add your own key later on the Models page.', dur: 6.4, lines: [{ cmd: 'cp .env.example .env' }, { c: '# open .env and add one model key' }] },
     { no: '4', title: 'Let the server reach Firestore', note: 'A one-time sign-in so your local server can use Firestore and Auth.', dur: 5.6, lines: [{ cmd: 'gcloud auth application-default login' }] },
     { no: '5', title: 'Start it', note: 'Then open it in your browser.', dur: 5.2, lines: [{ cmd: 'npm run dev' }, { c: '# open http://localhost:3000' }] },

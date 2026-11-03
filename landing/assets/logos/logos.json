@@ -1,0 +1,198 @@
+{
+ "a": [
+  {
+   "name": "Gmail",
+   "file": "google-gmail.svg"
+  },
+  {
+   "name": "Google Calendar",
+   "file": "googlecalendar.svg"
+  },
+  {
+   "name": "Google Drive",
+   "file": "google-drive.svg"
+  },
+  {
+   "name": "Google Sheets",
+   "file": "googlesheets.svg"
+  },
+  {
+   "name": "Google Docs",
+   "file": "googledocs.svg"
+  },
+  {
+   "name": "Google Tasks",
+   "file": "googletasks.svg"
+  },
+  {
+   "name": "Slack",
+   "file": "slack-icon.svg"
+  },
+  {
+   "name": "GitHub",
+   "file": "github.svg"
+  },
+  {
+   "name": "Notion",
+   "file": "notion.svg"
+  },
+  {
+   "name": "Linear",
+   "file": "linear-icon.svg"
+  },
+  {
+   "name": "Jira",
+   "file": "jira.svg"
+  },
+  {
+   "name": "GitLab",
+   "file": "gitlab.svg"
+  },
+  {
+   "name": "Trello",
+   "file": "trello.svg"
+  },
+  {
+   "name": "Asana",
+   "file": "asana-icon.svg"
+  },
+  {
+   "name": "ClickUp",
+   "file": "clickup-icon.svg"
+  },
+  {
+   "name": "Airtable",
+   "file": "airtable.svg"
+  },
+  {
+   "name": "Salesforce",
+   "file": "salesforce.svg"
+  },
+  {
+   "name": "HubSpot",
+   "file": "hubspot.svg"
+  },
+  {
+   "name": "Zendesk",
+   "file": "zendesk-icon.svg"
+  },
+  {
+   "name": "Stripe",
+   "file": "stripe.svg"
+  },
+  {
+   "name": "Discord",
+   "file": "discord-icon.svg"
+  },
+  {
+   "name": "Microsoft Teams",
+   "file": "microsoft-teams.svg"
+  },
+  {
+   "name": "Microsoft",
+   "file": "microsoft-icon.svg"
+  },
+  {
+   "name": "OneDrive",
+   "file": "microsoft-onedrive.svg"
+  },
+  {
+   "name": "SharePoint",
+   "file": "microsoftsharepoint.svg"
+  },
+  {
+   "name": "OneNote",
+   "file": "microsoftonenote.svg"
+  },
+  {
+   "name": "Excel",
+   "file": "microsoftexcel.svg"
+  },
+  {
+   "name": "Word",
+   "file": "microsoftword.svg"
+  },
+  {
+   "name": "PowerPoint",
+   "file": "microsoftpowerpoint.svg"
+  },
+  {
+   "name": "Power BI",
+   "file": "microsoft-power-bi.svg"
+  },
+  {
+   "name": "Canva",
+   "file": "canva.svg"
+  },
+  {
+   "name": "Figma",
+   "file": "figma.svg"
+  }
+ ],
+ "b": [
+  {
+   "name": "OpenAI",
+   "file": "openai.svg"
+  },
+  {
+   "name": "Anthropic",
+   "file": "claude-color.svg"
+  },
+  {
+   "name": "Google Gemini",
+   "file": "gemini-color.svg"
+  },
+  {
+   "name": "OpenRouter",
+   "file": "openrouter.svg"
+  },
+  {
+   "name": "Groq",
+   "file": "groq.svg"
+  },
+  {
+   "name": "Mistral",
+   "file": "mistral-color.svg"
+  },
+  {
+   "name": "DeepSeek",
+   "file": "deepseek-color.svg"
+  },
+  {
+   "name": "Kimi",
+   "file": "moonshot.svg"
+  },
+  {
+   "name": "Qwen",
+   "file": "qwen-color.svg"
+  },
+  {
+   "name": "xAI",
+   "file": "xai.svg"
+  },
+  {
+   "name": "Together AI",
+   "file": "together-color.svg"
+  },
+  {
+   "name": "Fireworks AI",
+   "file": "fireworks.svg"
+  },
+  {
+   "name": "Cerebras",
+   "file": "cerebras-color.svg"
+  },
+  {
+   "name": "Z.ai",
+   "file": "zhipu-color.svg"
+  },
+  {
+   "name": "Perplexity",
+   "file": "perplexity-color.svg"
+  },
+  {
+   "name": "Google",
+   "file": "google-color.svg"
+  }
+ ]
+}

@@ -46,7 +46,7 @@ assert(!/[$€£]\s?\d|GH[₵S]\s?\d|\b\d+\s?(USD|GHS)\b/.test(text), 'no prices
 assert(!/\b(MIT|Apache|GPL|AGPL|BSD)\b/.test(text), 'no licence is named (it is decided later)')
 assert(/Docker setup is planned/.test(text) && !/one-command docker (is|works)/i.test(text), 'Docker is described as planned, not available')
 assert(/Early/.test(text) && /not yet run on a live one/.test(text), 'the Reef and the Bridge are marked early, with the real caveat')
-assert(/sample account/.test(text) && /animated rather than screen recordings/.test(text), 'the footage and the tutorials are disclosed (sample account, animated)')
+assert(/sample account/.test(text) && /illustrated from the README steps and are not screen recordings/.test(text), 'the footage and the tutorials are disclosed (sample account, illustrated)')
 for (const word of ['Gmail', 'Slack', 'GitHub', 'Notion', 'Google Calendar', 'Google Drive', 'MCP']) assert(text.includes(word), `${word} is named (it is in the app)`)
 for (const gone of ['Vercel', 'Telegram', 'Blender', 'FL Studio', 'catalog', 'Catalog', 'Capability Search', 'benchmark', 'Benchmark', 'All services online']) assert(!text.includes(gone), `${gone} is not claimed (the app does not have it)`)
 
