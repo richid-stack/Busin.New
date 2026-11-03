@@ -32,29 +32,29 @@ def timeline(segs):
     return sum((b - a) / sp for a, b, sp in segs)
 
 SCENES = {
- 'chat': dict(src='chat', segs=[(1.0, 1.6, 1.0), (1.6, 10.2, 3.6), (10.2, 10.9, 1.0), (10.9, 15.2, 3.0), (15.2, 19.4, 1.0)],
-   zoom=[(0, 1.0, .5, .5), (.5, 1.55, .575, .31), (3.0, 1.55, .575, .31), (3.6, 1.2, .55, .2), (5.2, 1.35, .56, .24), (7.0, 1.7, .56, .31)],
-   caps=[(.3, 3.1, 'Ask in <b>plain words</b>.'), (3.2, 5.6, 'It uses <b>real tools</b>.'), (5.7, None, 'Then it <b>plans the week</b>.')]),
- 'approval': dict(src='approval', segs=[(0.5, 5.3, 1.0)],
+ 'chat': dict(src='chat', segs=[(1.0, 1.6, 1.0), (1.6, 9.0, 3.6), (9.0, 9.7, 1.0), (9.7, 10.9, 1.8), (10.9, 14.9, 1.0)],
+   zoom=[(0, 1.0, .5, .5), (.5, 1.55, .575, .31), (2.6, 1.55, .575, .31), (3.3, 1.2, .55, .2), (4.5, 1.35, .56, .24), (6.0, 1.7, .56, .31)],
+   caps=[(.3, 2.6, 'Ask in <b>plain words</b>.'), (2.7, 4.4, 'It uses <b>real tools</b>.'), (4.5, None, 'Then it <b>plans the week</b>.')]),
+ 'approval': dict(src='approval', segs=[(0.5, 5.9, 1.0)],
    zoom=[(0, 1.0, .5, .5), (.8, 1.8, .575, .37), (4.0, 1.8, .575, .37)],
    box=(1.3, 1e9, 860, 316, 1050, 352),
    caps=[(.5, None, 'Asks <b>before</b> anything that matters.')]),
- 'tasks': dict(src='tasks', segs=[(0.3, 1.5, 1.0), (4.6, 6.4, 1.0), (6.8, 10.2, 1.15), (12.3, 15.6, 1.0)],
-   zoom=[(0, 1.0, .5, .5), (2.8, 1.0, .5, .5), (3.4, 1.4, .5, .45), (5.8, 1.4, .5, .45), (6.0, 1.4, .5, .42)],
-   caps=[(.3, 2.8, 'Give it a <b>goal</b>.'), (3.0, 5.8, 'Done means <b>checked</b>.'), (6.0, None, 'Honest when it <b>isn’t</b>.')]),
- 'workflow': dict(src='workflow', segs=[(2.4, 4.0, 1.0), (6.0, 17.4, 2.4)],
-   zoom=[(0, 1.0, .5, .5), (1.6, 1.0, .5, .5), (2.6, 1.4, .55, .52), (6.3, 1.4, .55, .52)],
-   caps=[(.4, 1.9, 'Pick a workflow.'), (2.0, None, 'Automations on a <b>canvas</b>.')]),
- 'agents': dict(src='agents', segs=[(0.5, 3.7, 1.6), (4.7, 7.6, 1.6)],
+ 'tasks': dict(src='tasks', segs=[(0.3, 1.5, 1.0), (4.7, 6.8, 1.0), (7.2, 10.6, 1.15), (12.8, 16.2, 1.0)],
+   zoom=[(0, 1.0, .5, .5), (3.1, 1.0, .5, .5), (3.7, 1.4, .5, .45), (6.1, 1.4, .5, .45), (6.3, 1.4, .5, .42)],
+   caps=[(.3, 3.0, 'Give it a <b>goal</b>.'), (3.3, 6.1, 'Done means <b>checked</b>.'), (6.3, None, 'Reports what <b>wasn’t met</b>.')]),
+ 'workflow': dict(src='workflow', segs=[(2.4, 4.3, 1.0), (6.4, 18.2, 2.4)],
+   zoom=[(0, 1.0, .5, .5), (1.9, 1.0, .5, .5), (2.9, 1.4, .55, .52), (6.8, 1.4, .55, .52)],
+   caps=[(.4, 2.2, 'Choose a workflow.'), (2.3, None, 'Automations on a <b>canvas</b>.')]),
+ 'agents': dict(src='agents', segs=[(0.5, 3.9, 1.6), (5.2, 8.2, 1.6)],
    zoom=[(0, 1.0, .5, .5), (.6, 1.35, .46, .42), (1.8, 1.35, .46, .42), (2.1, 1.0, .5, .5), (2.6, 1.3, .5, .4)],
-   caps=[(.3, 2.0, 'Agents that are <b>yours</b>.'), (2.1, None, 'Memory you <b>control</b>.')]),
- 'reef': dict(src='reef', segs=[(0.5, 4.2, 1.3), (5.4, 8.6, 1.3)],
+   caps=[(.3, 2.0, 'Agents you <b>configure</b>.'), (2.1, None, 'Memory you <b>control</b>.')]),
+ 'reef': dict(src='reef', segs=[(0.5, 4.2, 1.3), (5.5, 8.6, 1.3)],
    zoom=[(0, 1.0, .5, .5)],
    caps=[(.3, 2.9, 'Share what works.'), (3.0, None, '<b>Fork</b> what you like.')]),
- 'computers': dict(src='computers', segs=[(0.8, 7.2, 3.4), (7.2, 13.6, 1.9)],
+ 'computers': dict(src='computers', segs=[(0.8, 7.1, 3.4), (7.1, 13.6, 1.9)],
    zoom=[(0, 1.0, .5, .5), (1.9, 1.0, .5, .5), (2.7, 1.5, .5, .5)],
    caps=[(.3, 2.0, 'Your computer, <b>on your terms</b>.'), (2.2, None, 'Pair with <b>one code</b>.')]),
- 'integrations': dict(src='integrations', segs=[(0.4, 4.7, 1.4)],
+ 'integrations': dict(src='integrations', segs=[(0.4, 4.8, 1.4)],
    zoom=[(0, 1.0, .5, .5), (1.3, 1.3, .45, .78)],
    caps=[(.3, None, 'Your apps, <b>connected</b>.')]),
  'models': dict(src='models', segs=[(0.6, 4.4, 1.5), (4.4, 12.0, 1.9)],
@@ -62,17 +62,17 @@ SCENES = {
    caps=[(.3, 2.6, 'Bring <b>your own</b> key.'), (2.8, None, 'Stored encrypted. <b>Yours.</b>')]),
 }
 # Tighter cuts of the longer scenes for the 50-second ad (the full versions above are for the feature clips).
-SCENES['chat_ad'] = dict(SCENES['chat'], segs=[(1.0, 1.5, 1.0), (1.5, 10.2, 4.4), (10.2, 10.8, 1.0), (10.8, 15.4, 5.0), (15.4, 18.9, 1.0)],
-   zoom=[(0, 1.0, .5, .5), (.4, 1.55, .575, .31), (2.4, 1.55, .575, .31), (3.0, 1.2, .55, .2), (4.3, 1.35, .56, .24), (5.6, 1.7, .56, .31)],
-   caps=[(.3, 3.0, 'Ask in <b>plain words</b>.'), (3.1, 5.3, 'It uses <b>real tools</b>.'), (5.4, None, 'Then it <b>plans the week</b>.')])
-SCENES['approval_ad'] = dict(SCENES['approval'], segs=[(0.5, 4.4, 1.0)])
-SCENES['tasks_ad'] = dict(SCENES['tasks'], segs=[(0.3, 1.0, 1.0), (5.2, 6.4, 1.0), (7.2, 9.4, 1.0), (13.0, 15.4, 1.0)],
+SCENES['chat_ad'] = dict(SCENES['chat'], segs=[(1.0, 1.5, 1.0), (1.5, 9.0, 4.4), (9.0, 9.6, 1.0), (9.6, 10.9, 2.2), (10.9, 13.4, 1.0)],
+   zoom=[(0, 1.0, .5, .5), (.4, 1.55, .575, .31), (2.0, 1.55, .575, .31), (2.6, 1.2, .55, .2), (3.6, 1.35, .56, .24), (4.6, 1.7, .56, .31)],
+   caps=[(.3, 2.0, 'Ask in <b>plain words</b>.'), (2.1, 3.4, 'It uses <b>real tools</b>.'), (3.5, None, 'Then it <b>plans the week</b>.')])
+SCENES['approval_ad'] = dict(SCENES['approval'], segs=[(0.5, 5.0, 1.0)])
+SCENES['tasks_ad'] = dict(SCENES['tasks'], segs=[(0.3, 1.0, 1.0), (5.6, 6.8, 1.0), (7.6, 9.8, 1.0), (13.5, 16.0, 1.0)],
    zoom=[(0, 1.0, .5, .5), (1.7, 1.0, .5, .5), (2.3, 1.4, .5, .45), (3.9, 1.4, .5, .45), (4.3, 1.4, .5, .42)],
-   caps=[(.3, 1.8, 'Give it a <b>goal</b>.'), (2.0, 4.0, 'Done means <b>checked</b>.'), (4.2, None, 'Honest when it <b>isn’t</b>.')])
-SCENES['workflow_ad'] = dict(SCENES['workflow'], segs=[(2.6, 3.8, 1.0), (6.3, 17.4, 3.3)],
-   zoom=[(0, 1.0, .5, .5), (1.0, 1.0, .5, .5), (1.8, 1.4, .55, .52), (5.0, 1.4, .55, .52)],
-   caps=[(.3, 1.4, 'Pick a workflow.'), (1.5, None, 'Automations on a <b>canvas</b>.')])
-SCENES['reef_ad'] = dict(SCENES['reef'], segs=[(0.5, 4.2, 1.8), (5.4, 8.6, 1.8)], caps=[(.3, 2.0, 'Share what works.'), (2.1, None, '<b>Fork</b> what you like.')])
+   caps=[(.3, 1.8, 'Give it a <b>goal</b>.'), (2.0, 4.0, 'Done means <b>checked</b>.'), (4.2, None, 'Reports what <b>wasn’t met</b>.')])
+SCENES['workflow_ad'] = dict(SCENES['workflow'], segs=[(2.6, 4.1, 1.0), (6.7, 18.2, 3.3)],
+   zoom=[(0, 1.0, .5, .5), (1.3, 1.0, .5, .5), (2.1, 1.4, .55, .52), (5.3, 1.4, .55, .52)],
+   caps=[(.3, 1.7, 'Choose a workflow.'), (1.8, None, 'Automations on a <b>canvas</b>.')])
+SCENES['reef_ad'] = dict(SCENES['reef'], segs=[(0.5, 4.2, 1.8), (5.5, 8.6, 1.8)], caps=[(.3, 2.0, 'Share what works.'), (2.1, None, '<b>Fork</b> what you like.')])
 
 def run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -92,7 +92,7 @@ def build(name, cfg, total_override=None):
     last = 'tl'
     if cfg.get('box'):
         t0, t1, x, y, w, h = cfg['box']
-        g += f";[{last}]drawbox=x={x}:y={y}:w={w}:h={h}:color=0xff6b5e@0.95:t=6:enable='between(t,{t0},{min(t1, D)})'[bx]"; last = 'bx'
+        g += f";[{last}]drawbox=x={x}:y={y}:w={w}:h={h}:color=0x0099ff@0.95:t=6:enable='between(t,{t0},{min(t1, D)})'[bx]"; last = 'bx'
     Z = smooth(cfg['zoom'], lambda k: k[1]).replace('T', '(on/30)')
     FX = smooth(cfg['zoom'], lambda k: k[2]).replace('T', '(on/30)'); FY = smooth(cfg['zoom'], lambda k: k[3]).replace('T', '(on/30)')
     g += (f";[{last}]zoompan=z='{Z}':x='max(0,min(iw-iw/zoom,({FX})*iw-iw/zoom/2))':y='max(0,min(ih-ih/zoom,({FY})*ih-ih/zoom/2))'"

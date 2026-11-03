@@ -28,10 +28,10 @@ const CURSOR = `
     if (document.getElementById('__cur') || !document.documentElement) return
     const c = document.createElement('div'); c.id = '__cur'
     c.style.cssText = 'position:fixed;left:0;top:0;width:28px;height:28px;z-index:2147483647;pointer-events:none;transform:translate(-100px,-100px);transition:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))'
-    c.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28"><path d="M5 3l16 9.5-7 1.8-3.6 6.4z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+    c.innerHTML = '<svg width="28" height="28" viewBox="0 0 28 28"><path d="M5 3l16 9.5-7 1.8-3.6 6.4z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>'
     document.documentElement.appendChild(c)
     const r = document.createElement('div'); r.id = '__rip'
-    r.style.cssText = 'position:fixed;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid rgba(47,123,255,.9);z-index:2147483646;pointer-events:none;opacity:0;transform:scale(.3)'
+    r.style.cssText = 'position:fixed;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid rgba(0,153,255,.95);z-index:2147483646;pointer-events:none;opacity:0;transform:scale(.3)'
     document.documentElement.appendChild(r)
     addEventListener('mousemove', e => { c.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)' }, true)
     addEventListener('mousedown', e => {
@@ -45,7 +45,7 @@ const CURSOR = `
 
 class Film {
   constructor(name) { this.name = name; this.dir = `${TMP}/${name}`; this.frames = []; this.mx = 800; this.my = 450 }
-  async open(browser, { dark = false, url = '/', wait = null } = {}) {
+  async open(browser, { dark = true, url = '/', wait = null } = {}) {
     fs.rmSync(this.dir, { recursive: true, force: true }); fs.mkdirSync(this.dir, { recursive: true })
     this.ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR, colorScheme: dark ? 'dark' : 'light', reducedMotion: 'no-preference' })
     await this.ctx.addInitScript(CURSOR)

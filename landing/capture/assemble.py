@@ -29,7 +29,7 @@ def assemble(name, scenes, music=True):
     tmpw = f'{VID}/{name}.tmp.mp4'
     run(['ffmpeg', '-y', '-loglevel', 'error', '-i', f'{MASTER}/{name}.mp4', '-vf', 'scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', '26', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '112k', '-movflags', '+faststart', tmpw])
     os.rename(tmpw, f'{VID}/{name}.mp4')
-    run(['ffmpeg', '-y', '-loglevel', 'error', '-ss', str(min(total * .3, 12)), '-i', f'{MASTER}/{name}.mp4', '-frames:v', '1', '-vf', 'scale=1280:720', '-c:v', 'libwebp', '-quality', '82', f'{VID}/{name}.webp'])
+    run(['ffmpeg', '-y', '-loglevel', 'error', '-ss', str(1.8 if name.startswith('tutorial-') else min(total * .3, 12)), '-i', f'{MASTER}/{name}.mp4', '-frames:v', '1', '-vf', 'scale=1280:720', '-c:v', 'libwebp', '-quality', '82', f'{VID}/{name}.webp'])
     print(f'{name}: {total:.1f}s, master {os.path.getsize(f"{MASTER}/{name}.mp4")/1e6:.1f} MB, web {os.path.getsize(f"{VID}/{name}.mp4")/1e6:.1f} MB')
 if __name__ == '__main__':
     assemble(sys.argv[1], sys.argv[2:])
