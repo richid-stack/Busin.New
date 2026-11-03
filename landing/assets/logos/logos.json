@@ -63,7 +63,9 @@
   {
    "name": "Airtable",
    "file": "airtable.svg"
-  },
+  }
+ ],
+ "b": [
   {
    "name": "Salesforce",
    "file": "salesforce.svg"
@@ -129,7 +131,7 @@
    "file": "figma.svg"
   }
  ],
- "b": [
+ "c": [
   {
    "name": "OpenAI",
    "file": "openai.svg"
