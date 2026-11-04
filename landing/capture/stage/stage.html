@@ -6,7 +6,7 @@
   html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); font-family: 'Inter', system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
   .bg { position: absolute; inset: 0; background: var(--ink); overflow: hidden; }
   .glow { position: absolute; border-radius: 50%; filter: blur(140px); opacity: .55; }
-  .g1 { inset: 0; width: auto; height: auto; border-radius: 0; filter: none; opacity: 1; background: radial-gradient(circle at var(--mx, 50%) 0%, rgba(0,153,255,.22), transparent 62%); }
+  .g1 { display: none; }
   .g2 { display: none; }
   .dots { display: none; }
   .vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.6) 100%); }
@@ -18,6 +18,9 @@
   .shot { position: absolute; border-radius: 22px; overflow: hidden; box-shadow: 0 50px 120px -30px rgba(0,0,0,.9), 0 0 0 1px #262626; background: #000; will-change: transform, opacity; }
   .shot img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top left; }
   .phone { border-radius: 54px; box-shadow: 0 50px 120px -20px rgba(0,0,0,.8), 0 0 0 10px #101010, 0 0 0 11px #2a2a2a; }
+  .rimp { border: 1.5px solid transparent; border-radius: 24px; background: linear-gradient(rgba(5,10,30,.94), rgba(5,10,30,.94)) padding-box, linear-gradient(135deg, #d6e6ff 0%, #4a9bff 28%, #0a62ff 62%, #0636c8 100%) border-box; box-shadow: 0 0 6px rgba(120,190,255,.95), 0 0 24px rgba(40,130,255,.85), 0 0 70px rgba(20,100,255,.6), 0 0 180px rgba(10,60,230,.4), inset 0 0 50px rgba(40,110,255,.22); }
+  .shot { box-shadow: 0 0 0 2px rgba(130,190,255,.95), 0 0 18px rgba(50,140,255,.9), 0 0 80px rgba(20,100,255,.55) !important; }
+  .phone { box-shadow: 0 0 0 5px #0a0a0a, 0 0 0 7px rgba(255,255,255,.9), 0 0 30px 6px rgba(255,255,255,.35), 0 0 90px rgba(80,140,255,.35) !important; }
   .cap { position: absolute; font-weight: 500; letter-spacing: -0.05em; will-change: transform, opacity; }
   /* tutorial pieces */
   .term { position: absolute; background: #0a0a0a; border-radius: 22px; box-shadow: 0 50px 120px -30px rgba(0,0,0,.9), 0 0 0 1px #262626; overflow: hidden; }
@@ -50,29 +53,25 @@ function ambient() {
 }
 const scenes = {}
 
-/* ---------- intro: three beats ---------- */
-scenes.intro = { dur: 3.0, build() {
+/* ---------- intro: three words on black, then the rim-lit prompt ---------- */
+scenes.intro = { dur: 4.0, build() {
   const w = ['Delegate.', 'Verify.', 'Approve.']
-  this.w = w.map((s, i) => { const e = $(`<div class="word ${i === 2 ? 'coral' : ''}" style="top:${i === 2 ? 392 : 400}px;font-size:${i === 1 ? 200 : 230}px">${s}</div>`); root.appendChild(e); return e })
+  this.row = $(`<div class="abs" style="left:0;right:0;top:215px;display:flex;justify-content:center;gap:46px;font-weight:400;font-size:150px;letter-spacing:-.06em;line-height:1;white-space:nowrap"></div>`); root.appendChild(this.row)
+  this.w = w.map(s => { const e = $(`<span style="display:inline-block;will-change:transform,opacity,filter">${s}</span>`); this.row.appendChild(e); return e })
+  this.panel = $(`<div class="rimp abs" style="left:560px;top:520px;width:800px;height:300px;padding:36px 42px;font-size:34px;line-height:1.4;color:#e8eeff"><span id="ityp"></span><span class="caret" style="height:34px;width:3px;background:#9fc6ff;vertical-align:-6px"></span><div class="abs" style="left:42px;right:42px;bottom:28px;display:flex;justify-content:space-between;align-items:center;font-size:22px;color:#8fb3ff"><span>Gemini 3.5 Flash</span><span style="width:46px;height:46px;border-radius:12px;background:rgba(50,120,255,.55);display:grid;place-items:center;color:#fff;font-size:26px">↑</span></div></div>`); root.appendChild(this.panel)
+  this.typ = this.panel.querySelector('#ityp')
   this.logo = $(`<div class="logo" style="left:60px;top:54px;width:70px;height:70px">${LOGO}</div>`); root.appendChild(this.logo)
   this.name = $(`<div class="abs" style="left:146px;top:62px;font-weight:600;font-size:40px;letter-spacing:-.04em">OpenLobs</div>`); root.appendChild(this.name)
 }, draw(t) {
   ambient(t)
-  this.w.forEach((e, i) => {
-    const a = i * 1.0, p = seg(t, a, a + .34), o = seg(t, a + .78, a + 1.0)
-    const last = i === 2
-    const s = .72 + .28 * back(p)
-    const out = last ? 0 : eo3(o)
-    const xo = last ? -eo3(seg(t, 2.7, 3.0)) * 420 : 0
-    e.style.opacity = clamp(p * 2) * (1 - out) * (last ? 1 - seg(t, 2.8, 3.0) : 1)
-    e.style.transform = `translate(${xo}px, ${(1 - eo5(p)) * 80 - out * 60}px) scale(${s + out * .12})`
-    e.style.filter = `blur(${(1 - p) * 22 + out * 16}px)`
-  })
-  const lp = seg(t, .1, .6); this.logo.style.opacity = lp; this.name.style.opacity = lp
-  this.logo.style.transform = `rotate(${(1 - eo3(lp)) * -25}deg) scale(${.6 + .4 * back(lp)})`
+  this.w.forEach((e, i) => { const a = i * .55, p = seg(t, a, a + .4); e.style.opacity = clamp(p * 2); e.style.transform = `translateY(${(1 - eo5(p)) * 70}px) scale(${.9 + .1 * back(p)})`; e.style.filter = `blur(${(1 - p) * 18}px)` })
+  const pp = seg(t, 1.5, 2.2); this.panel.style.opacity = clamp(pp * 2); this.panel.style.transform = `translateY(${(1 - eo5(pp)) * 120}px) scale(${.96 + .04 * eo5(pp)})`
+  const msg = 'A customer ordered 12 chairs at GH₵ 350 each, plus GH₵ 120 delivery. What is the total? Plan the week for me.'
+  this.typ.textContent = msg.slice(0, Math.floor(clamp((t - 2.1) / 1.4) * msg.length))
+  const lp = seg(t, 0, .5); this.logo.style.opacity = clamp(lp * 2); this.name.style.opacity = lp
+  root.style.opacity = 1 - seg(t, 3.7, 4.0)
 }}
 
-/* ---------- montage: light, dark, phone ---------- */
 scenes.bg = { dur: 1, build() {}, draw(t) { ambient() } }
 scenes.montage = { dur: 4.0, build() {
   const mk = (src, l, t, w, h, cls = '') => { const e = $(`<div class="shot ${cls}" style="left:${l}px;top:${t}px;width:${w}px;height:${h}px"><img src="../../media/shots/${src}.webp"></div>`); root.appendChild(e); return e }
@@ -100,6 +99,7 @@ scenes.outro = { dur: 5.0, build() {
   const items = ['Free to start', 'Open source', 'Bring your own keys', 'Runs on your computer']
   const widths = [330, 310, 450, 530], gap = 26, total = widths.reduce((a, b) => a + b, 0) + gap * 3
   let x = 960 - total / 2
+  this.pn = $(`<div class="rimp abs" style="left:110px;top:735px;width:1700px;height:420px;border-radius:30px;-webkit-mask:linear-gradient(#000 40%,transparent 88%);mask:linear-gradient(#000 40%,transparent 88%)"></div>`); root.appendChild(this.pn)
   this.chips = items.map((s, i) => { const e = $(`<div class="chip" style="left:${x}px;top:790px;width:${widths[i]}px;text-align:center">${s}</div>`); x += widths[i] + gap; root.appendChild(e); return e })
 }, draw(t) {
   ambient(t, 4)
@@ -109,6 +109,7 @@ scenes.outro = { dur: 5.0, build() {
   const np = seg(t, .45, 1.0); this.name.style.opacity = np; this.name.style.transform = `translateY(${(1 - eo5(np)) * 70}px)`; this.name.style.filter = `blur(${(1 - np) * 20}px)`
   const tp = seg(t, 1.3, 1.9); this.tag.style.opacity = tp; this.tag.style.transform = `translateY(${(1 - eo5(tp)) * 40}px)`
   this.chips.forEach((e, i) => { const p = seg(t, 2.0 + i * .25, 2.35 + i * .25); e.style.opacity = p; e.style.transform = `translateY(${(1 - back(p)) * 60}px) scale(${.85 + .15 * back(p)})` })
+  const pq = seg(t, 1.8, 2.6); this.pn.style.opacity = pq; this.pn.style.transform = `translateY(${(1 - eo5(pq)) * 160}px)`
   const fo = seg(t, 4.55, 5.0); root.style.opacity = 1 - fo
 }}
 
@@ -185,7 +186,7 @@ function stepsScene(spec) {
 /* ---------- a VS Code window, drawn from a timeline: clone, install, configure, run (illustrated; the commands and output follow the README) ---------- */
 const VS_CSS = `
 .vsx{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
-.vw{position:absolute;left:60px;top:34px;width:1800px;height:930px;background:#1e1e1e;border-radius:14px;overflow:hidden;box-shadow:0 60px 140px -30px rgba(0,0,0,.9),0 0 0 1px #2b2b2b;font:15px 'Segoe UI',Inter,system-ui,sans-serif;color:#ccc}
+.vw{position:absolute;left:60px;top:34px;width:1800px;height:930px;background:#1e1e1e;border-radius:14px;overflow:hidden;box-shadow:0 0 0 1.5px rgba(110,170,255,.85),0 0 12px rgba(60,150,255,.7),0 0 70px rgba(20,100,255,.4);font:15px 'Segoe UI',Inter,system-ui,sans-serif;color:#ccc}
 .vt{height:36px;background:#181818;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;color:#9d9d9d;border-bottom:1px solid #2b2b2b}
 .vt .m{display:flex;gap:16px}.vt .c{position:absolute;left:0;right:0;text-align:center;pointer-events:none}.vt .w{display:flex;gap:22px;font-size:14px;color:#9d9d9d;position:relative;z-index:1}
 .vb{position:absolute;left:0;top:36px;width:50px;bottom:26px;background:#181818;border-right:1px solid #2b2b2b;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:10px}
@@ -204,7 +205,7 @@ const VS_CSS = `
 .vp .g{color:#4ec9b0}.vp .y{color:#e5e510}.vp .b{color:#3b8eea}.vp .dm{color:#8b8b8b}.vp .ok{color:#23d18b}.vp .u{color:#3794ff;text-decoration:underline}.vp .car{display:inline-block;width:9px;height:18px;background:#ccc;vertical-align:-3px}
 .vst{position:absolute;left:0;right:0;bottom:0;height:26px;background:#0078d4;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 14px;font-size:13px}.vst span{margin-right:18px}
 .sk{color:#569cd6}.sv{color:#ce9178}.sc{color:#6a9955}.sp{color:#9cdcfe}.sw{color:#d4d4d4}.ss{color:#ce9178}
-.vbr{position:absolute;left:60px;top:34px;width:1800px;height:930px;background:#0e0e0e;border-radius:14px;overflow:hidden;box-shadow:0 60px 140px -30px rgba(0,0,0,.9),0 0 0 1px #2b2b2b}
+.vbr{position:absolute;left:60px;top:34px;width:1800px;height:930px;background:#0e0e0e;border-radius:14px;overflow:hidden;box-shadow:0 0 0 1.5px rgba(110,170,255,.85),0 0 12px rgba(60,150,255,.7),0 0 70px rgba(20,100,255,.4)}
 .vbr .tb{height:50px;background:#1b1b1b;display:flex;align-items:center;gap:14px;padding:0 22px}.vbr .ad{flex:1;height:32px;border-radius:16px;background:#0e0e0e;color:#bbb;font:15px Inter;display:flex;align-items:center;padding:0 16px}.vbr img{display:block;width:1800px;height:880px;object-fit:cover;object-position:top}
 `
 document.head.appendChild(Object.assign(document.createElement('style'), { textContent: VS_CSS }))

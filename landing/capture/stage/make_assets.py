@@ -11,8 +11,23 @@ def rr(w, h, r, fill, size=None):
     return im.resize((w, h), Image.LANCZOS)
 mask = rr(CW, CH, R, 255); mask.save(f'{HERE}/mask.png')
 outer = rr(CW, CH, R, 255); inner = Image.new('L', (CW, CH), 0); inner.paste(rr(CW - 4, CH - 4, R - 2, 255), (2, 2))
+inner = Image.new('L', (CW, CH), 0); inner.paste(rr(CW - 6, CH - 6, R - 3, 255), (3, 3))
 ring_a = Image.eval(Image.composite(Image.new('L', (CW, CH), 0), outer, inner), lambda v: v)  # outer minus inner
-ring = Image.new('RGBA', (CW, CH), (255, 255, 255, 0)); ring.putalpha(ring_a.point(lambda v: int(v * 0.16))); ring.save(f'{HERE}/ring.png')
-sh = Image.new('L', (CW + 2 * M, CH + 2 * M), 0); sh.paste(rr(CW, CH, R, 235), (M, M + 44)); sh = sh.filter(ImageFilter.GaussianBlur(52))
-shadow = Image.new('RGBA', sh.size, (0, 0, 0, 0)); shadow.putalpha(sh); shadow.save(f'{HERE}/shadow.png')
+# rim light: crisp blue-white edge (brighter at the top left) over a blue bloom, like a lit panel on black
+import numpy as np
+ra = np.array(ring_a, dtype=np.float32) / 255.0
+yy, xx = np.mgrid[0:CH, 0:CW].astype(np.float32); d = (xx / CW * .6 + yy / CH * .4)
+stops = [(0, (214, 230, 255)), (.28, (74, 155, 255)), (.62, (10, 98, 255)), (1, (6, 54, 200))]
+col = np.zeros((CH, CW, 3), np.float32)
+for c in range(3): col[..., c] = np.interp(d, [s_[0] for s_ in stops], [s_[1][c] for s_ in stops])
+ring = Image.fromarray(np.dstack([col, ra * 255]).astype(np.uint8), 'RGBA'); ring.save(f'{HERE}/ring.png')
+dark = Image.new('L', (CW + 2 * M, CH + 2 * M), 0); dark.paste(rr(CW, CH, R, 235), (M, M + 44)); dark = dark.filter(ImageFilter.GaussianBlur(52))
+edge = Image.new('L', (CW + 2 * M, CH + 2 * M), 0); edge.paste(ring_a, (M, M))
+bl1 = edge.filter(ImageFilter.GaussianBlur(12)).point(lambda v: min(255, int(v * 2.0)))
+bl2 = edge.filter(ImageFilter.GaussianBlur(40)).point(lambda v: min(255, int(v * 4.0)))
+al = np.maximum(np.array(bl1, np.float32) * 1.0, np.array(bl2, np.float32) * .85)
+sh = np.zeros((CH + 2 * M, CW + 2 * M, 4), np.uint8)
+sh[..., 0] = 24; sh[..., 1] = 100; sh[..., 2] = 255; sh[..., 3] = np.clip(al, 0, 255).astype(np.uint8)
+glow = Image.fromarray(sh, 'RGBA')
+shadow = Image.new('RGBA', glow.size, (0, 0, 0, 0)); shadow.putalpha(dark); shadow = Image.alpha_composite(shadow, glow); shadow.save(f'{HERE}/shadow.png')
 print('card pieces written')
