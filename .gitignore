@@ -46,3 +46,4 @@ dist
 # Build output and local data
 .output
 .data
+landing/capture/files/out/
