@@ -47,7 +47,7 @@ assert(!/[$€£]\s?\d|GH[₵S]\s?\d|\b\d+\s?(USD|GHS)\b/.test(text), 'no prices
 assert(!/\b(MIT|Apache|GPL|AGPL|BSD)\b/.test(text), 'no licence is named (it is decided later)')
 assert(/Docker setup is planned/.test(text) && !/one-command docker (is|works)/i.test(text), 'Docker is described as planned, not available')
 assert(/Early/.test(text) && /not yet run on a live one/.test(text), 'the Reef and the Bridge are marked early, with the real caveat')
-assert(/sample account/.test(text) && /illustrated from the README steps and are not screen recordings/.test(text), 'the footage and the tutorials are disclosed (sample account, illustrated)')
+assert(/sample account/.test(text) && /illustrated from the README steps and the deploy guide and are not screen recordings/.test(text), 'the footage and the tutorials are disclosed (sample account, illustrated)')
 for (const word of ['Gmail', 'Slack', 'GitHub', 'Notion', 'Google Calendar', 'Google Drive', 'MCP']) assert(text.includes(word), `${word} is named (it is in the app)`)
 for (const gone of ['Vercel', 'Telegram', 'Blender', 'FL Studio', 'catalog', 'Catalog', 'Capability Search', 'benchmark', 'Benchmark', 'All services online']) assert(!text.includes(gone), `${gone} is not claimed (the app does not have it)`)
 
@@ -58,7 +58,7 @@ assert(!/href="https?:\/\/(?!fonts\.|github\.com\/richid-stack\/Busin\.New)/.tes
 
 // ---- Weight: the site stays small enough to host anywhere ----
 const vids = readdirSync(`${L}/media/video`).filter(f => f.endsWith('.mp4'))
-assert(vids.length === 10 && vids.every(f => statSync(`${L}/media/video/${f}`).size < 4_000_000), `ten web videos, each under 4 MB (${vids.length})`)
+assert(vids.length === 11 && vids.every(f => statSync(`${L}/media/video/${f}`).size < 4_000_000), `eleven web videos, each under 4 MB (${vids.length})`)
 assert(size(`${L}/media/video`) < 15_000_000, 'all videos and posters together are under 15 MB')
 assert(size(`${L}/media/shots`) < 6_000_000, 'all screenshots together are under 6 MB')
 assert(size(`${L}/media/crops`) < 1_500_000, 'all close-ups together are under 1.5 MB')

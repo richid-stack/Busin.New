@@ -9,6 +9,8 @@ import os, sys, json, subprocess
 HERE = os.path.dirname(os.path.abspath(__file__)); M = os.path.join(HERE, '../media')
 SC, MASTER, VID, TMP = f'{M}/scenes', f'{M}/master', f'{M}/video', '/tmp/claude-0/assemble'
 for d in (MASTER, VID, TMP): os.makedirs(d, exist_ok=True)
+# poster frames for the tutorials: the code editor with its captions, not the title card
+POSTER = {'tutorial-install': 16.7, 'tutorial-bridge': 5.0, 'tutorial-deploy': 5.2, 'tutorial-keys': 8.0}
 def run(c):
     r = subprocess.run(c, capture_output=True, text=True)
     if r.returncode: print(r.stderr[-1500:]); sys.exit(1)
@@ -29,7 +31,7 @@ def assemble(name, scenes, music=True):
     tmpw = f'{VID}/{name}.tmp.mp4'
     run(['ffmpeg', '-y', '-loglevel', 'error', '-i', f'{MASTER}/{name}.mp4', '-vf', 'scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', '26', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '112k', '-movflags', '+faststart', tmpw])
     os.rename(tmpw, f'{VID}/{name}.mp4')
-    run(['ffmpeg', '-y', '-loglevel', 'error', '-ss', str(1.8 if name.startswith('tutorial-') else min(total * .3, 12)), '-i', f'{MASTER}/{name}.mp4', '-frames:v', '1', '-vf', 'scale=1280:720', '-c:v', 'libwebp', '-quality', '82', f'{VID}/{name}.webp'])
+    run(['ffmpeg', '-y', '-loglevel', 'error', '-ss', str(POSTER.get(name, min(total * .3, 12))), '-i', f'{MASTER}/{name}.mp4', '-frames:v', '1', '-vf', 'scale=1280:720', '-c:v', 'libwebp', '-quality', '82', f'{VID}/{name}.webp'])
     print(f'{name}: {total:.1f}s, master {os.path.getsize(f"{MASTER}/{name}.mp4")/1e6:.1f} MB, web {os.path.getsize(f"{VID}/{name}.mp4")/1e6:.1f} MB')
 if __name__ == '__main__':
     assemble(sys.argv[1], sys.argv[2:])

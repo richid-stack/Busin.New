@@ -6,8 +6,8 @@
   html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); font-family: 'Inter', system-ui, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
   .bg { position: absolute; inset: 0; background: var(--ink); overflow: hidden; }
   .glow { position: absolute; border-radius: 50%; filter: blur(140px); opacity: .55; }
-  .g1 { width: 1200px; height: 1200px; background: radial-gradient(circle, #0a2a9c 0%, #04103a 40%, transparent 68%); opacity: .8; }
-  .g2 { width: 900px; height: 900px; background: radial-gradient(circle, #5b3fe0 0%, transparent 65%); opacity: .16; }
+  .g1 { inset: 0; width: auto; height: auto; border-radius: 0; filter: none; opacity: 1; background: radial-gradient(circle at var(--mx, 50%) 0%, rgba(0,153,255,.22), transparent 62%); }
+  .g2 { display: none; }
   .dots { display: none; }
   .vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.6) 100%); }
   .abs { position: absolute; }
@@ -46,8 +46,7 @@ const root = document.getElementById('root'), g1 = document.getElementById('g1')
 const LOGO = '<img src="logo.svg" style="width:100%;height:100%">'
 // The glow never moves: every scene (and the edited footage) sits on the same background, so cuts never jump.
 function ambient() {
-  g1.style.transform = 'translate(300px, -200px)'
-  g2.style.transform = 'translate(1000px, 420px)'
+  g1.style.setProperty('--mx', '50%')
 }
 const scenes = {}
 
@@ -183,33 +182,266 @@ function stepsScene(spec) {
     }
   } }
 }
-scenes.tut_install = stepsScene({
-  title: 'Run OpenLobs on your computer', sub: 'Node.js 22 or newer · a Firebase project, or a gcloud login for local use', titleDur: 3.2,
-  foot: 'Illustrated steps. The commands are the ones in the project README.', termTitle: 'Terminal',
-  steps: [
-    { no: '1', title: 'Get the code', note: 'Clone the repository and go into it.', dur: 5.8, lines: [{ cmd: 'git clone https://github.com/richid-stack/Busin.New.git' }, { cmd: 'cd Busin.New' }] },
-    { no: '2', title: 'Install', note: 'Installs the project’s dependencies.', dur: 4.2, lines: [{ cmd: 'npm install' }] },
-    { no: '3', title: 'Add one model key', note: 'Add at least one: GEMINI, GROQ, OPENAI or ANTHROPIC. Or add your own key later on the Models page.', dur: 6.4, lines: [{ cmd: 'cp .env.example .env' }, { c: '# open .env and add one model key' }] },
-    { no: '4', title: 'Let the server reach Firestore', note: 'A one-time sign-in so your local server can use Firestore and Auth.', dur: 5.6, lines: [{ cmd: 'gcloud auth application-default login' }] },
-    { no: '5', title: 'Start it', note: 'Then open it in your browser.', dur: 5.2, lines: [{ cmd: 'npm run dev' }, { c: '# open http://localhost:3000' }] },
-    { no: '', title: '', dur: 5.0, shot: { url: 'localhost:3000', img: 'home-dark' } }
-  ], tail: 0 })
-const BRIDGE = [
-  { no: '1', title: 'Add a computer', note: 'In OpenLobs open Computers and press Add a computer. You get a one-time code.', dur: 4.6, kind: 'list', items: ['Open <b>Computers</b>', 'Press <b>Add a computer</b>', 'Copy the code (it expires in 10 minutes)'] },
-  { no: '2', title: 'Install the Bridge', note: 'Not signed yet, so Windows will ask you to confirm.', dur: 7.4, kind: 'list', items: ['Download <b>OpenLobs-Bridge-Setup.exe</b>', 'If Windows says the publisher is unknown, choose <b>More info</b>', 'Then choose <b>Run anyway</b>'] },
-  { no: '3', title: 'Pair it', note: 'It asks for your OpenLobs address and the code.', dur: 6.0, kind: 'list', items: ['Enter your <b>OpenLobs address</b>', 'Enter the <b>pairing code</b>', 'Choose whether it may <b>look at web pages</b>'] },
-  { no: '4', title: 'You are connected', note: 'It starts by itself when you sign in. Press Test on the Computers page to check.', dur: 6.0, kind: 'list', items: ['The tray icon turns <b>green</b>', 'Computers shows <b>Online now</b>', 'Pause everything any time from the tray icon'] },
-  { no: '5', title: 'Developers: from source', note: 'Same result with two commands (Node.js 22 or newer).', dur: 8.0, lines: [{ cmd: 'npm run bridge -- pair K7M2QX4R --server https://your-openlobs-address' }, { cmd: 'npm run bridge -- run' }] }
-]
-scenes.tut_bridge_a = stepsScene({ title: 'Connect your computer', sub: 'The Bridge: a small program that lets OpenLobs do approved things on it', titleDur: 3.2, foot: 'Illustrated steps, then the real Computers page.', count: 5, steps: [BRIDGE[0]] })
-scenes.tut_bridge_b = stepsScene({ foot: 'Illustrated steps. Windows installer first; developers use the commands in the last step.', termTitle: 'Terminal', count: 5, offset: 1, titleDur: 0, steps: BRIDGE.slice(1) })
-scenes.tut_keys = stepsScene({
-  title: 'Bring your own key', sub: 'Use the models you already pay for. Nothing is added to your OpenLobs credits.', titleDur: 3.0,
-  foot: 'Illustrated steps. The next shot is the real Models page.',
-  steps: [
-    { no: '1', title: 'Open Models', note: 'Pick a provider from the list.', dur: 4.0, kind: 'list', items: ['Open <b>Models</b> in the sidebar', 'Choose a provider, for example <b>Google Gemini</b>', 'Press <b>Connect</b>'] },
-    { no: '2', title: 'Paste your key', note: 'It is checked by asking the provider which models it offers.', dur: 5.0, kind: 'list', items: ['Create a key on the provider’s site (the box links to it)', 'Paste it in the <b>API key</b> field', 'Press <b>Get models</b>'] }
-  ], tail: 0 })
+/* ---------- a VS Code window, drawn from a timeline: clone, install, configure, run (illustrated; the commands and output follow the README) ---------- */
+const VS_CSS = `
+.vsx{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.vw{position:absolute;left:60px;top:34px;width:1800px;height:930px;background:#1e1e1e;border-radius:14px;overflow:hidden;box-shadow:0 60px 140px -30px rgba(0,0,0,.9),0 0 0 1px #2b2b2b;font:15px 'Segoe UI',Inter,system-ui,sans-serif;color:#ccc}
+.vt{height:36px;background:#181818;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;color:#9d9d9d;border-bottom:1px solid #2b2b2b}
+.vt .m{display:flex;gap:16px}.vt .c{position:absolute;left:0;right:0;text-align:center;pointer-events:none}.vt .w{display:flex;gap:22px;font-size:14px;color:#9d9d9d;position:relative;z-index:1}
+.vb{position:absolute;left:0;top:36px;width:50px;bottom:26px;background:#181818;border-right:1px solid #2b2b2b;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:10px}
+.vb i{width:50px;height:46px;display:grid;place-items:center;color:#858585}.vb i.on{color:#fff;box-shadow:inset 2px 0 #0078d4}.vb svg{width:26px;height:26px}
+.vs2{position:absolute;left:50px;top:36px;width:300px;bottom:26px;background:#181818;border-right:1px solid #2b2b2b;overflow:hidden}
+.vs2 h6{font:400 11px 'Segoe UI',Inter,sans-serif;letter-spacing:.08em;color:#bbb;padding:12px 20px;text-transform:uppercase}
+.vs2 .rt{font:700 11px 'Segoe UI',Inter,sans-serif;letter-spacing:.06em;color:#ccc;padding:3px 10px 5px;background:#1f1f1f;text-transform:uppercase}
+.vs2 .tr div{height:24px;line-height:24px;font-size:14px;white-space:nowrap;padding-right:10px;color:#cccccc}.vs2 .tr .sel{background:#37373d}.vs2 .tr .d{color:#cccccc}
+.vs2 .nf{padding:6px 20px;font-size:14px;line-height:1.5;color:#cccccc}.vs2 .nf p{margin-bottom:14px}.vs2 .nf b{display:block;background:#0e639c;color:#fff;font-weight:400;text-align:center;border-radius:2px;padding:7px;margin-bottom:10px}
+.ve{position:absolute;left:350px;top:36px;right:0;height:498px;background:#1e1e1e}
+.vtab{display:flex;height:36px;background:#181818;border-bottom:1px solid #2b2b2b}.vtab div{padding:0 18px;display:flex;align-items:center;gap:8px;font-size:14px;color:#8b8b8b;border-right:1px solid #2b2b2b}.vtab div.on{background:#1e1e1e;color:#fff;box-shadow:inset 0 1px #0078d4}
+.vc{padding:12px 0;font:15px/24px ui-monospace,Consolas,'DejaVu Sans Mono',monospace;white-space:pre}.vc div{display:block}.vc .n{display:inline-block;width:64px;text-align:right;color:#6e7681;padding-right:22px;flex:none}
+.vp{position:absolute;left:350px;right:0;bottom:26px;height:var(--ph,370px);background:#181818;border-top:1px solid #2b2b2b}
+.vp .th{display:flex;gap:26px;height:36px;align-items:center;padding:0 20px;font-size:12px;letter-spacing:.04em;color:#8b8b8b;text-transform:uppercase}.vp .th b{font-weight:400;color:#fff;border-bottom:1px solid #fff;padding:7px 0}
+.vp pre{margin:0;padding:6px 22px;font:16px/23px ui-monospace,Consolas,'DejaVu Sans Mono',monospace;color:#cccccc;white-space:pre-wrap;word-break:break-all;overflow:hidden;height:calc(var(--ph,370px) - 42px)}
+.vp .g{color:#4ec9b0}.vp .y{color:#e5e510}.vp .b{color:#3b8eea}.vp .dm{color:#8b8b8b}.vp .ok{color:#23d18b}.vp .u{color:#3794ff;text-decoration:underline}.vp .car{display:inline-block;width:9px;height:18px;background:#ccc;vertical-align:-3px}
+.vst{position:absolute;left:0;right:0;bottom:0;height:26px;background:#0078d4;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 14px;font-size:13px}.vst span{margin-right:18px}
+.sk{color:#569cd6}.sv{color:#ce9178}.sc{color:#6a9955}.sp{color:#9cdcfe}.sw{color:#d4d4d4}.ss{color:#ce9178}
+.vbr{position:absolute;left:60px;top:34px;width:1800px;height:930px;background:#0e0e0e;border-radius:14px;overflow:hidden;box-shadow:0 60px 140px -30px rgba(0,0,0,.9),0 0 0 1px #2b2b2b}
+.vbr .tb{height:50px;background:#1b1b1b;display:flex;align-items:center;gap:14px;padding:0 22px}.vbr .ad{flex:1;height:32px;border-radius:16px;background:#0e0e0e;color:#bbb;font:15px Inter;display:flex;align-items:center;padding:0 16px}.vbr img{display:block;width:1800px;height:880px;object-fit:cover;object-position:top}
+`
+document.head.appendChild(Object.assign(document.createElement('style'), { textContent: VS_CSS }))
+const ICO = {
+  files: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg>',
+  git: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="6" r="2.3"/><circle cx="7" cy="18" r="2.3"/><circle cx="17" cy="9" r="2.3"/><path d="M7 8.3v7.4M17 11.3c0 4-10 2-10 4.4"/></svg>',
+  run: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M7 4l12 8-12 8z"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="14" y="14" width="6" height="6" transform="rotate(8 17 17)"/></svg>'
+}
+function vscodeScene(spec) {
+  const ev = []; let c = 0; const caps = [], cams = [], acts = []
+  const P = {
+    at: x => { c = x }, wait: s => { c += s },
+    cap: (text, dur) => { caps.push({ a: c, b: c + dur, text }) },
+    cam: (s, cx, cy) => cams.push({ t: c, s, cx, cy }),
+    act: fn => acts.push({ t: c, k: fn }),
+    cmd: (text, o = {}) => { const cps = o.cps || 24, pre = o.pre ?? .5, dur = text.length / cps; c += pre; ev.push({ t: c, type: 'cmd', text, dur }); c += dur + (o.post ?? .4) },
+    out: (lines, gap = .09) => { lines.forEach(l => { ev.push({ t: c, type: 'out', text: l }); c += gap }) },
+    prog: (fn, dur) => { ev.push({ t: c, type: 'prog', fn, dur }); c += dur + .12 },
+    spin: (label, dur) => { ev.push({ t: c, type: 'spin', label, dur }); c += dur }
+  }
+  spec.timeline(P)
+  const total = c + (spec.tail ?? 1.2)
+  const TS = spec.titleDur || 0
+  return { dur: Math.ceil((TS + total) * 2) / 2, build() {
+    this.head = $(`<div class="abs" style="left:0;right:0;top:420px;text-align:center"><div class="word" style="position:relative;font-size:104px">${spec.title}</div><div class="note" style="position:relative;margin-top:34px;font-size:42px">${spec.sub || ''}</div></div>`); root.appendChild(this.head)
+    this.cam = $(`<div class="vsx"></div>`); root.appendChild(this.cam)
+    this.cam.innerHTML = `<div class="vw" id="vw"><div class="vt"><div class="w"><span style="display:flex;align-items:center">${ICO.files.replace('<svg', '<svg width="18" height="18"')}</span><span>File</span><span>Edit</span><span>Selection</span><span>View</span><span>Go</span><span>Run</span><span>Terminal</span><span>Help</span></div><div class="c" id="vtt">Visual Studio Code</div><div style="display:flex;gap:26px;font-size:15px;color:#9d9d9d;position:relative;z-index:1"><span>–</span><span>□</span><span>✕</span></div></div>
+      <div class="vb"><i class="on">${ICO.files}</i><i>${ICO.search}</i><i>${ICO.git}</i><i>${ICO.run}</i><i>${ICO.ext}</i></div>
+      <div class="vs2"><h6>Explorer</h6><div id="vex"></div></div>
+      <div class="ve" id="ve"><div class="vtab" id="vtab"></div><div class="vc" id="vcode"></div></div>
+      <div class="vp" id="vp"><div class="th"><span>Problems</span><span>Output</span><span>Debug console</span><b>Terminal</b></div><pre id="vpre"></pre></div>
+      <div class="vst"><div><span id="vbr">⎇ main</span><span>⊗ 0  ⚠ 0</span></div><div><span>Node 22</span><span>UTF-8</span><span>LF</span><span>PowerShell</span></div></div></div>
+      <div class="vbr" id="vbr2" style="display:none"><div class="tb"><i style="width:14px;height:14px;border-radius:50%;background:#2a2a2a;display:block"></i><i style="width:14px;height:14px;border-radius:50%;background:#2a2a2a;display:block"></i><i style="width:14px;height:14px;border-radius:50%;background:#2a2a2a;display:block"></i><div class="ad">localhost:3000</div></div><img src="../../media/shots/home-dark.webp"></div>`
+    this.cap = $(`<div class="cap" style="left:0;right:0;top:978px;text-align:center;font-size:58px;line-height:1.15"></div>`); root.appendChild(this.cap)
+    this.v = { pre: this.cam.querySelector('#vpre'), ex: this.cam.querySelector('#vex'), tab: this.cam.querySelector('#vtab'), code: this.cam.querySelector('#vcode'), win: this.cam.querySelector('#vw'), br: this.cam.querySelector('#vbr2'), tt: this.cam.querySelector('#vtt') }
+  }, draw(t) {
+    ambient()
+    const intro = TS && t < TS
+    this.head.style.opacity = intro ? clamp(seg(t, .15, .7)) * (1 - seg(t, TS - .4, TS)) : 0
+    this.head.style.transform = `translateY(${intro ? (1 - eo5(seg(t, .15, .7))) * 40 : 0}px)`
+    const T = t - TS, vis = T >= -.3
+    this.cam.style.opacity = vis ? clamp(seg(T, -.3, .5)) : 0
+    // camera
+    let s = 1, cx = 960, cy = 500
+    cams.forEach((k, i) => { const f = i ? cams[i - 1] : k; const p = eio(seg(T, k.t, k.t + 1)); if (T >= k.t || !i) { s = f.s + (k.s - f.s) * p; cx = f.cx + (k.cx - f.cx) * p; cy = f.cy + (k.cy - f.cy) * p } })
+    this.cam.style.transform = `translate(960px,500px) scale(${s}) translate(${-cx}px,${-cy}px)`
+    // state from actions
+    const st = { brt: 0, tree: false, tabs: [], active: '', code: [], cwd: 'C:\\Users\\Ama\\Projects', browser: false, title: 'Visual Studio Code', branch: false }
+    acts.forEach(a => { if (a.t <= T) a.k(st, T - a.t) })
+    // terminal
+    const lines = []
+    let cwd = spec.cwd0
+    ev.forEach(e => { if (e.t > T) return
+      if (e.type === 'cmd') { const n = Math.min(e.text.length, Math.floor((T - e.t) * e.text.length / e.dur)); const done = n >= e.text.length
+        lines.push(`<span class="g">PS ${cwd}&gt;</span> ${e.text.slice(0, n).replace(/</g, '&lt;')}${done ? '' : '<span class="car"></span>'}`)
+        if (done && /^cd /.test(e.text)) { const d = e.text.slice(3).trim(); cwd = cwd + '\\' + d } }
+      else if (e.type === 'out') lines.push(e.text)
+      else if (e.type === 'prog') lines.push(e.fn(clamp((T - e.t) / e.dur)))
+      else if (e.type === 'spin') { const u = clamp((T - e.t) / e.dur); lines.push(u < 1 ? `<span class="b">${'⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'[Math.floor(T * 12) % 10]}</span> ${e.label}` : `<span class="ok">✓</span> ${e.label}`) } })
+    const last = ev.filter(e => e.t <= T).slice(-1)[0]
+    const idle = !last || (last.type === 'cmd' ? (T - last.t) >= last.dur : last.type === 'out' || (last.type === 'prog' && T - last.t > last.dur) || (last.type === 'spin' && T - last.t > last.dur))
+    this.v.pre.innerHTML = lines.slice(-14).join('\n') + (idle && !st.hideprompt ? `\n<span class="g">PS ${cwd}&gt;</span> <span class="car"></span>` : '')
+    // explorer
+    this.v.ex.innerHTML = st.tree ? `<div class="rt">▾ Busin.New</div><div class="tr">${spec.tree.map(([n, d, sel]) => `<div class="${sel && st.active === n ? 'sel' : ''}" style="padding-left:${d ? 34 : 38}px">${d ? '▸ ' : ''}${n}</div>`).join('')}</div>` : `<div class="nf"><p>You have not yet opened a folder.</p><b>Open Folder</b><p>You can clone a repository locally.</p><b>Clone Repository</b></div>`
+    // editor
+    this.v.tab.innerHTML = st.tabs.map(n => `<div class="${n === st.active ? 'on' : ''}">${n}</div>`).join('')
+    const body = st.code.map((l, i) => `<div><span class="n">${i + 1}</span>${l}</div>`).join('')
+    this.v.code.innerHTML = body || `<div style="position:absolute;inset:36px 0 0;display:grid;place-items:center;color:#4a4a4a;font:600 56px Inter;letter-spacing:-.04em">OpenLobs</div>`
+    this.v.win.style.display = st.browser ? 'none' : 'block'; this.v.br.style.display = st.browser ? 'block' : 'none'; this.v.br.style.opacity = clamp((st.brt || 0) / .6)
+    this.v.tt.textContent = st.title
+    // caption
+    const cp = caps.find(x => T >= x.a && T < x.b)
+    if (cp) { const q = clamp(seg(T, cp.a, cp.a + .35)), o = seg(T, cp.b - .3, cp.b); this.cap.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#09f;margin-right:22px;vertical-align:12px;box-shadow:0 0 20px #09f"></span>' + cp.text; this.cap.style.opacity = q * (1 - o); this.cap.style.transform = `translateY(${(1 - eo5(q)) * 24}px)` } else this.cap.style.opacity = 0
+  } }
+}
+
+const KEY = (k, v) => `<span class="sp">${k}</span><span class="sw">=</span><span class="sv">${v}</span>`
+const ENVEX = ['GEMINI_API_KEY', 'GROQ_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'ELEVENLABS_API_KEY', 'GITHUB_OAUTH_CLIENT_ID']
+const TREE = [['.github', 1], ['bridge', 1], ['docs', 1], ['functions', 1], ['landing', 1], ['shared', 1], ['src', 1], ['tests', 1], ['.env.example', 0, 1], ['cloudbuild.yaml', 0], ['Dockerfile', 0], ['package.json', 0, 1], ['package-lock.json', 0], ['vite.config.ts', 0]]
+const gitProg = (label, n) => u => `remote: ${label}: ${String(Math.round(u * 100)).padStart(3)}% (${Math.round(u * n)}/${n})${u >= 1 ? ', done.' : ''}`
+const PKG = [
+  `<span class="sw">{</span>`, `  <span class="sk">"name"</span><span class="sw">: </span><span class="sv">"openlobs"</span><span class="sw">,</span>`, `  <span class="sk">"private"</span><span class="sw">: </span><span class="sk">true</span><span class="sw">,</span>`, `  <span class="sk">"type"</span><span class="sw">: </span><span class="sv">"module"</span><span class="sw">,</span>`, `  <span class="sk">"scripts"</span><span class="sw">: {</span>`,
+  `    <span class="sk">"dev"</span><span class="sw">: </span><span class="sv">"vite --host 0.0.0.0 --port 3000"</span><span class="sw">,</span>`, `    <span class="sk">"bridge"</span><span class="sw">: </span><span class="sv">"tsx bridge/cli.ts"</span><span class="sw">,</span>`, `    <span class="sc">…</span>`, `  <span class="sw">}</span>`, `<span class="sw">}</span>`]
+const PWD = 'C:\\Users\\Ama\\Projects'
+scenes.vs_install = vscodeScene({
+  title: 'Run OpenLobs on your computer', sub: 'Node.js 22 or newer · a Firebase project, or a gcloud login for local use', titleDur: 3.2, cwd0: PWD, tree: TREE,
+  timeline(P) {
+    P.cam(1, 960, 500); P.cap('Start in <b>VS Code</b>, with a terminal open.', 2.6); P.wait(2.2)
+    P.cam(1.5, 1060, 672); P.wait(1.2)
+    P.cap('Clone the <b>repository</b>.', 4.4)
+    P.cmd('git clone https://github.com/richid-stack/Busin.New.git', { cps: 30 })
+    P.out(["Cloning into 'Busin.New'..."])
+    P.prog(gitProg('Enumerating objects', 3439), .9); P.prog(gitProg('Counting objects', 3439), .9); P.prog(u => `Receiving objects: ${String(Math.round(u * 100)).padStart(3)}% (${Math.round(u * 3439)}/3439)${u >= 1 ? ', done.' : ''}`, 1.4)
+    P.cmd('cd Busin.New', { cps: 20, pre: .6 })
+    P.cam(1, 960, 500); P.cap('Open the folder, and the <b>project</b> appears.', 3.4)
+    P.wait(.6); P.act(st => { st.tree = true; st.title = 'Busin.New - Visual Studio Code'; st.tabs = ['package.json']; st.active = 'package.json'; st.code = PKG }); P.wait(3.8)
+    P.cam(1.5, 1060, 672); P.wait(1.0)
+    P.cap('Install the <b>dependencies</b>.', 4.4)
+    P.cmd('npm install', { cps: 14 })
+    P.spin('Installing packages', 4.6)
+    P.out(['', 'added 1383 packages, and audited 1384 packages in 38s'])
+    P.wait(1.0)
+    // .env
+    P.cam(1, 960, 500); P.cap('Add <b>one model key</b>.', 5.4); P.wait(.4)
+    P.act(st => { st.tabs = ['package.json', '.env.example']; st.active = '.env.example'; st.code = ENVEX.map(k => KEY(k, '')) }); P.wait(2.0)
+    P.cam(1.5, 1060, 672); P.wait(1.0)
+    P.cmd('Copy-Item .env.example .env', { cps: 20 })
+    P.cam(1, 960, 500); P.wait(.6)
+    P.act((st, dt) => { st.tabs = ['package.json', '.env.example', '.env']; st.active = '.env'; const typed = 'paste-your-gemini-key'; const n = Math.floor(Math.max(0, dt - .4) * 16); st.code = ENVEX.map((k, i) => i ? KEY(k, '') : KEY(k, typed.slice(0, n))) })
+    P.wait(2.6)
+    P.cam(1.5, 1060, 672); P.wait(1.0)
+    P.cap('Allow the local server to reach <b>Firestore</b>.', 6.0)
+    P.cmd('gcloud auth application-default login', { cps: 24 })
+    P.out(['Your browser has been opened to visit:', '', '    https://accounts.google.com/o/oauth2/auth?response_type=code&…', ''], .14); P.wait(1.4)
+    P.out(['Credentials saved to file: [C:\\Users\\Ama\\AppData\\Roaming\\gcloud\\application_default_credentials.json]', '', 'These credentials will be used by any library that requests Application Default Credentials (ADC).'], .12)
+    P.wait(1.0)
+    P.cap('Start the <b>server</b>.', 5.0)
+    P.cmd('npm run dev', { cps: 12 })
+    P.act(st => { st.hideprompt = true }); P.out(['', '> openlobs dev', '> vite --host 0.0.0.0 --port 3000', '', '  <span class="ok">VITE v8.3.0</span>  ready in 847 ms', '', '  <span class="ok">➜</span>  <b>Local</b>:   <span class="u">http://localhost:3000/</span>', '  <span class="ok">➜</span>  <b>Network</b>: <span class="u">http://192.168.1.20:3000/</span>'], .12)
+    P.wait(1.6); P.cap('Open it in the <b>browser</b>.', 4.4)
+    P.act((st, dt) => { st.browser = true; st.brt = dt })
+    P.cam(1, 960, 500); P.wait(4.2)
+  }, tail: .6
+})
+scenes.vs_bridge = vscodeScene({
+  title: 'Connect your computer', sub: 'Developer setup from source · the Bridge lets OpenLobs do approved things on it', titleDur: 3.2, cwd0: PWD + '\\Busin.New', tree: TREE,
+  timeline(P) {
+    P.act(st => { st.tree = true; st.title = 'Busin.New - Visual Studio Code'; st.tabs = ['package.json']; st.active = 'package.json'; st.code = PKG })
+    P.cam(1, 960, 500); P.cap('Pair the <b>Bridge</b> with a one-time code.', 3.0); P.wait(2.0)
+    P.cam(1.5, 1060, 672); P.wait(.8)
+    P.cap('Pair with the <b>code</b> from Computers.', 4.6)
+    P.cmd('npm run bridge -- pair 9V38AWN7 --server http://localhost:3000', { cps: 30 })
+    P.out(['', '> openlobs bridge', '> tsx bridge/cli.ts pair 9V38AWN7 --server http://localhost:3000', '', 'Paired as "Ama\'s laptop". Run "bridge run" to connect.'], .12)
+    P.wait(.8)
+    P.cap('Start the <b>Bridge</b>.', 4.0)
+    P.cmd('npm run bridge -- run', { cps: 18 })
+    P.out(['', '> tsx bridge/cli.ts run', '', 'Connected as "Ama\'s laptop". Waiting for OpenLobs. Press Ctrl+C to stop.'], .12)
+    P.act(st => { st.hideprompt = true }); P.wait(1.2); P.cap('Then open <b>Computers</b> and press Test.', 3.0); P.wait(2.4)
+  }, tail: .3, noBrowser: true
+})
+
+
+const DEP = ['<span class="sk"># Deploying OpenLobs to Google Cloud (Cloud Run)</span>', '', '<span class="sw">This is the checklist for going live. Run the commands one at a time</span>', '<span class="sw">and read what they print.</span>', '', '<span class="sk">## 1. Switch on the services</span>', '', '<span class="sc">gcloud services enable run.googleapis.com cloudbuild.googleapis.com …</span>', '', '<span class="sk">## 2. A service account for the app</span>', '<span class="sk">## 3. Secrets</span>', '<span class="sk">## 4. Build and deploy</span>']
+
+function titleScene(title, sub, dur) {
+  return { dur, build() { this.head = $(`<div class="abs" style="left:0;right:0;top:420px;text-align:center"><div class="word" style="position:relative;font-size:104px">${title}</div><div class="note" style="position:relative;margin-top:34px;font-size:42px">${sub}</div></div>`); root.appendChild(this.head) },
+    draw(t) { ambient(); this.head.style.opacity = clamp(seg(t, .15, .7)) * (1 - seg(t, dur - .4, dur)); this.head.style.transform = `translateY(${(1 - eo5(seg(t, .15, .7))) * 40}px)` } }
+}
+scenes.tut_keys = titleScene('Bring your own key', 'Use the models you already pay for. Nothing is added to your OpenLobs credits.', 3.0)
+scenes.vs_deploy = vscodeScene({
+  title: 'Deploy to Google Cloud', sub: 'Cloud Run · the commands from the project’s deploy guide', titleDur: 3.2, cwd0: PWD + '\\Busin.New', tree: TREE,
+  timeline(P) {
+    P.act(st => { st.tree = true; st.title = 'Busin.New - Visual Studio Code'; st.tabs = ['deploy.md']; st.active = 'deploy.md'; st.code = DEP })
+    P.cam(1, 960, 500); P.cap('Follow <b>docs/deploy.md</b>, one step at a time.', 3.2); P.wait(2.4)
+    P.cam(1.5, 1060, 672); P.wait(1.2)
+    P.cap('Set the <b>project</b> and region.', 3.6)
+    P.cmd('gcloud config set project your-gcp-project-id', { cps: 30 }); P.out(['Updated property [core/project].'])
+    P.wait(.5); P.cap('Switch on the <b>services</b>.', 4.4)
+    P.cmd('gcloud services enable run.googleapis.com cloudbuild.googleapis.com', { cps: 40 })
+    P.spin('Waiting for operation to finish', 2.6); P.out(['Operation finished successfully.'])
+    P.wait(.5); P.cap('Store secrets in <b>Secret Manager</b>.', 4.4)
+    P.cmd('gcloud secrets create SESSION_SECRET --data-file=-', { cps: 30 }); P.out(['Created secret [SESSION_SECRET].'])
+    P.wait(.5); P.cap('Build the <b>image</b>.', 4.4)
+    P.cmd('gcloud builds submit --config cloudbuild.yaml --substitutions=_IMAGE=$IMAGE', { cps: 40 })
+    P.spin('Building and pushing the image', 3.4); P.out(['STATUS: SUCCESS'])
+    P.wait(.5); P.cap('Deploy to <b>Cloud Run</b>.', 5.4)
+    P.cmd('gcloud run deploy openlobs --image $IMAGE --region europe-west1 --allow-unauthenticated', { cps: 40 })
+    P.spin('Deploying container to Cloud Run service [openlobs]', 3.2)
+    P.out(['Service [openlobs] revision [openlobs-00001] has been deployed and is serving 100 percent of traffic.', 'Service URL: <span class="u">https://openlobs-abc123-ew.a.run.app</span>'], .15)
+    P.wait(.5); P.cap('Check that it is <b>running</b>.', 4.0)
+    P.cmd('curl https://openlobs-abc123-ew.a.run.app/api/health', { cps: 36 }); P.out(['{"ok":true,…}'])
+    P.wait(1.6)
+  }, tail: .6
+})
+
+
+/* ---------- remote: a phone asks, OpenLobs relays, the computer answers (illustrated) ---------- */
+scenes.remote = { dur: 15.5, build() {
+  const css = document.createElement('style'); css.textContent = `
+  .rp{position:absolute;left:170px;top:120px;width:400px;height:820px;border-radius:58px;background:#0a0a0a;box-shadow:0 0 0 10px #101010,0 0 0 11px #2a2a2a,0 50px 120px -20px rgba(0,0,0,.8);overflow:hidden;font-family:Inter,sans-serif}
+  .rp .hd{height:92px;border-bottom:1px solid #1c1c1c;display:flex;align-items:flex-end;padding:0 26px 16px;font-size:24px;font-weight:500;letter-spacing:-.03em;gap:12px}
+  .rp .hd img{width:30px;height:30px}
+  .rb{margin:18px 22px 0;padding:16px 20px;border-radius:20px;font-size:21px;line-height:1.35;letter-spacing:-.01em}
+  .rb.u{background:#1b1b1b;margin-left:56px}.rb.a{background:transparent;border:1px solid #1c1c1c;color:#ddd}
+  .ap{margin:16px 22px 0;padding:18px;border-radius:20px;background:#07121c;border:1px solid #0b3a5c;font-size:20px}
+  .ap .bt{display:flex;gap:12px;margin-top:14px}.ap .bt b{padding:10px 24px;border-radius:12px;font-weight:500;background:#1b1b1b}.ap .bt b.y{background:#09f;color:#fff}
+  .lp{position:absolute;left:1180px;top:200px;width:660px;height:410px;border-radius:22px 22px 8px 8px;background:#0b0b0b;box-shadow:0 0 0 2px #2a2a2a,0 50px 120px -30px rgba(0,0,0,.9);overflow:hidden}
+  .lp .tb{height:50px;background:#161616;display:flex;align-items:center;gap:10px;padding:0 20px;font:500 19px Inter;color:#8a8a8a}
+  .lp .tb i{width:12px;height:12px;border-radius:50%;background:#2a2a2a;display:block}
+  .lp .ls div{display:flex;justify-content:space-between;padding:14px 28px;border-bottom:1px solid #151515;font:500 22px Inter;color:#ddd}
+  .lb{position:absolute;left:1140px;top:604px;width:740px;height:24px;border-radius:4px 4px 26px 26px;background:linear-gradient(#2a2a2a,#161616)}
+  .hub{position:absolute;left:760px;top:350px;width:150px;height:150px;border-radius:50%;background:#050505;border:1px solid #1c1c1c;display:grid;place-items:center;box-shadow:0 0 90px rgba(0,153,255,.22)}
+  .hub img{width:84px;height:84px}
+  .pk{position:absolute;width:22px;height:22px;border-radius:50%;background:#09f;box-shadow:0 0 26px 6px rgba(0,153,255,.7)}
+  .lbl{position:absolute;font:500 24px Inter;color:rgba(255,255,255,.55);letter-spacing:-.01em;text-align:center;width:300px}`
+  document.head.appendChild(css)
+  root.insertAdjacentHTML('beforeend', `
+  <svg class="abs" style="left:0;top:0" width="1920" height="1080"><path id="rl1" d="M572 430 L760 430" stroke="#1d3a52" stroke-width="3" stroke-dasharray="8 10" fill="none"/><path id="rl2" d="M910 430 L1180 430" stroke="#1d3a52" stroke-width="3" stroke-dasharray="8 10" fill="none"/></svg>
+  <div class="rp" id="rp"><div class="hd"><img src="logo.svg">OpenLobs<span style="margin-left:auto;font-size:16px;color:#7a7a7a;font-weight:400">Phone</span></div><div id="rc"></div></div>
+  <div class="hub" id="hub"><img src="logo.svg"></div><div class="lbl" id="l1" style="left:685px;top:520px">OpenLobs</div>
+  <div class="lp" id="lp"><div class="tb"><i></i><i></i><i></i><span style="margin-left:12px">Reports</span></div><div class="ls" id="ls"></div></div><div class="lb" id="lb"></div><div class="lbl" id="l2" style="left:1360px;top:650px">Ama’s laptop · Windows</div>
+  <div class="pk" id="pk1"></div><div class="pk" id="pk2"></div>
+  <div class="cap" id="rcap" style="left:0;right:0;top:978px;text-align:center;font-size:58px;line-height:1.15"></div>`)
+  this.el = id => document.getElementById(id)
+}, draw(t) {
+  ambient(); const E = this.el
+  const rp = E('rp'), fade = clamp(seg(t, 0, .7)), out = seg(t, 15.0, 15.5)
+  root.style.opacity = 1 - out
+  rp.style.opacity = fade; rp.style.transform = `translateX(${(1 - eo5(fade)) * -120}px)`
+  ;['hub', 'l1', 'lp', 'lb', 'l2'].forEach((id, i) => { const p = clamp(seg(t, .3 + i * .12, 1.0 + i * .12)); E(id).style.opacity = p; E(id).style.transform = `translateY(${(1 - eo5(p)) * 30}px)` })
+  // phone content
+  const msg = 'List the newest files in my Reports folder.', n = Math.floor(clamp((t - 1.0) / 1.7) * msg.length)
+  let h = ''
+  if (t > 1.0) h += `<div class="rb u">${msg.slice(0, n)}${n < msg.length ? '<span class="caret" style="height:22px;width:10px;vertical-align:-3px"></span>' : ''}</div>`
+  if (t > 3.0) h += `<div class="rb a" style="opacity:${clamp(seg(t, 3.0, 3.4))}">Checking with Ama’s laptop…</div>`
+  if (t > 5.3) { const y = t > 6.6; h += `<div class="ap" style="opacity:${clamp(seg(t, 5.3, 5.7))}"><b style="font-weight:500">Allow this on Ama’s laptop?</b><div style="color:#9ab;margin-top:6px">List files in Reports (read only)</div><div class="bt"><b class="${y ? '' : ''}">Not now</b><b class="y" style="${y ? 'box-shadow:0 0 0 4px rgba(0,153,255,.35);transform:scale(.96)' : ''}">${y ? 'Allowed' : 'Allow'}</b></div></div>` }
+  if (t > 10.6) h += `<div class="rb a" style="opacity:${clamp(seg(t, 10.6, 11.1))}">Three files, newest first: <b>Q3-sales.xlsx</b>, <b>invoice-akosua.docx</b>, <b>pricing-notes.md</b>.</div>`
+  E('rc').innerHTML = h
+  // packets: phone -> hub -> laptop (3.4-5.2); laptop -> hub -> phone (9.2-10.6)
+  const pos = (u, a, b) => a + (b - a) * u
+  const fwd = seg(t, 6.8, 8.4), back = seg(t, 9.0, 10.6), req = seg(t, 3.3, 5.1)
+  const set = (id, x, o) => { const e = E(id); e.style.left = (x - 11) + 'px'; e.style.top = '419px'; e.style.opacity = o }
+  // request (before approval) goes to the hub and waits; after approval it continues to the laptop
+  const rx = req < 1 ? pos(eio(req), 572, 760) : (fwd > 0 ? pos(eio(fwd), 910, 1180) : 835)
+  set('pk1', rx, (t > 3.3 && t < 8.5) ? 1 : 0)
+  const bx = back < 1 ? pos(eio(back), 1180, 910) : 835
+  set('pk2', back < .5 ? pos(eio(back * 2), 1180, 910) : pos(eio((back - .5) * 2), 760, 572), (t > 9.0 && t < 10.7) ? 1 : 0)
+  // laptop listing
+  const files = [['Q3-sales.xlsx', 'Today'], ['invoice-akosua.docx', 'Yesterday'], ['pricing-notes.md', 'Mon']]
+  const on = t > 8.4
+  E('ls').innerHTML = on ? files.map((f, i) => { const p = clamp(seg(t, 8.5 + i * .35, 8.9 + i * .35)); return `<div style="opacity:${p};transform:translateX(${(1 - p) * 24}px)"><span>${f[0]}</span><span style="color:#777">${f[1]}</span></div>` }).join('') : ''
+  const caps = [[.5, 3.2, 'Send a request from your <b>phone</b>.'], [3.4, 5.2, 'It reaches your <b>computer</b>.'], [5.4, 8.4, 'You <b>approve</b> before it acts.'], [9.0, 14.6, 'The answer comes <b>back to you</b>.']]
+  const cp = caps.find(c => t >= c[0] && t < c[1]), el = E('rcap')
+  if (cp) { const q = clamp(seg(t, cp[0], cp[0] + .35)), o = seg(t, cp[1] - .3, cp[1]); el.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#09f;margin-right:22px;vertical-align:12px;box-shadow:0 0 20px #09f"></span>' + cp[2].replace(/<b>/g, '<b style="background:linear-gradient(90deg,#09f,#8b5cf6);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:500">'); el.style.opacity = q * (1 - o); el.style.transform = `translateY(${(1 - eo5(q)) * 24}px)` } else el.style.opacity = 0
+}}
 
 const params = new URLSearchParams(location.search)
 const sc = scenes[params.get('scene')]

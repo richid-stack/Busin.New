@@ -31,7 +31,7 @@ Host it anywhere that serves files: Cloud Storage with a load balancer, Firebase
 
 ## What is on the page
 
-Hero recording (51 s), then Chat, Tasks, Workflows and approvals; the workspace (agents and skills, memory, apps and MCP, models, Workflow Studio, The Reef); the Bridge for your own computer; how tasks verify results; a recorded tour in six parts; three tutorials; apps, models and voice; schedules and their limits; working examples; the trust rules; The Reef; a strip of close-ups; ways to run it; FAQ.
+Hero recording (69 s), then Chat, Tasks, Workflows and approvals; the workspace (agents and skills, memory, apps and MCP, models, Workflow Studio, The Reef); the Bridge for your own computer; how tasks verify results; a recorded tour in six parts; three tutorials; apps, models and voice; schedules and their limits; working examples; the trust rules; The Reef; a strip of close-ups; ways to run it; FAQ.
 
 **Nothing on the page is invented.** Parts that are early (the Bridge, The Reef) or new (your own keys, voice, schedules) say so. Prices are not stated, no licence is named, and one-command Docker setup is described as planned. `tests/landing.test.mts` guards this, plus missing files, alt text, image sizes and total weight.
 
@@ -47,7 +47,7 @@ Hero recording (51 s), then Chat, Tasks, Workflows and approvals; the workspace 
 
 ### Disclosure
 
-The app footage is the **real app, running on sample content**. A sample account stands in for sign-in, a scripted model supplies the words (so every take is identical), and an in-memory database holds the sample chats, tasks and agents. The pages, clicks, typing, streaming, tool trace, approvals and task checks are the app's own code. The Windows installer and terminal steps in the tutorials are **illustrated cards** (the commands are the ones in the README); nothing there pretends to be a recording of a real machine.
+The app footage is the **real app, running on sample content**. A sample account stands in for sign-in, a scripted model supplies the words (so every take is identical), and an in-memory database holds the sample chats, tasks and agents. The pages, clicks, typing, streaming, tool trace, approvals and task checks are the app's own code. The tutorials (install, Bridge, Cloud Run deploy) are **illustrated** in a drawn code-editor window: the commands are the ones in the README and `docs/deploy.md`, and the terminal output follows the real tools' formats, but nothing there is a recording of a real machine, and the Cloud Run commands have not yet been run against a live project. The phone-to-computer sequence in the hero video is also an illustration. The Windows installer is not shown.
 
 ### Rebuilding it (`capture/`)
 
@@ -57,7 +57,7 @@ The capture rig runs the app's real server routes in-process with a fake Firesto
 CAPTURE_PORT=3000 npx tsx landing/capture/server.mts   # the app on sample content (wait ~45 s, then open every page once)
 node landing/capture/shots.cjs                        # screenshots -> media/shots
 node landing/capture/film.cjs                         # scripted recordings -> media/raw
-node landing/capture/stage.cjs intro montage outro tag tut_install tut_bridge_a tut_bridge_b tut_keys   # motion scenes
+node landing/capture/stage.cjs intro montage outro tag remote vs_install vs_bridge vs_deploy tut_keys   # motion scenes
 python3 landing/capture/edit.py <scene names>         # edit footage into scenes (zoom, speed, captions, transitions)
 python3 landing/capture/assemble.py ad-main intro chat_ad approval_ad tasks_ad workflow_ad agents reef_ad computers integrations montage outro
 # or everything in order: landing/capture/build_all.sh

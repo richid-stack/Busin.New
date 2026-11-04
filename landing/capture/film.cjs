@@ -158,6 +158,47 @@ const scenes = {
     await f.stop()
   },
 
+
+  // A scheduled, multi-check job: the new-task form (typed and toggled, never submitted).
+  async newtask(b) {
+    const f = new Film('newtask'); const page = await f.open(b, { url: '/tasks', wait: 'What should it get done?' })
+    await f.start(); await sleep(900)
+    await f.click(page.locator('textarea').first(), 800)
+    await f.type('Every Monday, compare our three closest competitors’ pricing pages, write a one-page brief as a Word file and email it to the team.', 34)
+    await sleep(600)
+    const crit = () => page.locator('input[aria-label^="Criterion"]').last()
+    await f.click(page.getByRole('button', { name: 'Add a check' }), 800)
+    await f.click(crit(), 500)
+    await f.type('The brief covers all three competitors', 40)
+    await sleep(400)
+    await f.click(page.getByRole('button', { name: 'Add a check' }), 700)
+    await f.click(crit(), 500)
+    await f.type('A Word file exists', 40)
+    await sleep(500)
+    await f.click(page.getByText('Run it on a schedule').first(), 800)
+    await sleep(2400)
+    await f.stop()
+  },
+
+  // GitHub and Slack in one request: each action waits for approval.
+  async bug(b) {
+    const chats = await api('/api/chats'); const c = chats.find(x => /File a bug/.test(x.title))
+    const f = new Film('bug'); const page = await f.open(b, { url: `/chat/${c.id}`, wait: 'Login bug' })
+    await f.start(); await sleep(1400)
+    await f.over(page.getByText('Login bug').first(), 900); await sleep(1700)
+    await f.scrollTo(400, 900, null).catch(() => {}); await sleep(1500)
+    await f.stop()
+  },
+
+  // A chart from numbers in a sentence.
+  async sales(b) {
+    const chats = await api('/api/chats'); const c = chats.find(x => /Weekly sales/.test(x.title))
+    const f = new Film('sales'); const page = await f.open(b, { url: `/chat/${c.id}`, wait: 'Sales grew steadily' })
+    await f.start(); await sleep(1400)
+    await f.over(page.getByText('Sales grew steadily').first(), 900); await sleep(3600)
+    await f.stop()
+  },
+
   async workflow(b) {
     const wf = await api('/api/workflows'); const id = wf.find(w => w.title === 'Weekly competitor snapshot').id
     const f = new Film('workflow'); const page = await f.open(b, { url: '/workflows', wait: 'Weekly competitor snapshot' })
