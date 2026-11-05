@@ -32,7 +32,8 @@ const boundary = read('src/components/state/ErrorBoundary.vue')
 assert(boundary.includes('onErrorCaptured') && boundary.includes('reportClientError') && /return true/.test(boundary) && /return false/.test(boundary), 'the boundary reports what it catches and lets click-handler errors through')
 assert(/watch\(\(\) => route\.fullPath/.test(boundary), 'going somewhere else clears the error')
 // Vue names the kind of error in development ("setup function") but passes a link in production builds, so the boundary must not depend on those names.
-const handlerRe = new RegExp(boundary.match(/const EVENT_HANDLER = \/(.*)\/([a-z]*)\n/)![1], boundary.match(/const EVENT_HANDLER = \/(.*)\/([a-z]*)\n/)![2])
+const handlerSrc = boundary.match(/const EVENT_HANDLER = \/(.*)\/([a-z]*)\n/)
+const handlerRe = new RegExp(handlerSrc?.[1] ?? '$^', handlerSrc?.[2] ?? '')
 const prodInfo = (code: number) => `https://vuejs.org/error-reference/#runtime-${code}`
 assert(!handlerRe.test(prodInfo(0)) && !handlerRe.test(prodInfo(1)), 'in a production build a failing setup or render is caught (the page cannot be built)')
 assert(!handlerRe.test(prodInfo(15)) && !handlerRe.test(prodInfo(7)), 'in a production build an update or vnode hook failure is caught')
