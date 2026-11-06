@@ -85,3 +85,20 @@ export function getDocumentRead(part: ToolPart): { file?: string, failed: boolea
   const input = part.input as { file?: string } | undefined
   return { file: output?.file ?? input?.file, failed: output?.status === 'failed' }
 }
+
+/** What a fetch_file or view_image call handled: the file, where it came from, and whether it failed. */
+export function getFileTrace(part: ToolPart): { name?: string, source?: string, fileId?: string, isImage: boolean, failed: boolean, error?: string } {
+  const output = part.output as { status?: string, name?: string, source?: string, fileId?: string, mime?: string, kind?: string, error?: string } | undefined
+  const input = part.input as { url?: string, name?: string } | undefined
+  let host: string | undefined
+  try { host = input?.url ? new URL(input.url).hostname : undefined } catch { host = undefined }
+  const failed = output?.status === 'failed'
+  return {
+    name: output?.name ?? input?.name,
+    source: output?.source ?? host,
+    fileId: failed ? undefined : output?.fileId,
+    isImage: !failed && (output?.kind === 'image' || Boolean(output?.mime?.startsWith('image/'))),
+    failed,
+    error: failed ? output?.error : undefined
+  }
+}

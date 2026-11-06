@@ -29,6 +29,8 @@ export const CAPABILITIES: Capability[] = [
   cap('web_search', 'Search the web', 'read', 30_000, ['sources']),
   cap('web_fetch', 'Read a web page', 'read', 40_000, ['sources']),
   cap('read_document', 'Read an attached file', 'read', 30_000, []),
+  cap('fetch_file', 'Save a file from a link', 'create', 40_000, ['file']),
+  cap('view_image', 'Look at an image', 'read', 40_000, ['visual']),
   cap('create_document', 'Create a Word or PDF file', 'create', 60_000, ['file']),
   cap('create_spreadsheet', 'Create an Excel file', 'create', 60_000, ['file']),
   cap('create_presentation', 'Create a PowerPoint file', 'create', 60_000, ['file']),
