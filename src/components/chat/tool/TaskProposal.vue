@@ -16,7 +16,11 @@ const draft = computed<NewTask | null>(() => (output.value?.status === 'proposed
 onMounted(() => { if (!loaded.value) fetchTasks() })
 
 // A reload forgets the click, so "already started" is judged by what the person's tasks really contain.
-const startedTask = computed(() => (draft.value ? tasks.value.find(t => t.goal === draft.value!.goal) : undefined))
+// The same goal is not enough (an earlier task may share the words): the checks, tools and limits must match too, and a task a schedule started is never this card's.
+const sameSpec = (t: (typeof tasks.value)[number], d: NewTask) => t.goal === d.goal && !t.scheduleId
+  && (!d.criteria?.length || JSON.stringify(t.criteria.map(c => [c.text, c.kind, c.format ?? null, c.url ?? null])) === JSON.stringify(d.criteria.map(c => [c.text, c.kind, c.format ?? null, c.url ?? null])))
+  && (!d.tools || JSON.stringify([...(t.tools ?? [])].sort()) === JSON.stringify([...d.tools].sort()))
+const startedTask = computed(() => (draft.value ? tasks.value.find(t => sameSpec(t, draft.value!)) : undefined))
 const startedHere = ref<string | null>(null)
 const taskId = computed(() => startedHere.value ?? startedTask.value?.id ?? null)
 

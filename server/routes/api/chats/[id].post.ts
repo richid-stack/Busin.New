@@ -277,7 +277,7 @@ export default defineHandler(async (event) => {
           create_document: createDocumentTool(userId),
           create_spreadsheet: createSpreadsheetTool(userId),
           create_presentation: createPresentationTool(userId),
-          inspect_design: createInspectDesignTool(userId, messages),
+          inspect_design: createInspectDesignTool(userId, messages, modelId),
           // Only offered where a browser is set up, so the assistant is never told about a tool that cannot work.
           ...(browserService ? { browser: createBrowserTool(userId, id, browserService, waitHooks) } : {}),
           ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {})

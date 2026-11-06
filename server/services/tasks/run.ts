@@ -28,7 +28,7 @@ export function liveDeps(store: TaskStore = taskStore()): RunDeps {
   }
   return {
     store,
-    tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null),
+    tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null, task.model),
     model: task => pick(task.model, task.userId),
     costOf: id => (parseMyModelId(id) ? 0 : modelCost(id)),
     charge: chargeUsage,

@@ -299,3 +299,98 @@ const start = async (h: ReturnType<typeof harness>, over: Record<string, unknown
   assert(summary.started === 1 && summary.finished === 1 && seen.join() === 'done' && (await h.st.list('alice'))[0]!.status === 'done', 'the queue runs a waiting task, reports it finished, and an email error does not undo it')
   assert((await processQueue({ deps: h.deps })).started === 0, 'an empty queue does nothing')
 }
+
+// ---- Review round: what Qodo found in the first version of tasks ----
+{
+  // Claiming asks the database for one field at a time, so it needs no index that has to be created by hand.
+  const queries: string[] = []
+  const inner = createFakeFirestore()
+  const spy = { ...inner, collection: (name: string) => { const c = (inner as any).collection(name); return { ...c, where: (...a: any[]) => { queries.push(`${name}:${a[0]}`); return (c as any).where(...a) } } } }
+  const sst = createTaskStore({ ...(inner as any), collection: spy.collection, runTransaction: (inner as any).runTransaction.bind(inner) } as any)
+  await sst.create('alice', taskInputSchema.parse({ goal: 'Write a short report about solar power.' }))
+  await sst.claimNext()
+  const compound = queries.filter(q => q.startsWith('tasks:leaseUntil'))
+  assert(compound.length === 0, 'claiming a task never asks for a lease range, so no composite index is needed')
+}
+{
+  // Stop during the checks reaches them, and nothing more is started.
+  let sawAbort = false
+  let started = 0
+  const h = harness({
+    generate: async () => ({ text: 'ok' }),
+    verify: async (criteria, ctx) => {
+      started++
+      await new Promise<void>((resolve) => { ctx.signal!.addEventListener('abort', () => { sawAbort = true; resolve() }, { once: true }) })
+      ctx.signal!.throwIfAborted()
+      return criteria
+    }
+  })
+  const { task, claimed } = await start(h, { criteria: [{ text: 'It reads well', kind: 'check' }] })
+  const running = runTask(claimed.task, claimed.lease, h.deps)
+  await new Promise(r => setTimeout(r, 120))
+  await h.st.cancel('alice', task.id)
+  const r = await running
+  assert(sawAbort && started === 1 && r.status === 'cancelled', 'pressing Stop during the checks stops them (no more paid model calls) and ends the task as cancelled')
+  const ctrl = new AbortController(); ctrl.abort()
+  let calledJudge = 0
+  const stopped = await rejects(() => verifyCriteria([crit({ kind: 'check' })], { userId: 'u', goal: 'g', result: '', artifacts: [], toolLog: [], signal: ctrl.signal }, vdeps({ judgeCheck: async () => { calledJudge++; return { status: 'met', reason: 'x', fix: '' } } })))
+  assert(stopped !== null && calledJudge === 0, 'a stopped check does not start the next one')
+}
+{
+  // A task with one failed check and one only the person can judge can still be confirmed, and stays partly done.
+  const h = harness({ generate: async (args) => { await args.onStepFinish(makeFile()); return { text: 'ok' } } })
+  const { claimed } = await start(h, { criteria: [{ text: 'A PDF exists', kind: 'file', format: 'pdf' }, { text: 'A Word report exists', kind: 'file', format: 'docx' }, { text: 'You like the tone', kind: 'manual' }], maxAttempts: 1 })
+  const r = await runTask(claimed.task, claimed.lease, h.deps)
+  assert(r.status === 'partial', 'one met, one not met and one for the person is partly done')
+  const acc = await h.st.accept('alice', r.id)
+  assert(acc.status === 'partial' && acc.criteria[2]!.status === 'met' && acc.criteria[0]!.status === 'unmet', 'confirming the manual part does not hide the failed one')
+}
+{
+  // The model failing on the last attempt after something was met is "partly done", not "failed".
+  const h = harness({ generate: async (args, n) => { if (n === 1) { await args.onStepFinish(makeFile()); return { text: 'ok' } } throw new Error('503') } })
+  const { claimed } = await start(h, { criteria: [{ text: 'A Word report exists', kind: 'file', format: 'docx' }, { text: 'A PDF exists', kind: 'file', format: 'pdf' }] })
+  const r = await runTask(claimed.task, claimed.lease, h.deps)
+  assert(r.status === 'partial' && /1 of 2 met/.test(r.outcome) && /kept failing/.test(r.outcome), 'a model error on the last attempt keeps what was already met')
+  const h2 = harness({ generate: async (args, n) => { if (n === 1) { await args.onStepFinish(makeFile()); return { text: 'ok' } } return { text: 'ok' } }, charge: (() => { let n = 0; return async () => { if (++n === 2) throw new UsageLimitError('Credits are used up.', 'daily', '2026-10-23T00:00:00Z'); return { refund: async () => {} } } })() })
+  const c2 = await start(h2, { criteria: [{ text: 'A Word report exists', kind: 'file', format: 'docx' }, { text: 'A PDF exists', kind: 'file', format: 'pdf' }] })
+  const r2 = await runTask(c2.claimed.task, c2.claimed.lease, h2.deps)
+  assert(r2.status === 'partial' && /Credits are used up/.test(r2.outcome), 'running out of credits for a retry keeps what was already met')
+}
+{
+  // A task that never got to run says its checks never ran, in the stored task too.
+  let t = new Date('2026-10-22T10:00:00Z')
+  const h = harness({ startNow: () => t, generate: async () => ({ text: 'ok' }) })
+  const { claimed } = await start(h, { maxMinutes: 1 })
+  t = new Date(t.getTime() + 30 * 60_000)
+  const r = await runTask(claimed.task, claimed.lease, h.deps)
+  assert(r.status === 'failed' && r.criteria.every(c => c.status === 'unmet' && /did not get to run/.test(c.evidence)), 'a task with no time to run is failed, and the stored checks say they never ran')
+}
+{
+  // A worker took over after the last attempt: the result is checked, not written off.
+  const h = harness({ generate: async () => ({ text: 'unused' }) })
+  const created = await h.st.create('alice', taskInputSchema.parse({ goal: 'Write a short report about solar power.', criteria: [{ text: 'A Word report exists', kind: 'file', format: 'docx' }], maxAttempts: 1 }))
+  const claim = (await h.st.claimNext())!
+  await h.st.update(created.id, claim.lease, { attempts: 1, status: 'verifying', result: 'I made it.', artifacts: [{ fileId: 'f1', name: 'r.docx', format: 'docx', sizeKb: 5 }] })
+  const taken = { ...claim.task, attempts: 1, result: 'I made it.', artifacts: [{ fileId: 'f1', name: 'r.docx', format: 'docx', sizeKb: 5 }] }
+  const r = await runTask(taken as any, claim.lease, h.deps)
+  assert(r.status === 'done' && r.criteria[0]!.status === 'met', 'a task taken over after its last attempt is checked, and can be done')
+}
+{
+  // Deletion: nothing is created in the same instant the account is marked, and nothing is saved afterwards.
+  const fdb = createFakeFirestore()
+  const st2 = createTaskStore(fdb as any)
+  await markDeleting(fdb, 'dora')
+  assert(await rejects(() => st2.create('dora', taskInputSchema.parse({ goal: 'Write a short report about solar power.' }))) !== null, 'a task cannot be created for an account being deleted')
+  const { createFileStore } = await import('../server/services/files/store')
+  const files = createFileStore(fdb as any)
+  assert(await rejects(() => files.save({ userId: 'dora', name: 'x.txt', mime: 'text/plain', bytes: new Uint8Array([1]) })) !== null, 'a file is not saved for an account being deleted')
+  assert((await files.save({ userId: 'erin', name: 'x.txt', mime: 'text/plain', bytes: new Uint8Array([1]) })).id.length > 0, 'and other people can still save files')
+}
+{
+  // Simultaneous creates cannot go over the limit.
+  const fdb = createFakeFirestore()
+  const st3 = createTaskStore(fdb as any)
+  const results = await Promise.allSettled(Array.from({ length: 6 }, () => st3.create('fran', taskInputSchema.parse({ goal: 'Write a short report about solar power.' }))))
+  const kept = (await st3.list('fran')).length
+  assert(kept <= 3 && results.filter(r => r.status === 'fulfilled').length >= 1, 'six requests at once leave at most the allowed number of active tasks')
+}
