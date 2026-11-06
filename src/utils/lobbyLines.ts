@@ -50,6 +50,8 @@ export function phraseFor(part: Part): string {
   if (name === 'web_search' || name === 'google_search') return 'Searching the web.'
   if (name === 'web_fetch') return 'Reading a page.'
   if (name === 'read_document') return 'Reading the file.'
+  if (name === 'fetch_file') return 'Saving a file.'
+  if (name === 'view_image') return 'Looking at an image.'
   if (name === 'plan') return 'Making a plan.'
   if (name === 'calculator') return 'Doing the maths.'
   if (name === 'chart') return 'Drawing a chart.'

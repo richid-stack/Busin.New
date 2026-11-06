@@ -14,6 +14,7 @@ import { planTool } from '../../../utils/tools/plan'
 import { calculatorTool } from '../../../utils/tools/calculator'
 import { createWebSearchTool } from '../../../utils/tools/webSearch'
 import { createWebFetchTool } from '../../../utils/tools/webFetch'
+import { createFetchFileTool, createViewImageTool } from '../../../utils/tools/fetchFile'
 import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
 import { createReadDocumentTool } from '../../../utils/tools/readDocument'
 import { createInspectDesignTool } from '../../../utils/tools/inspectDesign'
@@ -258,6 +259,8 @@ export default defineHandler(async (event) => {
   const allTools = {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
+    // Saving files and looking at images act on the person's own storage, so they need an account.
+    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
