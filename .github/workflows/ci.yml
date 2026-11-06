@@ -7,9 +7,9 @@ on:
   pull_request:
 
 # A newer push to the same pull request replaces the older, now pointless run.
-# Runs on main are never cancelled.
+# Every push to main has a group of its own, so none is ever cancelled (a shared group would let a third push cancel the one waiting).
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
