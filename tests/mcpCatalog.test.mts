@@ -38,3 +38,9 @@ for (const slug of ['canva', 'figma']) {
   assert(item?.type === 'composio' && item.category === 'design', `${slug}: shows on the Integrations page`)
 }
 assert(new Set(SUPPORTED_THIRD_PARTY_TOOLKITS.map(t => t.slug)).size === SUPPORTED_THIRD_PARTY_TOOLKITS.length, 'no toolkit is listed twice')
+
+{
+  const { presetByUrl, MCP_PRESETS } = await import('../shared/mcpCatalog')
+  const first = MCP_PRESETS[0]!
+  assert(presetByUrl(first.url)?.url === first.url && presetByUrl(`${first.url.replace(/\/+$/, '')}/`)?.url === first.url && presetByUrl(first.url.replace(/\/+$/, ''))?.url === first.url, 'a server added with or without a trailing slash keeps its logo')
+}
