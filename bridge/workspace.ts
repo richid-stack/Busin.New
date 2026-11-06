@@ -59,13 +59,15 @@ export function newFilePath(root: string, rel: string): { full: string, rel: str
 export interface Listed { name: string, sizeKb: number, modified: string }
 
 /** Spreadsheet files in the folder (and one level of sub-folders), newest first. Links and temporary lock files are skipped. */
-export function listSpreadsheets(root: string, sub?: string): { files: Listed[], truncated: boolean } {
+export function listSpreadsheets(root: string, sub?: string, stopped: () => boolean = () => false): { files: Listed[], truncated: boolean } {
   const start = sub ? resolveDir(root, sub) : root
   const out: Listed[] = []
   const walk = (dir: string, depth: number) => {
+    if (stopped()) return
     let entries: fs.Dirent[] = []
     try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
     for (const e of entries) {
+      if (stopped()) return
       if (e.isSymbolicLink() || e.name.startsWith('.') || e.name.startsWith('~$')) continue
       const full = path.join(dir, e.name)
       if (e.isDirectory()) { if (depth < 2) walk(full, depth + 1); continue }
