@@ -48,14 +48,19 @@ const [command, ...args] = process.argv.slice(2)
 
 /** Output goes to the screen and, when asked, to a file that is kept small (a hidden background Bridge has no screen). */
 const logPath = option(args, '--log') || process.env.OPENLOBS_BRIDGE_LOG
+/** The tray icon's "recent activity" always reads this file, so it is written even when no log file was asked for. */
+const activityPath = path.join(dir, 'bridge.log')
+function appendKept(file: string, line: string) {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    if (fs.existsSync(file) && fs.statSync(file).size > 1_000_000) fs.renameSync(file, `${file}.1`)
+    fs.appendFileSync(file, `${new Date().toISOString()} ${line}\n`)
+  } catch { /* logging must never stop the Bridge */ }
+}
 function log(line: string) {
   console.log(line)
-  if (!logPath) return
-  try {
-    fs.mkdirSync(path.dirname(logPath), { recursive: true })
-    if (fs.existsSync(logPath) && fs.statSync(logPath).size > 1_000_000) fs.renameSync(logPath, `${logPath}.1`)
-    fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`)
-  } catch { /* logging must never stop the Bridge */ }
+  appendKept(activityPath, line)
+  if (logPath && path.resolve(logPath) !== path.resolve(activityPath)) appendKept(logPath, line)
 }
 const control = fileControl(dir)
 /** The browser OpenLobs may use on this computer lives in a folder of its own, apart from the person's everyday browser. */
@@ -108,6 +113,7 @@ try {
     // The tray icon (Windows). It is a convenience and an emergency stop; the Bridge works without it.
     const tray = args.includes('--no-tray') ? null : startTray(dir)
     tray?.on('exit', () => log('The tray icon closed.'))
+    tray?.on('error', () => log('The tray icon could not start. The Bridge runs without it.'))
     process.on('exit', () => { try { tray?.kill() } catch { /* already gone */ } })
     const result = await run(config, deps, stop.signal, load)
     await deviceBrowser.closeBrowser()

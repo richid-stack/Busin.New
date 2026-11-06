@@ -7,6 +7,7 @@ export interface ComputerItem {
   platform: Platform
   bridgeVersion: string
   capabilities: string[]
+  paused?: boolean
   pairedAt: string
   lastSeenAt: string | null
   revokedAt: string | null
