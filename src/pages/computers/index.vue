@@ -14,7 +14,8 @@ const { loggedIn } = useUserSession()
 const { computers, loading, loaded, unauthorized, loadError, fetchComputers, downloadUrl, fetchDownload, newCode, startTest, startLook, getJob, cancelJob, disconnect } = useBridge()
 
 onMounted(() => { fetchComputers(); fetchDownload() })
-watch(loggedIn, fetchComputers)
+// Signing in on this page is what makes the download available, so it is asked for again then.
+watch(loggedIn, () => { fetchComputers(); fetchDownload() })
 
 // Online dots go stale quickly, so keep the list fresh while the page is open.
 const refresh = setInterval(() => { if (!document.hidden) fetchComputers() }, 10_000)
