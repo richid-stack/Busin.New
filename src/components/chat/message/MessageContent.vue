@@ -27,7 +27,7 @@ import { approvalInstruction, controlsBefore, hostBefore } from '../../../utils/
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
-import { getDocumentRead, getFetchedPage, getFileTrace, getPageTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
+import { getDocumentRead, getFetchedPage, getFileTrace, getLookupTrace, getPageTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -256,6 +256,110 @@ const emit = defineEmits<{
           class="text-sm text-muted"
         >
           {{ getPageTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'find_icons'"
+        :text="isToolStreaming(part) ? 'Looking for icons...' : getLookupTrace(part).failed ? 'Could not search icons' : 'Found icons'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-shapes"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'find_fonts'"
+        :text="isToolStreaming(part) ? 'Looking for fonts...' : getLookupTrace(part).failed ? 'Could not search fonts' : 'Found fonts'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-type"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'github_read'"
+        :text="isToolStreaming(part) ? 'Reading the project...' : getLookupTrace(part).failed ? 'Could not read the project' : 'Read the project'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-github"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'community_search'"
+        :text="isToolStreaming(part) ? 'Searching the Reef...' : getLookupTrace(part).failed ? 'Could not search the Reef' : 'Searched the Reef'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-waves"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
         </p>
       </UChatTool>
       <UChatTool
