@@ -37,6 +37,7 @@ export const CAPABILITIES: Capability[] = [
   cap('find_fonts', 'Find fonts', 'read', 10_000, []),
   cap('github_read', 'Read a GitHub project', 'read', 30_000, []),
   cap('community_search', 'Search the Reef', 'read', 10_000, []),
+  cap('check_setup', 'Check what is connected', 'read', 20_000, []),
   cap('find_skill', 'Look for a skill', 'read', 30_000, []),
   // Opening a skill from the internet needs the person to approve it, so a task may not do it alone.
   cap('load_external_skill', 'Open a skill from GitHub', 'act', 30_000, []),
