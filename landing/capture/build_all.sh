@@ -2,7 +2,7 @@
 # Rebuilds every video from the raw footage and the motion scenes. Run from the repository root.
 set -e
 # The app recordings (landing/media/raw) are made by film.cjs against the capture server and are not in git. Say so now, not halfway through.
-for n in chat sales approval newtask tasks workflow agents reef computers integrations models; do
+for n in chat sales bug approval newtask tasks workflow agents reef computers integrations models; do
   [ -f landing/media/raw/$n.mp4 ] || { echo "Missing landing/media/raw/$n.mp4. Start the capture server (landing/capture/server.mts) and run: node landing/capture/film.cjs"; exit 1; }
 done
 python3 landing/capture/stage/make_assets.py
