@@ -18,6 +18,7 @@ import { createFetchFileTool, createViewImageTool } from '../../../utils/tools/f
 import { createDesignTokensTool, createLookAtPageTool } from '../../../utils/tools/lookAtPage'
 import { createFindFontsTool, createFindIconsTool } from '../../../utils/tools/findAssets'
 import { createGithubReadTool } from '../../../utils/tools/githubRead'
+import { fetchGuidance } from '../../../services/design/guidance'
 import { createCommunitySearchTool } from '../../../utils/tools/communitySearch'
 import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
 import { createReadDocumentTool } from '../../../utils/tools/readDocument'
@@ -332,7 +333,7 @@ export default defineHandler(async (event) => {
 - Use create_document with format pdf only when the user wants a final copy; otherwise Word, because it can be edited.
 - Never put made-up facts, prices or dates in a file. Use what the user gave you or what you found, and leave clearly marked blanks otherwise.
 
-${'browser' in tools ? `**BROWSER:**
+${fetchGuidance(Object.keys(tools))}${'browser' in tools ? `**BROWSER:**
 - The browser tool operates real websites in a private, signed-out browser. A card in the chat shows the page live, and the user can take over at any time.
 - Use it only when a page has to be operated (searching inside a site, filling a form, following a flow). Use web_search and web_fetch for plain reading.
 - Never type or ask for passwords, codes or card numbers. For a sign-in, CAPTCHA or payment, tell the user to press Take over, and carry on when they say they are done.
