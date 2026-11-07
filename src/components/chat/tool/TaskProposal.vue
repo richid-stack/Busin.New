@@ -23,6 +23,9 @@ const taskId = computed(() => startedHere.value ?? startedTask.value?.id ?? null
 const starting = ref(false)
 const error = ref<string | null>(null)
 
+const EXTRA: Record<string, string> = { study_sites: 'look at web pages and find icons and fonts', save_files: 'save files and images from the web', read_code: 'read code on GitHub and in the Reef' }
+const extras = computed(() => (draft.value?.tools ?? []).filter(t => t in EXTRA).map(t => EXTRA[t]))
+
 const KIND: Record<CriterionKind, string> = { file: 'A file is made', visual: 'A page looks right', check: 'Checked by AI', manual: 'You check it' }
 
 async function start() {
@@ -75,6 +78,12 @@ async function start() {
       class="mt-1.5 text-xs text-muted"
     >
       Uses a browser. It stops and asks you before it sends, buys or deletes anything, and when a page needs you to sign in.
+    </p>
+    <p
+      v-if="extras.length"
+      class="mt-1.5 text-xs text-muted"
+    >
+      Can also {{ extras.join(', ') }}.
     </p>
     <ul
       v-if="draft.criteria.length"
