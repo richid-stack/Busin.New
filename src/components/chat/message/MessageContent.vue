@@ -363,6 +363,58 @@ const emit = defineEmits<{
         </p>
       </UChatTool>
       <UChatTool
+        v-else-if="getToolName(part) === 'find_skill'"
+        :text="isToolStreaming(part) ? 'Looking for a skill...' : getLookupTrace(part).failed ? 'Could not search for skills' : 'Searched for skills'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-compass"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'load_external_skill'"
+        :text="isToolStreaming(part) ? 'Opening the skill...' : getLookupTrace(part).failed ? 'Could not load the skill' : 'Loaded the skill'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-wand-sparkles"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
         v-else-if="getToolName(part) === 'load_skill'"
         :text="isToolStreaming(part) ? 'Opening a skill...' : getSkillName(part) ? 'Used the skill' : 'Skill unavailable'"
         :suffix="getSkillName(part)"

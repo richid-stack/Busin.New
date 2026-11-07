@@ -19,6 +19,7 @@ import { createDesignTokensTool, createLookAtPageTool } from '../../../utils/too
 import { createFindFontsTool, createFindIconsTool } from '../../../utils/tools/findAssets'
 import { createGithubReadTool } from '../../../utils/tools/githubRead'
 import { fetchGuidance } from '../../../services/design/guidance'
+import { createFindSkillTool, createLoadExternalSkillTool } from '../../../utils/tools/externalSkill'
 import { createCommunitySearchTool } from '../../../utils/tools/communitySearch'
 import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
 import { createReadDocumentTool } from '../../../utils/tools/readDocument'
@@ -265,7 +266,7 @@ export default defineHandler(async (event) => {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
     // Saving files and looking at images act on the person's own storage, so they need an account.
-    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId) } : {}),
+    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
