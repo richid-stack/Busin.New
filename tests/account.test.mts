@@ -83,6 +83,28 @@ assert((out.mcpServers[0] as any).approvedTools[0] === 'mcp_linear_search', 'MCP
 assert(!text.includes('SEALED-KEY') && (out.connectedKeys[0] as any).hint === '…abcd' && out.connectorActivity.length === 1, 'saved service keys are listed by their last four characters only, with what was done')
 assert(!text.includes('bob') && !text.includes('hello from bob'), 'nothing of another person is exported')
 assert(!('data' in (out.files[0] as any)) && (out.files[0] as any).name === 'report.xlsx', 'files are listed, not embedded')
+// Attached files sit inside chat messages as data: URLs. The export keeps each file's name and size, not its contents.
+await db.collection('chats').doc('c-carol').set({ userId: 'carol', title: 'Files' })
+await db.collection('chats').doc('c-carol').collection('messages').doc('m1').set({
+  role: 'user',
+  parts: [
+    { type: 'file', mediaType: 'text/plain', filename: 'notes.txt', url: 'data:text/plain;base64,aGVsbG8gd29ybGQ=' },
+    { type: 'file', mediaType: 'text/plain', filename: 'plain.txt', url: 'data:text/plain,hello%20there' },
+    { type: 'text', text: 'data:text/plain,typed by the person' }
+  ]
+})
+await db.collection('chats').doc('c-carol').collection('messages').doc('m2').set({
+  role: 'assistant',
+  parts: [{ type: 'tool-chart', output: { image: 'data:image/png;base64,AAAAAAAA', caption: 'A chart' } }]
+})
+const carol = await collectUserData(deps(), { id: 'carol', name: 'Carol' })
+const carolMessages = (carol.chats[0] as any).messages as any[]
+const carolParts = carolMessages.find(m => m.id === 'm1').parts
+assert(carolParts[0].filename === 'notes.txt' && carolParts[0].size === 11 && !('url' in carolParts[0]), 'an attached file is exported as its name and size, without its contents')
+assert(carolParts[1].filename === 'plain.txt' && carolParts[1].size === 11 && !('url' in carolParts[1]), 'the size is right for a file that is not base64')
+assert(carolParts[2].text === 'data:text/plain,typed by the person', 'what the person typed is exported as it was')
+assert(carolMessages.find(m => m.id === 'm2').parts[0].output.image === '[file contents not exported, 6 bytes]' && carolMessages.find(m => m.id === 'm2').parts[0].output.caption === 'A chart', 'file data inside a result is replaced by its size too')
+assert(!JSON.stringify(carol).includes('aGVsbG8gd29ybGQ') && !JSON.stringify(carol).includes('hello%20there') && !JSON.stringify(carol).includes('AAAAAAAA'), 'no attached file contents are anywhere in the export')
 const empty = await collectUserData(deps({ listConnections: async () => { throw new Error('down') } }), { id: 'nobody', name: 'N' })
 assert(empty.chats.length === 0 && empty.plan !== undefined && empty.connectedApps.length === 0 && empty.memory.enabled === true, 'a person with nothing exports cleanly, even if the apps service is down')
 
