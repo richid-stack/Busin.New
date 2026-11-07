@@ -128,19 +128,20 @@ function plainError(message: string | undefined): string | undefined {
 }
 
 /** What an asset or code lookup found, as short lines for the trace: icon sets, fonts, repository paths or Reef projects. */
-export function getLookupTrace(part: ToolPart): { query?: string, count?: number, lines: string[], failed: boolean, error?: string } {
-  const output = part.output as { status?: string, query?: string, count?: number, icons?: { name: string, licence: string }[], fonts?: { family: string, category: string }[], projects?: { id: string, installs: number, stars: number }[], skills?: { repo: string, stars: number, licence: string }[], builtIn?: { name: string }[], instructions?: string, description?: string, warnings?: string[], source?: string, name?: string, repo?: string, path?: string, kind?: string, entries?: { name: string, type: string }[], error?: string } | undefined
+export function getLookupTrace(part: ToolPart): { query?: string, count?: number, summary?: string, lines: string[], failed: boolean, error?: string } {
+  const output = part.output as { status?: string, query?: string, count?: number, icons?: { name: string, licence: string }[], fonts?: { family: string, category: string }[], projects?: { id: string, installs: number, stars: number }[], skills?: { repo: string, stars: number, licence: string }[], builtIn?: { name: string }[], cards?: { name: string, stateLabel: string, risk: string, next: string }[], summary?: string, instructions?: string, description?: string, warnings?: string[], source?: string, name?: string, repo?: string, path?: string, kind?: string, entries?: { name: string, type: string }[], error?: string } | undefined
   const input = part.input as { query?: string, repo?: string, path?: string, folder?: string } | undefined
   const failed = output?.status === 'failed'
   let lines: string[] = []
   if (!failed && output) {
     if (output.icons) lines = output.icons.map(i => `${i.name} · ${i.licence}`)
     else if (output.fonts) lines = output.fonts.map(f => `${f.family} · ${f.category}`)
+    else if (output.cards) lines = output.cards.map(c => `${c.name} · ${c.stateLabel}${c.risk === 'changes' ? ' · can change things' : ''}`)
     else if (output.skills || output.builtIn) lines = [...(output.builtIn ?? []).map(b => `${b.name} · built in`), ...(output.skills ?? []).map(k => `${k.repo} · ${k.stars} stars · ${k.licence}`)]
     else if (typeof output.instructions === 'string') lines = [output.description ?? '', ...(output.warnings ?? []).map(w => `Warning: ${w}`)].filter(Boolean)
     else if (output.projects) lines = output.projects.map(p => `${p.id} · ${p.installs} installs · ${p.stars} stars`)
     else if (output.entries) lines = output.entries.map(e => `${e.type === 'folder' ? '▸' : '·'} ${e.name}`)
   }
   const where = input?.repo ? [input.repo, input.path ?? (input as { folder?: string }).folder].filter(Boolean).join('/') : undefined
-  return { query: (!failed && output?.name ? `${output.name} · ${output.source ?? where}` : undefined) ?? input?.query ?? where ?? output?.query, count: output?.count, lines: lines.slice(0, 16), failed, error: failed ? plainError(output?.error) : undefined }
+  return { summary: failed ? undefined : output?.summary, query: (!failed && output?.name ? `${output.name} · ${output.source ?? where}` : undefined) ?? input?.query ?? where ?? output?.query, count: output?.count, lines: lines.slice(0, 16), failed, error: failed ? plainError(output?.error) : undefined }
 }
