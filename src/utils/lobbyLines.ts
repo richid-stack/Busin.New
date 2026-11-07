@@ -52,6 +52,8 @@ export function phraseFor(part: Part): string {
   if (name === 'read_document') return 'Reading the file.'
   if (name === 'fetch_file') return 'Saving a file.'
   if (name === 'view_image') return 'Looking at an image.'
+  if (name === 'look_at_page') return 'Looking at the page.'
+  if (name === 'design_tokens') return 'Reading the page\'s design.'
   if (name === 'plan') return 'Making a plan.'
   if (name === 'calculator') return 'Doing the maths.'
   if (name === 'chart') return 'Drawing a chart.'

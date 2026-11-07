@@ -99,6 +99,30 @@ export function getFileTrace(part: ToolPart): { name?: string, source?: string, 
     fileId: failed ? undefined : output?.fileId,
     isImage: !failed && (output?.kind === 'image' || Boolean(output?.mime?.startsWith('image/'))),
     failed,
-    error: failed ? output?.error : undefined
+    error: failed ? plainError(output?.error) : undefined
   }
+}
+
+/** What a look_at_page or design_tokens call found: the picture, or the colours and fonts. */
+export function getPageTrace(part: ToolPart): { source?: string, fileId?: string, title?: string, colors: { hex: string, role: string }[], fonts: string[], failed: boolean, error?: string } {
+  const output = part.output as { status?: string, source?: string, fileId?: string, title?: string, colors?: { hex: string, role: string }[], fonts?: { family: string }[], error?: string } | undefined
+  const input = part.input as { url?: string } | undefined
+  let host: string | undefined
+  try { host = input?.url ? new URL(input.url).hostname : undefined } catch { host = undefined }
+  const failed = output?.status === 'failed'
+  return {
+    source: output?.source || host,
+    fileId: failed ? undefined : output?.fileId,
+    title: output?.title,
+    colors: failed ? [] : (output?.colors ?? []).slice(0, 10),
+    fonts: failed ? [] : (output?.fonts ?? []).map(f => f.family).slice(0, 4),
+    failed,
+    error: failed ? plainError(output?.error) : undefined
+  }
+}
+
+/** A failure message for the person: the sentences written only for the model (telling it what to do next) are left out. */
+function plainError(message: string | undefined): string | undefined {
+  if (!message) return undefined
+  return message.replace(/\s*(Tell the user|Ask the user|Tell them)[^.]*\.(\s*Do not guess[^.]*\.)?/g, '').replace(/\s*and do not guess[^.]*\./gi, '.').trim() || undefined
 }
