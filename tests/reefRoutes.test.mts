@@ -158,7 +158,6 @@ assert(side.trending.length >= 1 && side.people.every((p: any) => p.handle !== '
 const found = (await call(searchGet, { query: { q: 'ama' } })).body
 assert(found.people.map((p: any) => p.handle).join() === 'ama' && found.projects.length === 1 && (await call(searchGet, { query: { q: '  ' } })).body.projects.length === 0, 'search finds projects and people')
 const myAlerts = (await call(alertsGet, { user: 'ama' })).body.items
-console.log('DEBUG alerts', JSON.stringify(myAlerts.map((a: any) => a.type)))
 assert(myAlerts.some((a: any) => a.type === 'reply') && myAlerts.some((a: any) => a.type === 'star') && myAlerts.some((a: any) => a.type === 'fork') && myAlerts.some((a: any) => a.type === 'like'), 'alerts list replies, stars, forks and likes')
 assert((await call(meGet, { user: 'ama' })).body.unread > 0 && (await call(alertsRead, { user: 'ama', body: {} })).status === 200 && (await call(meGet, { user: 'ama' })).body.unread === 0, 'unread alerts count and clear')
 

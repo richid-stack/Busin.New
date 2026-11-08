@@ -37,6 +37,13 @@ export function createFakeFirestore(): ReturnType<typeof createInMemoryFirestore
   return createInMemoryFirestore()
 }
 
+/** Real Firestore refuses a field whose value is undefined, so the stand-in does too (it used to let them through). */
+function refuseUndefined(value: unknown, where = ''): void {
+  if (value === undefined) throw new Error(`Cannot use "undefined" as a Firestore value (found in field "${where}"). If you want to ignore undefined values, enable \`ignoreUndefinedProperties\`.`)
+  if (Array.isArray(value)) value.forEach((v, i) => refuseUndefined(v, `${where}[${i}]`))
+  else if (value && typeof value === 'object' && !(value instanceof Date)) for (const [k, v] of Object.entries(value)) refuseUndefined(v, where ? `${where}.${k}` : k)
+}
+
 function createInMemoryFirestore() {
   // Every collection, top level or nested, is stored under its path, e.g. "chats/c1/messages".
   const data = new Map<string, Map<string, Doc>>()
@@ -49,23 +56,28 @@ function createInMemoryFirestore() {
     data: () => (d === undefined ? undefined : structuredClone(d)),
     ref: docRef(path, id)
   })
-  const docRef = (path: string, id: string): any => ({
+  const docRef = (path: string, id: string): any => {
+    if (id.includes('/')) throw new Error(`Value for argument "documentPath" must point to a document, but was "${id}". Your path does not contain an even number of components.`)
+    return {
     id,
     path: `${path}/${id}`,
     get: async () => snap(path, id, col(path).get(id)),
-    set: async (d: Doc) => { col(path).set(id, structuredClone(d)) },
+    set: async (d: Doc) => { refuseUndefined(d); col(path).set(id, structuredClone(d)) },
     create: async (d: Doc) => {
+      refuseUndefined(d)
       if (col(path).has(id)) throw new Error('ALREADY_EXISTS: the document exists')
       col(path).set(id, structuredClone(d))
     },
     update: async (patch: Doc) => {
+      refuseUndefined(patch)
       const cur = col(path).get(id)
       if (!cur) throw new Error('NOT_FOUND: no document to update')
       col(path).set(id, { ...cur, ...structuredClone(patch) })
     },
     delete: async () => { col(path).delete(id) },
     collection: (sub: string) => collectionRef(`${path}/${id}/${sub}`)
-  })
+    }
+  }
   const OPS: Record<string, (a: any, b: any) => boolean> = {
     '==': (a, b) => a === b,
     '<=': (a, b) => a !== undefined && a !== null && a <= b,
