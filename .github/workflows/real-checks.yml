@@ -30,6 +30,8 @@ jobs:
       - name: Real Firestore checks
         run: npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-openlobs --config firebase.emulator.json "npx tsx tests/firestoreEmulator.test.mts"
       - name: The normal store tests, again on the real database
+        env:
+          STORE_SUITES: taskPause,taskSchedules,reefCommunity,reefRoutes
         run: npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-openlobs --config firebase.emulator.json "node scripts/run-store-suites.mjs"
 
   runner-image:

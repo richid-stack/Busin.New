@@ -3,7 +3,8 @@
 // Suites that peek inside the in-memory stand-in with raw() cannot run on the real database and are not listed.
 import { spawnSync } from 'node:child_process'
 
-const suites = (process.argv.slice(2).length ? process.argv.slice(2) : [
+const only = (process.env.STORE_SUITES ?? '').split(',').filter(Boolean)
+const suites = (process.argv.slice(2).length ? process.argv.slice(2) : only.length ? only : [
   'usage', 'memory', 'modelProviders', 'integrations', 'taskPause', 'taskSchedules',
   'reefCommunity', 'reefRoutes', 'reefSeed', 'browserHolds', 'bridgeLive', 'bridgeRunJobs'
 ])
@@ -21,7 +22,13 @@ for (const name of suites) {
   if (bad) {
     failed.push(name)
     for (const f of fails.slice(0, 12)) console.log(`    ${f}`)
-    if (!fails.length) console.log(out.split('\n').slice(-25).map(l => `    ${l}`).join('\n'))
+    const lastPass = lines.filter(l => /^PASS/.test(l)).slice(-2)
+    for (const l of lastPass) console.log(`    last passing: ${l}`)
+    // The lines of the error that point into this project (not the libraries) show where it happened.
+    const mine = lines.filter(l => /\s+at .*\/(tests|server|shared|bridge)\//.test(l) && !l.includes('node_modules')).slice(0, 8)
+    for (const l of mine) console.log(`    ${l.trim()}`)
+    const msg = lines.filter(l => /Error|error|details:|Unhandled/.test(l) && !/^\s+at /.test(l)).slice(0, 6)
+    for (const l of msg) console.log(`    ${l.trim().slice(0, 300)}`)
   }
 }
 console.log(failed.length ? `\nDifferent on the real database: ${failed.join(', ')}` : '\nAll suites behave the same on the real database.')
