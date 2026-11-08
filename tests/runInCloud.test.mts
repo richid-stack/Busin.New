@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { createRunnerServer } from '../runner/app'
 import { InspectError } from '../server/services/inspect/browser'
 import { defaultCloudBox, runnerBox } from '../server/services/cloudbox/provider'
-import { UsageLimitError } from '../server/services/usage/usage'
+import { UsageLimitError, UsageUnavailableError } from '../server/services/usage/usage'
 import { cloudPlanCost } from '../server/services/usage/plans'
 import { createRunInCloudTool } from '../server/utils/tools/runInCloud'
 import { getRunTrace } from '../src/utils/tool'
@@ -106,3 +106,12 @@ assert(last === 'failed', 'plans are rate limited per person')
 
 app.close()
 fs.rmSync(work, { recursive: true, force: true })
+
+// ---- If credits cannot be counted, the box stays off ----
+{
+  const before = charges.length
+  const calls: number[] = []
+  const counting = createRunInCloudTool('cloud-down', { box: { name: 'x', run: async () => { calls.push(1); return { steps: [] } } } as any, charge: async () => { throw new UsageUnavailableError() }, cost: () => 5 })
+  const out: any = await (counting.execute as any)({ why: 'Try it', steps: [{ program: 'node', args: ['--version'] }] }, {})
+  assert(out.status === 'failed' && /cannot be counted/.test(out.error) && /Nothing was run/.test(out.error) && calls.length === 0 && charges.length === before, 'when credits cannot be counted, no box is started')
+}

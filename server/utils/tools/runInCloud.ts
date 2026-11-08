@@ -5,7 +5,7 @@ import { defaultCloudBox } from '../../services/cloudbox/provider'
 import type { CloudBox } from '../../services/cloudbox/provider'
 import { InspectError } from '../../services/inspect/browser'
 import { cloudPlanCost } from '../../services/usage/plans'
-import { UsageLimitError, chargeUsage } from '../../services/usage/usage'
+import { UsageLimitError, UsageUnavailableError, chargeUsage } from '../../services/usage/usage'
 import { withToolLimits } from './limits'
 import type { StepOutcome } from './runOnComputer'
 
@@ -29,7 +29,7 @@ export interface CloudToolDeps {
  */
 export function createRunInCloudTool(userId: string, deps: CloudToolDeps = {}) {
   const cost = deps.cost ?? cloudPlanCost
-  const charge = deps.charge ?? ((id: string, c: number) => chargeUsage(id, c))
+  const charge = deps.charge ?? ((id: string, c: number) => chargeUsage(id, c, { strict: true }))
   return tool({
     description: 'Run a short plan of commands in a fresh, empty cloud box that is deleted afterwards: install packages, run a script you wrote (put its small text files in "files"), run a public project\'s tests, or check that something works. The box has none of the person\'s files, no saved projects and no accounts, and nothing is kept after the plan. Use it when the person has no computer connected, or the job should run somewhere clean. If their computer is connected and the job is about their own folder, use run_on_computer instead. The person approves the whole plan once, on a card listing every step and file in plain words. Steps run in order and stop at the first failure. Only the allowed programs and options work (same list as run_on_computer); files must be small plain text. Each plan uses credits.',
     inputSchema: cloudPlanSchema,
@@ -49,6 +49,8 @@ export function createRunInCloudTool(userId: string, deps: CloudToolDeps = {}) {
         let paid: { refund: () => Promise<void> }
         try { paid = await charge(userId, cost()) } catch (err) {
           if (err instanceof UsageLimitError) return { status: 'failed' as const, computer: BOX_NAME, steps: [] as StepOutcome[], error: `${err.message} Nothing was run. Tell the person in plain words that they have used up their allowance for now.` }
+          // A box costs real money, so when credits cannot be counted it stays off rather than running for free.
+          if (err instanceof UsageUnavailableError) return { status: 'failed' as const, computer: BOX_NAME, steps: [] as StepOutcome[], error: 'The cloud box is paused for a moment because credits cannot be counted right now. Nothing was run. Tell the person in plain words and offer to try again shortly.' }
           throw err
         }
 

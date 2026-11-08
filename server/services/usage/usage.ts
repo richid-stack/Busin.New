@@ -48,6 +48,11 @@ const friendly = (reason: 'daily' | 'monthly', limits: PlanLimits, resetsAt: Dat
   return `You have used your ${reason} limit of ${limit} credits on the ${limits.label} plan. ${when}${upgrade}`
 }
 
+/** Credits could not be counted (storage trouble), and the thing being charged for is not allowed to run uncounted. */
+export class UsageUnavailableError extends Error {
+  constructor() { super('Credits cannot be counted right now.') }
+}
+
 /**
  * Takes `cost` credits, or throws UsageLimitError without taking any. Checked and written in one
  * transaction so two requests at once cannot both slip under the limit.
@@ -125,7 +130,7 @@ export async function getUsage(userId: string, now = new Date()): Promise<UsageS
  * The one call the rest of the app makes. Takes the plan into account and fails open on storage
  * trouble: an outage in usage counting must not stop people working, but a real limit always does.
  */
-export async function chargeUsage(userId: string, cost: number, opts: { guest?: boolean } = {}): Promise<{ refund: () => Promise<void> }> {
+export async function chargeUsage(userId: string, cost: number, opts: { guest?: boolean, strict?: boolean } = {}): Promise<{ refund: () => Promise<void> }> {
   const noop = { refund: async () => {} }
   if (cost <= 0 || isUnlimited(userId)) return noop
   try {
@@ -136,6 +141,8 @@ export async function chargeUsage(userId: string, cost: number, opts: { guest?: 
     return { refund: () => refundCredits(userId, cost, chargedAt).catch(err => console.warn('Usage refund failed:', err?.message)) }
   } catch (err) {
     if (err instanceof UsageLimitError) throw err
+    // Things that cost real money (a cloud box) pass `strict`: if credits cannot be counted, they do not run.
+    if (opts.strict) { console.warn('Usage counting unavailable, refusing the request:', (err as Error)?.message); throw new UsageUnavailableError() }
     console.warn('Usage counting unavailable, allowing the request:', (err as Error)?.message)
     return noop
   }
