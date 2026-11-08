@@ -29,6 +29,8 @@ jobs:
       - run: npm ci
       - name: Real Firestore checks
         run: npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-openlobs --config firebase.emulator.json "npx tsx tests/firestoreEmulator.test.mts"
+      - name: The normal store tests, again on the real database
+        run: npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-openlobs --config firebase.emulator.json "node scripts/run-store-suites.mjs"
 
   runner-image:
     runs-on: ubuntu-latest
