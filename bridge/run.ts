@@ -26,6 +26,9 @@ import { WorkspaceError, isInside, openWorkspace, resolveDir, resolveExisting } 
 export interface RunDeps {
   env?: NodeJS.ProcessEnv
   platform?: NodeJS.Platform
+  /** Start programs as this (unprivileged) user. Used by the cloud box worker, which itself starts as root so its own secret stays out of reach. */
+  uid?: number
+  gid?: number
 }
 
 export interface RunOutput { exitCode: number, timedOut: boolean, ms: number, output: string, outputTruncated: boolean }
@@ -121,9 +124,9 @@ function killTree(child: ReturnType<typeof spawn>, platform: NodeJS.Platform) {
 const KEEP = 40_000
 const FLOOD = 60_000_000
 
-function exec(exe: string, argv: string[], opts: { cwd: string, env: Record<string, string>, timeoutMs: number, signal: AbortSignal, platform: NodeJS.Platform }): Promise<{ exitCode: number, timedOut: boolean, stopped: boolean, text: string, total: number }> {
+function exec(exe: string, argv: string[], opts: { cwd: string, env: Record<string, string>, timeoutMs: number, signal: AbortSignal, platform: NodeJS.Platform, uid?: number, gid?: number }): Promise<{ exitCode: number, timedOut: boolean, stopped: boolean, text: string, total: number }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(exe, argv, { cwd: opts.cwd, env: opts.env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: opts.platform !== 'win32', shell: false })
+    const child = spawn(exe, argv, { cwd: opts.cwd, env: opts.env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, detached: opts.platform !== 'win32', shell: false, ...(opts.uid !== undefined ? { uid: opts.uid } : {}), ...(opts.gid !== undefined ? { gid: opts.gid } : {}) })
     let text = ''
     let total = 0
     let timedOut = false
@@ -180,7 +183,7 @@ export function runCommand(rootFolder: string | null | undefined, raw: unknown, 
     if (step.program === 'git') base.GIT_CEILING_DIRECTORIES = path.dirname(root)
 
     const started = Date.now()
-    const out = await exec(launch.exe, [...launch.lead, ...step.argv], { cwd, env: base, timeoutMs: Math.min(step.timeoutMs, limitMs ?? step.timeoutMs), signal, platform })
+    const out = await exec(launch.exe, [...launch.lead, ...step.argv], { cwd, env: base, timeoutMs: Math.min(step.timeoutMs, limitMs ?? step.timeoutMs), signal, platform, uid: deps.uid, gid: deps.gid })
     if (out.stopped && signal.aborted) throw new Error('Stopped.')
     const tail = tailOutput(redact(out.text))
     return { exitCode: out.exitCode, timedOut: out.timedOut, ms: Date.now() - started, output: tail.text, outputTruncated: tail.cut || out.total > KEEP }

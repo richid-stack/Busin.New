@@ -19,7 +19,8 @@ const isApp = computed(() => toolName.value === 'integration_execute')
 const isMcp = computed(() => toolName.value.startsWith('mcp_'))
 const isBrowser = computed(() => toolName.value === 'browser')
 const isSkill = computed(() => toolName.value === 'load_external_skill')
-const isRun = computed(() => toolName.value === 'run_on_computer')
+const isCloud = computed(() => toolName.value === 'run_in_cloud')
+const isRun = computed(() => toolName.value === 'run_on_computer' || isCloud.value)
 const isAdd = computed(() => toolName.value === 'add_tool_server')
 
 /** What is shown about a server to add comes from the checked list, never from what the assistant wrote. */
@@ -38,13 +39,17 @@ const plan = computed(() => {
     const c = checkStep(s)
     return {
       n: i + 1,
-      words: c.ok ? c.step.words : 'A step this computer will refuse',
+      words: c.ok ? c.step.words : 'A step that will be refused',
       command: commandLine({ program: String(s.program ?? ''), args: Array.isArray(s.args) ? s.args : [] }),
       why: String(s.why || '').trim(),
       flags: c.ok ? [c.step.network && c.step.installs ? 'Downloads packages' : c.step.network ? 'Uses the internet' : '', c.step.runsCode ? 'Runs code' : ''].filter(Boolean) : []
     }
   })
 })
+/** Files the plan writes into the box first. They are the code that runs, so the person can read each one before approving. */
+const boxFiles = computed(() => (isCloud.value && Array.isArray(input.value.files) ? input.value.files as Array<{ path?: string, content?: string }> : [])
+  .map(f => ({ path: String(f.path || ''), content: String(f.content || '') }))
+  .filter(f => f.path))
 const anyRunsCode = computed(() => plan.value.some(s => s.flags.includes('Runs code')))
 
 const SPELLING: Record<string, string> = { github: 'GitHub', gitlab: 'GitLab', onedrive: 'OneDrive', one_drive: 'OneDrive', hubspot: 'HubSpot', paystack: 'Paystack', google_drive: 'Google Drive', google_calendar: 'Google Calendar' }
@@ -57,12 +62,13 @@ const title = computed(() => {
   if (isMcp.value) return words(toolName.value.slice(4))
   if (isBrowser.value) return props.label || 'a website'
   if (isSkill.value) return [input.value.repo, input.value.folder].filter(Boolean).join('/') || 'a skill'
+  if (isCloud.value) return 'a fresh cloud box'
   if (isRun.value) return String(input.value.computer || 'your computer')
   if (isAdd.value) return preset.value?.name || 'a tool server'
   return words(toolName.value)
 })
 const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
-const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
+const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : isCloud.value ? 'Run in the cloud' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */
 const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
@@ -99,7 +105,7 @@ async function answer(approved: boolean) {
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>
           <p class="text-xs text-muted mt-0.5">
-            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : isAdd ? 'Nothing is added until you press Approve.' : 'It may change things or reach other people.' }}
+            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isCloud ? 'In a clean box that is deleted afterwards. Nothing starts until you press Approve.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : isAdd ? 'Nothing is added until you press Approve.' : 'It may change things or reach other people.' }}
           </p>
         </div>
       </div>
@@ -181,7 +187,39 @@ async function answer(approved: boolean) {
             </span>
           </li>
         </ol>
-        <p class="text-xs text-muted">
+        <div
+          v-if="boxFiles.length"
+          class="flex flex-col gap-1.5 rounded-xl bg-elevated/50 border border-default px-3.5 py-3 text-sm"
+        >
+          <p class="text-xs font-medium text-highlighted">
+            Files it writes first
+          </p>
+          <details
+            v-for="f in boxFiles"
+            :key="f.path"
+            class="group"
+          >
+            <summary class="cursor-pointer list-none flex items-center gap-2 text-default">
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-3.5 text-muted transition-transform group-open:rotate-90"
+              />
+              <span class="font-mono text-[13px] break-all">{{ f.path }}</span>
+              <span class="text-xs text-muted">{{ f.content.length.toLocaleString() }} characters</span>
+            </summary>
+            <pre class="mt-1.5 max-h-56 overflow-auto rounded-lg bg-default border border-default p-2.5 text-xs font-mono whitespace-pre-wrap break-words">{{ f.content }}</pre>
+          </details>
+        </div>
+        <p
+          v-if="isCloud"
+          class="text-xs text-muted"
+        >
+          This runs in a fresh cloud box with none of your files or accounts. The box is deleted when the plan ends, and nothing is kept. Each plan uses credits.
+        </p>
+        <p
+          v-else
+          class="text-xs text-muted"
+        >
           {{ anyRunsCode ? 'Programs you approve run with the same access as your own account, so only approve what you recognise.' : 'These steps only install and look. Packages are installed with their setup code switched off.' }} If a step fails, the rest do not run. You can stop everything from the stop button.
         </p>
       </template>

@@ -33,6 +33,8 @@ import { browserKey } from '../../../services/browser/service'
 import { browserServiceFor } from '../../../services/browser/where'
 import { holdStore, startWait } from '../../../services/browser/holds'
 import { createLookInFolderTool, createRunOnComputerTool } from '../../../utils/tools/runOnComputer'
+import { createRunInCloudTool } from '../../../utils/tools/runInCloud'
+import { defaultCloudBox } from '../../../services/cloudbox/provider'
 import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
 import { bridgeStore } from '../../../services/bridge/store'
 import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
@@ -298,6 +300,7 @@ export default defineHandler(async (event) => {
           ...(browserService ? { browser: createBrowserTool(userId, id, browserService, waitHooks) } : {}),
           ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {}),
           // Same reason: only offered when a computer has been allowed to run commands in a folder.
+          ...(signedIn && defaultCloudBox() ? { run_in_cloud: createRunInCloudTool(userId) } : {}),
           ...(runOn ? { run_on_computer: createRunOnComputerTool(userId), look_in_folder: createLookInFolderTool(userId) } : {})
         }
       : {})

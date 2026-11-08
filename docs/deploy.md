@@ -153,6 +153,39 @@ What browser use does and does not do: the browser is signed out, so it has none
 
 Not tested by the authors: the exact base image tag (`mcr.microsoft.com/playwright:v1.56.0-noble`) and the commands above; check them on first deploy.
 
+## 5c-2. The cloud box: run an approved plan somewhere clean (optional)
+
+When the person has no computer connected, or the job should run somewhere clean, the assistant can run a short plan (npm, pip, node, python, git) in a fresh, empty cloud box. It is one more small Cloud Run service, built the same way as the browser worker. Without it the assistant simply does not offer the cloud box.
+
+```bash
+SECRET=$(openssl rand -hex 32)
+gcloud iam service-accounts create openlobs-runner --display-name "OpenLobs cloud box"   # no roles on purpose
+docker build -f Dockerfile.runner -t $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-runner .
+docker push $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-runner
+gcloud run deploy openlobs-runner --image $REGION-docker.pkg.dev/$PROJECT/$REPO/openlobs-runner \
+  --region $REGION --service-account openlobs-runner@$PROJECT.iam.gserviceaccount.com \
+  --memory 1Gi --cpu 1 --concurrency 1 --max-instances 3 --timeout 300 --allow-unauthenticated \
+  --set-env-vars RUNNER_SECRET=$SECRET
+# then give the app the address and the secret (use Secret Manager for the secret, as for the other keys)
+gcloud run services update openlobs --region $REGION --update-env-vars RUNNER_URL=$(gcloud run services describe openlobs-runner --region $REGION --format='value(status.url)'),RUNNER_SECRET=$SECRET
+```
+
+How it keeps people apart:
+
+- **One plan per instance.** `--concurrency 1` means one request at a time, and the worker exits after answering every plan, so Cloud Run starts a fresh instance for the next one. Nothing a program leaves behind (a file, a background process, a changed setting) reaches the next person. The cost is a few seconds of start-up per plan.
+- **The programs run as an ordinary user.** The worker starts as root only so it can switch to user 10001 for the programs. That keeps the worker's own secret out of their reach (a program cannot read the worker's process) and gives them a home folder inside the throw-away folder.
+- **The folder is brand new and is deleted afterwards.** The assistant can write a few small text files into it first; the person reads each one on the approval card.
+- **No roles.** The service account has none, so even a program that asks the metadata server for a token gets nothing useful.
+- **Same rulebook as a computer.** The app checks every step against the allow-list, and the worker checks it again.
+
+What it does **not** do: a program in the box can still reach the internet (it has to, to install packages), and it can use the box's CPU for the length of the plan. That is why each plan is approved, limited to four minutes, and charged against the person's credits (`USAGE_CLOUD_PLAN_COST`, default 5). `--max-instances 3` is the ceiling on what this can cost you at once.
+
+Cost: Cloud Run's free allowance (about 50 CPU-hours a month at the time of writing; check the pricing page) covers a lot of three-minute plans. See `planning/openlobs-cloud-box-costs.md`.
+
+To run the same worker on your own machine or any Docker host: `docker run -p 8080:8080 -e RUNNER_SECRET=... openlobs-runner`, then set `RUNNER_URL` (and the same `RUNNER_SECRET`) for the app. Plain `http` is accepted only for the same machine while developing.
+
+Not tested by the authors: building `Dockerfile.runner` and the `gcloud` commands (no Docker or Cloud Run was available when this was written). The worker itself and everything around it are tested with real processes (`tests/cloudBox.test.mts`, `tests/runInCloud.test.mts`). Check the image on first deploy.
+
 ## 5d. Computers (Bridge)
 
 Nothing extra to deploy: the Bridge talks to the app's own `/api/bridge/*` endpoints. Three things to know:
