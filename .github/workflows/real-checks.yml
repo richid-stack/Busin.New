@@ -1,0 +1,38 @@
+name: real-checks
+
+# Checks that need the real thing instead of a stand-in: Google's Firestore emulator, and a real Docker build of the
+# cloud box worker. They run with the normal checks, on pull requests and on main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: real-checks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  firestore-emulator:
+    runs-on: ubuntu-latest
+    env:
+      NUXT_UI_PRO_LICENSE: ${{ secrets.NUXT_UI_PRO_LICENSE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Real Firestore checks
+        run: npx --yes firebase-tools@15 emulators:exec --only firestore --project demo-openlobs --config firebase.emulator.json "npx tsx tests/firestoreEmulator.test.mts"
+
+  runner-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and check the cloud box image
+        run: scripts/runner-smoke.sh
