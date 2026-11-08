@@ -9,6 +9,7 @@ import { clearQuit, fileControl, setPaused } from './control'
 import { pickFolder } from './pickFolder'
 import { startTray } from './tray'
 import { openWorkspace } from './workspace'
+import { checkRunFolder } from './run'
 import { DeviceBrowser, launchProfile } from './deviceBrowser'
 import { createLiveHost } from './liveHost'
 import type { Config } from './core'
@@ -84,7 +85,7 @@ try {
     const server = option(args, '--server') || process.env.OPENLOBS_URL
     if (!code || !server) throw new Error('Usage: bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]')
     const config = await pair(server, code, option(args, '--name') || os.hostname().slice(0, 60), deps)
-    save({ ...config, allow: load()?.allow, workspace: load()?.workspace })
+    save({ ...config, allow: load()?.allow, workspace: load()?.workspace, runFolder: load()?.runFolder })
     console.log(`Paired as "${config.name}". Run "bridge run" to connect.`)
   } else if (command === 'connect') {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -93,7 +94,7 @@ try {
       const code = (await rl.question('Pairing code from the Computers page: ')).trim()
       if (!server || !code) throw new Error('An address and a code are both needed.')
       const config = await pair(server, code, os.hostname().slice(0, 60), deps)
-      save({ ...config, allow: load()?.allow, workspace: load()?.workspace })
+      save({ ...config, allow: load()?.allow, workspace: load()?.workspace, runFolder: load()?.runFolder })
       console.log(`Paired as "${config.name}". It will connect the next time the Bridge starts (or at your next sign-in).`)
     } finally { rl.close() }
   } else if (command === 'run') {
@@ -121,8 +122,9 @@ try {
     if (config) {
       console.log('Allowed on this computer:')
       console.log('  - Answer a test ping (always)')
-      for (const [name, p] of Object.entries(PERMISSIONS)) console.log(`  ${(config.allow ?? []).includes(name) ? '-' : 'x'} ${p.label}${(config.allow ?? []).includes(name) ? '' : `  (off; turn on with: bridge allow ${name}${name === 'excel' ? ' --folder "C:\\path\\to\\folder"' : ''})`}`)
+      for (const [name, p] of Object.entries(PERMISSIONS)) console.log(`  ${(config.allow ?? []).includes(name) ? '-' : 'x'} ${p.label}${(config.allow ?? []).includes(name) ? '' : `  (off; turn on with: bridge allow ${name}${name === 'excel' || name === 'run' ? ' --folder "C:\\path\\to\\folder"' : ''})`}`)
       if (config.workspace) console.log(`Spreadsheet folder: ${config.workspace}`)
+      if (config.runFolder) console.log(`Folder for approved commands: ${config.runFolder}`)
     }
   } else if (command === 'allow' || command === 'deny') {
     const config = load()
@@ -131,16 +133,23 @@ try {
     if (!name || !Object.prototype.hasOwnProperty.call(PERMISSIONS, name)) throw new Error(`Usage: bridge ${command} <${Object.keys(PERMISSIONS).join('|')}>`)
     const set = new Set(config.allow ?? [])
     let workspace = config.workspace
+    let runFolder = config.runFolder
     if (command === 'allow') {
       if (name === 'excel') {
         const chosen = option(args, '--folder') || await pickFolder() || workspace
         // The folder is checked now, and the real location (after shortcuts) is what gets saved.
         workspace = openWorkspace(chosen)
       }
+      if (name === 'run') {
+        const chosen = option(args, '--folder') || await pickFolder() || runFolder
+        // Checked now: a real folder, followed through shortcuts, and not a place that is too broad to be a project.
+        runFolder = checkRunFolder(openWorkspace(chosen, 'run'))
+      }
       set.add(name)
     } else set.delete(name)
-    save({ ...config, allow: [...set], workspace })
+    save({ ...config, allow: [...set], workspace, runFolder })
     if (command === 'allow' && name === 'excel') console.log(`Folder: ${workspace}`)
+    if (command === 'allow' && name === 'run') console.log(`Folder: ${runFolder}\nOpenLobs will show you each plan of commands and wait for your approval in the chat. Programs you approve run with your account's access.`)
     console.log(command === 'allow' ? `Allowed: ${PERMISSIONS[name]!.label}. A running Bridge picks this up within a minute.` : `No longer allowed: ${PERMISSIONS[name]!.label}.`)
   } else if (command === 'browser') {
     const sub = args[0]
@@ -173,7 +182,7 @@ try {
     fs.rmSync(file, { force: true })
     console.log('Disconnected.')
   } else {
-    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE] [--no-tray]\n  bridge pause | resume\n  bridge allow browser | deny browser\n  bridge allow excel --folder <folder> | deny excel\n  bridge allow browser_use | deny browser_use   (OpenLobs may use a browser here)\n  bridge browser login [https://site]   (sign in to sites in the OpenLobs browser)\n  bridge browser forget   (sign out of everything there)\n  bridge selftest\n  bridge status\n  bridge disconnect`)
+    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE] [--no-tray]\n  bridge pause | resume\n  bridge allow browser | deny browser\n  bridge allow excel --folder <folder> | deny excel\n  bridge allow run --folder <folder> | deny run   (run commands you approve in that folder)\n  bridge allow browser_use | deny browser_use   (OpenLobs may use a browser here)\n  bridge browser login [https://site]   (sign in to sites in the OpenLobs browser)\n  bridge browser forget   (sign out of everything there)\n  bridge selftest\n  bridge status\n  bridge disconnect`)
   }
 } catch (err: any) {
   console.error(err.message)

@@ -145,3 +145,45 @@ export function getLookupTrace(part: ToolPart): { query?: string, count?: number
   const where = input?.repo ? [input.repo, input.path ?? (input as { folder?: string }).folder].filter(Boolean).join('/') : undefined
   return { summary: failed ? undefined : output?.summary, query: (!failed && output?.name ? `${output.name} · ${output.source ?? where}` : undefined) ?? input?.query ?? where ?? output?.query, count: output?.count, lines: lines.slice(0, 16), failed, error: failed ? plainError(output?.error) : undefined }
 }
+
+export interface RunStepTrace { n: number, words: string, command: string, ok: boolean, timedOut: boolean, seconds: number, output: string, outputTruncated: boolean }
+
+/** What a plan of commands did on the person's computer: each step in everyday words, with what it printed one click away. */
+export function getRunTrace(part: ToolPart): { steps: RunStepTrace[], computer?: string, summary?: string, failed: boolean, stopped: boolean, notRun: number, error?: string, planned: number } {
+  const output = part.output as { status?: string, computer?: string, steps?: RunStepTrace[], notRun?: number, error?: string } | undefined
+  const input = part.input as { steps?: unknown[] } | undefined
+  const steps = Array.isArray(output?.steps) ? output!.steps : []
+  const failed = output?.status === 'failed'
+  const stopped = output?.status === 'stopped'
+  const done = steps.length
+  const planned = Array.isArray(input?.steps) ? input!.steps.length : done
+  return {
+    steps,
+    computer: output?.computer,
+    summary: [output?.computer, (failed || stopped) && done ? `${done} of ${planned} ${planned === 1 ? 'step' : 'steps'} run` : undefined].filter(Boolean).join(' · ') || undefined,
+    failed,
+    stopped,
+    notRun: output?.notRun ?? 0,
+    planned,
+    error: failed ? plainError(output?.error) : undefined
+  }
+}
+
+/** Looking in the chosen folder, one row per thing looked at: a short label, then the name. */
+export function getFolderTrace(part: ToolPart): { rows: { verb: string, name: string }[], title: string, summary?: string, failed: boolean, error?: string } {
+  const output = part.output as { status?: string, computer?: string, entries?: { name: string, type: string }[], path?: string, name?: string, error?: string } | undefined
+  const failed = output?.status === 'failed'
+  if (failed || !output) return { rows: [], title: 'Looked in your folder', failed, error: plainError(output?.error) }
+  if (output.entries) {
+    const files = output.entries.filter(e => e.type === 'file').length
+    const folders = output.entries.length - files
+    const where = output.path && output.path !== '.' ? output.path : 'your folder'
+    return {
+      title: 'Looked in your folder',
+      rows: [{ verb: 'Listed', name: where }, ...output.entries.slice(0, 40).map(e => ({ verb: '', name: e.name }))],
+      summary: [output.computer, `${files} ${files === 1 ? 'file' : 'files'}${folders ? `, ${folders} ${folders === 1 ? 'folder' : 'folders'}` : ''}`].filter(Boolean).join(' · '),
+      failed: false
+    }
+  }
+  return { title: 'Read a file on your computer', rows: output.name ? [{ verb: 'Read file', name: output.name }] : [], summary: output.computer, failed: false }
+}

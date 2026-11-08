@@ -204,7 +204,7 @@ assert((await s5.getDevice('hana', hanaId)).capabilities.join() === 'ping' && ac
   const reports: any[] = []
   const evilDeps: Deps = { ...deps, fetch: (async (url: any, init: any) => {
     const p = new URL(String(url)).pathname
-    if (p === '/api/bridge/poll') return new Response(JSON.stringify({ jobs: [{ id: 'j9', kind: 'run_command', input: { cmd: 'del /s C:\\' } }, { id: 'j10', kind: '__proto__', input: {} }, { id: 'j11', kind: 'constructor', input: {} }], cancel: [] }))
+    if (p === '/api/bridge/poll') return new Response(JSON.stringify({ jobs: [{ id: 'j9', kind: 'shell', input: { cmd: 'del /s C:\\' } }, { id: 'j10', kind: '__proto__', input: {} }, { id: 'j11', kind: 'constructor', input: {} }], cancel: [] }))
     reports.push({ p, body: JSON.parse(init.body) })
     return new Response('{}')
   }) as any }

@@ -4,6 +4,7 @@ import { getToolName } from 'ai'
 import { accentGradient } from '../../../utils/accentGradient'
 import { appLogo } from '../../../utils/appLogo'
 import { mcpLogo } from '../../../utils/mcpLogo'
+import { checkStep, commandLine } from '../../../../shared/runPlan'
 
 const props = defineProps<{ part: any, /** What will be done, when the tool cannot say it in its own inputs (the browser). */ instruction?: string, /** Replaces the tool's name in the heading (the site, for the browser). */ label?: string, /** Not a yes/no question: the page needs you to do something (sign in, a code), then press Continue. */ person?: boolean }>()
 
@@ -17,6 +18,24 @@ const isApp = computed(() => toolName.value === 'integration_execute')
 const isMcp = computed(() => toolName.value.startsWith('mcp_'))
 const isBrowser = computed(() => toolName.value === 'browser')
 const isSkill = computed(() => toolName.value === 'load_external_skill')
+const isRun = computed(() => toolName.value === 'run_on_computer')
+
+/** The plan as the person reads it: each step in everyday words, the real command under it, and what to watch for. */
+const plan = computed(() => {
+  if (!isRun.value) return []
+  const steps = Array.isArray(input.value.steps) ? input.value.steps as Array<{ program?: string, args?: string[], why?: string }> : []
+  return steps.map((s, i) => {
+    const c = checkStep(s)
+    return {
+      n: i + 1,
+      words: c.ok ? c.step.words : 'A step this computer will refuse',
+      command: commandLine({ program: String(s.program ?? ''), args: Array.isArray(s.args) ? s.args : [] }),
+      why: String(s.why || '').trim(),
+      flags: c.ok ? [c.step.network && c.step.installs ? 'Downloads packages' : c.step.network ? 'Uses the internet' : '', c.step.runsCode ? 'Runs code' : ''].filter(Boolean) : []
+    }
+  })
+})
+const anyRunsCode = computed(() => plan.value.some(s => s.flags.includes('Runs code')))
 
 const SPELLING: Record<string, string> = { github: 'GitHub', gitlab: 'GitLab', onedrive: 'OneDrive', one_drive: 'OneDrive', hubspot: 'HubSpot', paystack: 'Paystack', google_drive: 'Google Drive', google_calendar: 'Google Calendar' }
 const words = (text: string) => text.replace(/[_-]+/g, ' ').trim()
@@ -28,14 +47,15 @@ const title = computed(() => {
   if (isMcp.value) return words(toolName.value.slice(4))
   if (isBrowser.value) return props.label || 'a website'
   if (isSkill.value) return [input.value.repo, input.value.folder].filter(Boolean).join('/') || 'a skill'
+  if (isRun.value) return String(input.value.computer || 'your computer')
   return words(toolName.value)
 })
-const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : mcpLogo(toolName.value)))
-const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : 'Action')
+const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : isRun.value ? 'i-lucide-terminal' : mcpLogo(toolName.value)))
+const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : isRun.value ? 'Run commands' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */
 const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
-const fields = computed(() => isBrowser.value || isSkill.value ? [] : Object.entries(input.value)
+const fields = computed(() => isBrowser.value || isSkill.value || isRun.value ? [] : Object.entries(input.value)
   .filter(([key]) => !(isApp.value && ['provider', 'instruction', 'access'].includes(key)))
   .map(([key, value]) => ({ key: words(key), value: (typeof value === 'string' ? value : JSON.stringify(value)) ?? '' }))
   .slice(0, 12))
@@ -68,10 +88,52 @@ async function answer(approved: boolean) {
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>
           <p class="text-xs text-muted mt-0.5">
-            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : 'It may change things or reach other people.' }}
+            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : 'It may change things or reach other people.' }}
           </p>
         </div>
       </div>
+
+      <template v-if="isRun">
+        <p
+          v-if="input.why"
+          class="text-sm text-default"
+        >
+          {{ input.why }}
+        </p>
+        <ol class="flex flex-col gap-2.5 rounded-xl bg-elevated/50 border border-default px-3.5 py-3 text-sm">
+          <li
+            v-for="s in plan"
+            :key="s.n"
+            class="flex gap-2.5"
+          >
+            <span class="size-5 shrink-0 rounded-full bg-default border border-default text-xs text-muted flex items-center justify-center mt-0.5">{{ s.n }}</span>
+            <span class="min-w-0 flex flex-col gap-0.5">
+              <span class="text-default">{{ s.words }}</span>
+              <span class="text-xs text-muted font-mono break-all">{{ s.command }}</span>
+              <span
+                v-if="s.why"
+                class="text-xs text-muted"
+              >{{ s.why }}</span>
+              <span
+                v-if="s.flags.length"
+                class="flex flex-wrap gap-1 mt-0.5"
+              >
+                <UBadge
+                  v-for="f in s.flags"
+                  :key="f"
+                  :label="f"
+                  :color="f === 'Runs code' ? 'warning' : 'neutral'"
+                  variant="subtle"
+                  size="sm"
+                />
+              </span>
+            </span>
+          </li>
+        </ol>
+        <p class="text-xs text-muted">
+          {{ anyRunsCode ? 'Programs you approve run with the same access as your own account, so only approve what you recognise.' : 'These steps only install and look. Packages are installed with their setup code switched off.' }} If a step fails, the rest do not run. You can stop everything from the stop button.
+        </p>
+      </template>
 
       <p
         v-if="instruction"

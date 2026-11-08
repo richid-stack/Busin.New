@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
-import { JOB_PERMISSION, LIMITS, OPEN_JOB, PAIRING_ALPHABET, PERMISSION_LABEL, TOKEN_PREFIX, RESULT_SCHEMA, isJobKind, maxResultChars, parseJobInput } from './model'
+import { JOB_PERMISSION, LIMITS, NEEDS_FOLDER, jobTtlMs, OPEN_JOB, PAIRING_ALPHABET, PERMISSION_LABEL, TOKEN_PREFIX, RESULT_SCHEMA, isJobKind, maxResultChars, parseJobInput } from './model'
 import { liveBroker } from './live'
 import type { Device, DeviceEvent, EventKind, Job, JobKind, Platform } from './model'
 
@@ -158,7 +158,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       // The person decides on the computer itself what it may be asked to do. Asking for more than that is refused here, and again there.
       const needs = JOB_PERMISSION[kind]
       if (needs && !device.capabilities.includes(kind)) {
-        throw new BridgeError(`This computer has not been allowed to "${PERMISSION_LABEL[needs].toLowerCase()}". On that computer, run: bridge allow ${needs}${needs === 'excel' ? ' --folder "C:\\path\\to\\folder"' : ''}`, 'conflict')
+        throw new BridgeError(`This computer has not been allowed to "${PERMISSION_LABEL[needs].toLowerCase()}". On that computer, run: bridge allow ${needs}${NEEDS_FOLDER.includes(needs) ? ' --folder "C:\\path\\to\\folder"' : ''}`, 'conflict')
       }
       try { input = parseJobInput(kind, input) } catch (err: any) { throw new BridgeError(err.message, 'invalid') }
       const mine = (await db.collection('bridge_jobs').where('deviceId', '==', deviceId).get()).docs.map((d: any) => jobFrom(d.id, d.data()))
@@ -170,7 +170,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       for (const j of finished.slice(0, Math.max(0, finished.length - LIMITS.keptJobs + 1))) await jobRef(j.id).delete()
       const at = now()
       const r = db.collection('bridge_jobs').doc()
-      const doc = { userId, deviceId, kind, status: 'queued', input, result: null, error: '', fileId: null, cancelAcked: false, createdAt: at.toISOString(), sentAt: null, finishedAt: null, expiresAt: new Date(at.getTime() + LIMITS.jobTtlMs).toISOString() }
+      const doc = { userId, deviceId, kind, status: 'queued', input, result: null, error: '', fileId: null, cancelAcked: false, createdAt: at.toISOString(), sentAt: null, finishedAt: null, expiresAt: new Date(at.getTime() + jobTtlMs(kind)).toISOString() }
       await r.set(doc)
       await self.addEvent(deviceId, 'job', `Asked to run "${kind}".`)
       self.wake(deviceId)

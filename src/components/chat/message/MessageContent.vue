@@ -27,7 +27,7 @@ import { approvalInstruction, controlsBefore, hostBefore } from '../../../utils/
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
-import { getDocumentRead, getFetchedPage, getFileTrace, getLookupTrace, getPageTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
+import { getDocumentRead, getFetchedPage, getFileTrace, getFolderTrace, getLookupTrace, getPageTrace, getRunTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -360,6 +360,94 @@ const emit = defineEmits<{
           class="text-sm text-muted"
         >
           {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'run_on_computer'"
+        :text="isToolStreaming(part) ? 'Running the plan on your computer...' : getRunTrace(part).failed ? 'Could not run the plan' : getRunTrace(part).stopped ? 'The plan stopped on a step' : getRunTrace(part).steps.length === 1 ? 'Ran 1 step on your computer' : `Ran ${getRunTrace(part).steps.length} steps on your computer`"
+        :suffix="getRunTrace(part).summary"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-terminal"
+        :chevron="getRunTrace(part).steps.length || getRunTrace(part).error ? 'leading' : undefined"
+      >
+        <div
+          v-if="getRunTrace(part).steps.length"
+          class="flex flex-col gap-1.5 text-sm"
+        >
+          <div
+            v-for="step in getRunTrace(part).steps"
+            :key="step.n"
+            class="flex flex-col gap-1"
+          >
+            <p class="flex items-baseline gap-2 min-w-0">
+              <UIcon
+                name="i-lucide-terminal"
+                :class="['size-3.5 shrink-0 self-center', step.ok ? 'text-muted' : 'text-error']"
+              />
+              <span :class="step.ok ? 'text-muted' : 'text-error'">{{ step.ok ? 'Ran' : step.timedOut ? 'Timed out' : 'Failed' }}</span>
+              <code class="font-mono text-[13px] text-default break-all">{{ step.command }}</code>
+            </p>
+            <details
+              v-if="step.output"
+              class="ml-6 text-xs text-muted"
+              :open="!step.ok"
+            >
+              <summary class="cursor-pointer select-none">
+                {{ step.ok ? 'What it printed' : 'What went wrong' }}
+              </summary>
+              <pre class="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-elevated/50 border border-default px-2.5 py-2 font-mono">{{ step.output }}</pre>
+            </details>
+          </div>
+          <p
+            v-if="getRunTrace(part).notRun"
+            class="ml-6 text-xs text-muted"
+          >
+            Not run: {{ getRunTrace(part).notRun }} more {{ getRunTrace(part).notRun === 1 ? 'step' : 'steps' }}
+          </p>
+        </div>
+        <p
+          v-else-if="getRunTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getRunTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'look_in_folder'"
+        :text="isToolStreaming(part) ? 'Looking in your folder...' : getFolderTrace(part).failed ? 'Could not look in the folder' : getFolderTrace(part).title"
+        :suffix="getFolderTrace(part).summary"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-folder-search"
+        :chevron="getFolderTrace(part).rows.length || getFolderTrace(part).error ? 'leading' : undefined"
+      >
+        <div
+          v-if="getFolderTrace(part).rows.length"
+          class="flex flex-col gap-1 text-sm"
+        >
+          <p
+            v-for="row in getFolderTrace(part).rows"
+            :key="row.verb + row.name"
+            :class="['flex items-baseline gap-2 min-w-0', row.verb ? '' : 'ml-4']"
+          >
+            <span
+              v-if="row.verb"
+              class="text-muted shrink-0"
+            >{{ row.verb }}</span>
+            <span
+              v-if="row.name === 'your folder'"
+              class="text-default"
+            >{{ row.name }}</span>
+            <code
+              v-else
+              :class="['font-mono text-[13px] break-all', row.verb ? 'text-default' : 'text-muted']"
+            >{{ row.name }}</code>
+          </p>
+        </div>
+        <p
+          v-else-if="getFolderTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getFolderTrace(part).error }}
         </p>
       </UChatTool>
       <UChatTool

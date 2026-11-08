@@ -58,6 +58,8 @@ export function phraseFor(part: Part): string {
   if (name === 'check_setup') return 'Checking what is connected.'
   if (name === 'find_skill') return 'Looking for a skill.'
   if (name === 'load_external_skill') return 'Opening a skill.'
+  if (name === 'run_on_computer') return 'Running the plan on your computer.'
+  if (name === 'look_in_folder') return 'Looking in your folder.'
   if (name === 'github_read') return 'Reading the project.'
   if (name === 'community_search') return 'Searching the Reef.'
   if (name === 'design_tokens') return 'Reading the page\'s design.'

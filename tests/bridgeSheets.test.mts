@@ -197,7 +197,7 @@ if (engine) {
   assert(reports.length === 2 && reports.find(r => r.p.includes('h1'))?.body.ok === false, 'the Bridge checks the path itself, whatever the server sends')
   await pollOnce({ ...cfg, allow: [], workspace: folder }, { ...hostile, fetch: (async (url: any, init: any) => { const p = new URL(String(url)).pathname; if (p === '/api/bridge/poll') return new Response(JSON.stringify({ jobs: [{ id: 'h3', kind: 'workbook_list', input: {} }], cancel: [] })); reports.push({ p, body: JSON.parse(init.body) }); return new Response('{}') }) as any }, new Map())
   assert(reports.at(-1)?.body.ok === false && /not been allowed/.test(reports.at(-1)?.body.error), 'with the permission off on the computer, the Bridge refuses even if the server asks')
-  assert(Object.keys(HANDLERS).includes('workbook_apply') && !Object.keys(HANDLERS).some(k => /shell|exec|run_script|macro/.test(k)), 'there is no handler that runs a command or a macro')
+  assert(Object.keys(HANDLERS).includes('workbook_apply') && !Object.keys(HANDLERS).some(k => /shell|exec|run_script|macro/.test(k)), 'there is no handler that runs a shell, a script or a macro (the only command handler is run_command, which follows the allow-list)')
   await srv.stop()
 }
 
@@ -205,7 +205,10 @@ if (engine) {
 const src = (f: string) => fs.readFileSync(f, 'utf8')
 const bridgeFiles = fs.readdirSync('bridge', { recursive: true }).map(String).filter(f => f.endsWith('.ts')).map(f => path.join('bridge', f))
 const spawners = bridgeFiles.filter(f => /child_process/.test(src(f)))
-assert(spawners.map(f => f.replace(/\\/g, '/')).sort().join() === 'bridge/process.ts', 'only one file in the Bridge may start another program')
+assert(spawners.map(f => f.replace(/\\/g, '/')).sort().join() === 'bridge/process.ts,bridge/run.ts', 'only two files in the Bridge may start another program: the fixed spreadsheet helper, and the runner for approved commands')
+const runSrc = src(path.join('bridge', 'run.ts'))
+assert(!/shell:\s*true/.test(runSrc) && !/\b(execSync|spawnSync|execFileSync)\b/.test(runSrc) && !/\bexec\(/.test(runSrc.replace(/function exec\(|exec\(launch/g, '')) && /shell: false/.test(runSrc), 'the command runner never uses a shell, and checks every step with the shared rulebook first')
+assert(/checkStep\(/.test(runSrc) && /cleanEnv\(/.test(runSrc), 'it applies the rulebook and a clean environment itself')
 assert(!bridgeFiles.some(f => /\beval\(|new Function\(|\bshell:\s*true/.test(src(f))), 'no eval and no shell in the Bridge')
 const engineSrc = src('bridge/sheets/engine.ts')
 assert(!/\$\{[^}]*(job|c\.|input)/.test(engineSrc.slice(engineSrc.indexOf('EXCEL_SCRIPT'), engineSrc.indexOf('Finding and running'))), 'the fixed scripts have nothing from a job placed inside them')

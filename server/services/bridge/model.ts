@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RUN_LIMITS, runJobInputSchema, checkStep } from '../../../shared/runPlan'
 import { SHEET_LIMITS, workbookApplyInput, workbookApplyResult, workbookInspectInput, workbookInspectResult, workbookListInput, workbookListResult } from '../../../shared/sheetOps'
 
 /**
@@ -66,17 +67,19 @@ export type EventKind = 'paired' | 'job' | 'revoked' | 'note'
 export interface DeviceEvent { id: string, at: string, kind: EventKind, text: string }
 
 /** The jobs a Bridge may be asked for. Adding one means adding it here and in the Bridge, on purpose. */
-export const JOB_KINDS = ['ping', 'browser_look', 'workbook_list', 'workbook_inspect', 'workbook_apply'] as const
+export const JOB_KINDS = ['ping', 'browser_look', 'workbook_list', 'workbook_inspect', 'workbook_apply', 'run_command', 'folder_look', 'folder_read'] as const
 export type JobKind = typeof JOB_KINDS[number]
 
 export const isJobKind = (k: unknown): k is JobKind => (JOB_KINDS as readonly string[]).includes(String(k))
 
 /** What a person can allow on a computer. A ping is always allowed: it reveals nothing and changes nothing. */
-export const PERMISSIONS = ['browser', 'excel'] as const
+export const PERMISSIONS = ['browser', 'excel', 'run'] as const
 export type Permission = typeof PERMISSIONS[number]
 /** Which permission a job needs, if any. */
-export const JOB_PERMISSION: Partial<Record<JobKind, Permission>> = { browser_look: 'browser', workbook_list: 'excel', workbook_inspect: 'excel', workbook_apply: 'excel' }
-export const PERMISSION_LABEL: Record<Permission, string> = { browser: 'Look at web pages', excel: 'Work on spreadsheets in one folder' }
+export const JOB_PERMISSION: Partial<Record<JobKind, Permission>> = { browser_look: 'browser', workbook_list: 'excel', workbook_inspect: 'excel', workbook_apply: 'excel', run_command: 'run', folder_look: 'run', folder_read: 'run' }
+export const PERMISSION_LABEL: Record<Permission, string> = { browser: 'Look at web pages', excel: 'Work on spreadsheets in one folder', run: 'Run approved commands in one folder' }
+/** Permissions that need the person to choose a folder on the computer. */
+export const NEEDS_FOLDER: Permission[] = ['excel', 'run']
 
 const short = (n: number) => z.string().trim().min(1).max(n)
 
@@ -126,9 +129,48 @@ export const browserLookResultSchema = z.object({
 }).strict()
 export type BrowserLookResult = z.infer<typeof browserLookResultSchema>
 
+export const folderLookInput = z.object({ path: z.string().trim().max(120).optional(), depth: z.union([z.literal(1), z.literal(2)]).optional() }).strict()
+export const folderReadInput = z.object({ file: z.string().trim().min(1).max(120) }).strict()
+
+/** What the server accepts back from a command. The output is only ever shown as text. */
+export const runCommandResult = z.object({
+  exitCode: z.number().int().min(-1).max(255),
+  timedOut: z.boolean(),
+  ms: z.number().int().min(0),
+  output: z.string().max(RUN_LIMITS.maxOutputChars + 500),
+  outputTruncated: z.boolean()
+}).strict()
+export const folderLookResult = z.object({
+  path: z.string().max(200),
+  entries: z.array(z.object({ name: z.string().max(200), type: z.enum(['file', 'folder']), sizeKb: z.number().int().min(0).optional() }).strict()).max(RUN_LIMITS.maxListed),
+  truncated: z.boolean(),
+  hidden: z.number().int().min(0)
+}).strict()
+export const folderReadResult = z.object({ name: z.string().max(200), text: z.string().max(RUN_LIMITS.maxReadChars + 50), truncated: z.boolean(), sizeKb: z.number().int().min(0) }).strict()
+
 /** A job's input, checked and filled in. Throws a message fit to show a person. */
 export function parseJobInput(kind: JobKind, raw: unknown): Record<string, unknown> {
   if (kind === 'ping') return {}
+  if (kind === 'run_command') {
+    // The same rulebook the computer applies. A step that breaks it never leaves the server.
+    const parsed = runJobInputSchema.safeParse(raw ?? {})
+    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'That is not a valid step.')
+    const step: Record<string, unknown> = { ...parsed.data }
+    delete step.limitMs
+    const checked = checkStep(step)
+    if (!checked.ok) throw new Error(checked.error)
+    return parsed.data as Record<string, unknown>
+  }
+  if (kind === 'folder_look') {
+    const parsed = folderLookInput.safeParse(raw ?? {})
+    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'That is not a valid request.')
+    return parsed.data
+  }
+  if (kind === 'folder_read') {
+    const parsed = folderReadInput.safeParse(raw ?? {})
+    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'That is not a valid request.')
+    return parsed.data
+  }
   const schema = kind === 'browser_look' ? browserLookInputSchema : kind === 'workbook_list' ? workbookListInput : kind === 'workbook_inspect' ? workbookInspectInput : workbookApplyInput
   const parsed = schema.safeParse(raw ?? {})
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'That is not a valid request.')
@@ -141,9 +183,15 @@ export const RESULT_SCHEMA: Record<JobKind, z.ZodType> = {
   browser_look: browserLookResultSchema,
   workbook_list: workbookListResult,
   workbook_inspect: workbookInspectResult,
-  workbook_apply: workbookApplyResult
+  workbook_apply: workbookApplyResult,
+  run_command: runCommandResult,
+  folder_look: folderLookResult,
+  folder_read: folderReadResult
 }
-export const maxResultChars = (kind: JobKind) => kind.startsWith('workbook_') ? SHEET_LIMITS.maxResultChars : LIMITS.maxResultChars
+export const maxResultChars = (kind: JobKind) => kind.startsWith('workbook_') ? SHEET_LIMITS.maxResultChars : kind === 'run_command' ? 9_000 : kind.startsWith('folder_') ? 16_000 : LIMITS.maxResultChars
+
+/** How long a job may stay open. A command can legitimately run for minutes. */
+export const jobTtlMs = (kind: JobKind) => kind === 'run_command' ? 6 * 60_000 : LIMITS.jobTtlMs
 
 export const imageUploadSchema = z.object({
   mediaType: z.enum(['image/jpeg', 'image/png']),
