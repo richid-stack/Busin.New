@@ -54,6 +54,13 @@ export function fetchGuidance(tools: string[]): string {
 - Tell the user which are ready and the one step for each that is not, and where it happens. Never claim something is connected unless the check says so, and never ask for a key in chat: keys are added in Integrations.`)
   }
 
+  if (has('add_tool_server')) {
+    parts.push(`**ADDING A TOOL SERVER:**
+- When check_setup says a tool server that needs no sign-in is not added, offer to add it, and call add_tool_server once the user agrees. They approve on a card first.
+- Adding does not switch anything on. Tell the user in plain words that they now open Integrations, under tool servers, read each tool and allow the ones they want. Do not use the server before then.
+- A server that needs a key is never added from chat and you never ask for a key here: tell them where to add it.`)
+  }
+
   if (has('find_skill', 'load_external_skill')) {
     parts.push(`**SKILLS FROM THE INTERNET:**
 - Use your listed skills first. Only when none fits, call find_skill. A built-in match opens with load_skill; a GitHub one needs load_external_skill, which asks the user to approve it.
