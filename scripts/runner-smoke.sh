@@ -10,7 +10,7 @@ NAME=openlobs-runner-smoke
 fail() { echo "FAIL $1"; docker logs "$NAME" 2>&1 | tail -20 || true; docker rm -f "$NAME" >/dev/null 2>&1 || true; exit 1; }
 pass() { echo "PASS $1"; }
 
-docker build -q -f Dockerfile.runner -t "$IMAGE" . >/dev/null && pass "the image builds"
+docker build --progress=plain -f Dockerfile.runner -t "$IMAGE" . && pass "the image builds"
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run -d --name "$NAME" -p 18080:8080 -e RUNNER_SECRET="$SECRET" "$IMAGE" >/dev/null
 
