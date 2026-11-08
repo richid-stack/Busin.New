@@ -23,7 +23,7 @@ function createEmulatorFirestore() {
   const real = getFirestore(emulatorApp)
   const prefix = `t${emulatorRun}x${++prefixCounter}_`
   return new Proxy(real, {
-    get(target, prop, receiver) {
+    get(target, prop) {
       if (prop === 'collection') return (name: string) => target.collection(prefix + name)
       if (prop === 'raw') return () => { throw new Error('RAW_NOT_SUPPORTED: this check looks inside the stand-in and cannot run on the real database') }
       const v = Reflect.get(target, prop, target)
