@@ -65,6 +65,7 @@ let sawApproved = ''
 script = async (_a, ctx) => { sawApproved = ctx.approvedLabel; return { text: 'I placed the order.' } }
 r = await runTask(claimed.task, claimed.lease, deps)
 assert(sawApproved === 'Click “Place order” on shop.example.com' && /CONTINUING A TASK THAT PAUSED/.test(systems.at(-1)!) && /may be done once/.test(systems.at(-1)!), 'the next run is told what the person decided, and the tool is told which step is allowed once')
+console.log('DEBUG finish', JSON.stringify({ status: r.status, attempts: r.attempts, resume: r.resume, outcome: r.outcome, error: r.error }))
 assert(r.status === 'done' && r.attempts === 1 && r.resume === null, 'the task finishes, and the decision is used up')
 
 // ---- Declining and "continue" ----

@@ -22,7 +22,7 @@ for (const name of suites) {
   if (bad) {
     failed.push(name)
     for (const f of fails.slice(0, 12)) console.log(`    ${f}`)
-    const lastPass = lines.filter(l => /^(PASS|FAIL|input)/.test(l)).slice(-12)
+    const lastPass = lines.filter(l => /^(FAIL|DEBUG|\[)/.test(l)).slice(-12)
     for (const l of lastPass) console.log(`    last passing: ${l}`)
     // The lines of the error that point into this project (not the libraries) show where it happened.
     const mine = lines.filter(l => /\s+at .*\/(tests|server|shared|bridge)\//.test(l) && !l.includes('node_modules')).slice(0, 8)
