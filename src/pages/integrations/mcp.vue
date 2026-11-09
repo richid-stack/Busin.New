@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageSkeleton from '../../components/state/PageSkeleton.vue'
+import StateCard from '../../components/state/StateCard.vue'
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useMcpServers } from '../../composables/useMcpServers'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
@@ -174,36 +176,19 @@ const PILLARS = [
         </div>
       </div>
 
-      <div v-if="unauthorized" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to connect MCP servers</h2>
-        <p class="text-sm text-muted mb-5">Servers and their tokens belong to your account.</p>
+      <StateCard v-if="unauthorized" icon="i-lucide-lock" title="Sign in to connect MCP servers" text="Servers and their tokens belong to your account.">
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
-      </div>
+      </StateCard>
 
-      <div v-else-if="loadError" class="rounded-2xl border border-default bg-elevated/50 p-8 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-cloud-off" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Could not load your servers</h2>
-        <p class="text-sm text-muted mb-5">{{ loadError }}</p>
+      <StateCard v-else-if="loadError" icon="i-lucide-cloud-off" title="Could not load your servers" :text="loadError">
         <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" @click="fetchServers" />
-      </div>
+      </StateCard>
 
-      <div v-else-if="!loaded" class="py-12 flex justify-center">
-        <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-      </div>
+      <PageSkeleton v-else-if="!loaded" shape="rows" />
 
-      <div v-else-if="isEmpty" class="rounded-2xl border border-dashed border-default p-10 text-center">
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-plug" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">No servers yet</h2>
-        <p class="text-sm text-muted mb-5">Add a server's address, read its tools, and approve the ones you want.</p>
+      <StateCard v-else-if="isEmpty" icon="i-lucide-plug" title="No servers yet" text="Add a server's address, read its tools, and approve the ones you want." kind="empty">
         <UButton label="Add server" icon="i-lucide-plus" color="neutral" @click="openAdd()" />
-      </div>
+      </StateCard>
 
       <div v-else class="flex flex-col gap-4">
         <div v-for="server in servers" :key="server.id" class="rounded-2xl border border-default bg-default p-5 hover:shadow-md transition-shadow">

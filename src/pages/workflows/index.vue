@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageSkeleton from '../../components/state/PageSkeleton.vue'
+import StateCard from '../../components/state/StateCard.vue'
 import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
@@ -203,54 +205,26 @@ const isEmpty = computed(() => !loading.value && !unauthorized.value && !loadErr
         />
       </div>
 
-      <div
-        v-if="unauthorized"
-        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-      >
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-lock" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Sign in to build workflows</h2>
-        <p class="text-sm text-muted mb-5">Workflows are saved to your account and can use the apps you connect.</p>
+      <StateCard v-if="unauthorized" icon="i-lucide-lock" title="Sign in to build workflows" text="Workflows are saved to your account and can use the apps you connect.">
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
-      </div>
+      </StateCard>
 
-      <div
-        v-else-if="loadError"
-        class="rounded-2xl border border-default bg-elevated/50 p-8 text-center"
-      >
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-cloud-off" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">Could not load workflows</h2>
-        <p class="text-sm text-muted mb-5">{{ loadError }}</p>
+      <StateCard v-else-if="loadError" icon="i-lucide-cloud-off" title="Could not load workflows" :text="loadError">
         <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" @click="fetchWorkflows" />
-      </div>
+      </StateCard>
 
-      <div v-else-if="loading" class="py-12 flex justify-center">
-        <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-      </div>
+      <PageSkeleton v-else-if="loading" shape="cards" />
 
-      <div
-        v-else-if="isEmpty"
-        class="rounded-2xl border border-dashed border-default p-10 text-center"
-      >
-        <div class="mx-auto mb-4 size-12 rounded-xl border border-default bg-default shadow-sm flex items-center justify-center">
-          <UIcon name="i-lucide-workflow" class="size-5 text-muted" />
-        </div>
-        <h2 class="text-base font-semibold text-highlighted mb-1">No workflows yet</h2>
-        <p class="text-sm text-muted mb-5">Build one on the canvas, or describe it in chat and OpenLobs will draft it for you.</p>
-        <div class="flex items-center justify-center gap-2">
-          <UButton label="New workflow" icon="i-lucide-plus" color="neutral" @click="openCreate" />
-          <UButton
-            label="Describe it in chat"
-            icon="i-lucide-message-circle"
-            color="neutral"
-            variant="subtle"
-            :to="{ path: '/', query: { prompt: 'Create a workflow that ' } }"
-          />
-        </div>
-      </div>
+      <StateCard v-else-if="isEmpty" icon="i-lucide-workflow" title="No workflows yet" text="Build one on the canvas, or describe it in chat and OpenLobs will draft it for you." kind="empty">
+        <UButton label="New workflow" icon="i-lucide-plus" color="neutral" @click="openCreate" />
+                  <UButton
+                    label="Describe it in chat"
+                    icon="i-lucide-message-circle"
+                    color="neutral"
+                    variant="subtle"
+                    :to="{ path: '/', query: { prompt: 'Create a workflow that ' } }"
+                  />
+      </StateCard>
 
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div
