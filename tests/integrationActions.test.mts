@@ -34,3 +34,16 @@ assert(asked[1].search === 'find my brand templates' && asked[1].limit === 15 &&
 const failing: any = { tools: { get: async (_u: string, q: any) => { if (q.search) throw new Error('search down'); return { A: 1 } } } }
 assert(Object.keys(await toolsForTask(failing, 'u', 'canva', 'x')).join() === 'A', 'if the search fails, the important tools still work')
 assert(Object.keys(mergeToolSets({ a: 1 }, null)).join() === 'a', 'nothing extra is fine')
+
+{
+  // The list is asked for in one page of 300: a full page is reported as "at least", never as the total.
+  const src = (await import('node:fs')).readFileSync('server/services/integrations/toolkitActions.ts', 'utf8')
+  assert(/raw\.length >= LIST_LIMIT\) value\.truncated = true/.test(src), 'a full page of actions is marked as a first part, not the whole list')
+}
+{
+  const { knownOutputKeys } = await import('../src/utils/workflowGraph')
+  const { runVisualCheckNode } = await import('../server/utils/workflowVisual')
+  const known = knownOutputKeys({ type: 'action', data: { subtype: 'visual-check' } })!
+  const out = await runVisualCheckNode({ requirements: 'It has a big heading and a button', url: 'https://example.com' } as any, {}, 'u1', undefined, { provider: { capture: async () => ({ bytes: new Uint8Array([1]), mediaType: 'image/jpeg', width: 1, height: 1, url: 'https://example.com', title: 't' }) } as any, model: { id: 'x', model: {} as any }, judge: async () => ({ verdict: 'pass', score: 90, summary: 'ok', defects: [], progress: [], counts: { blocker: 0, major: 0, minor: 0 } }) as any, charge: async () => ({ refund: async () => {} }), save: undefined } as any)
+  assert(Object.keys(out).every(k => known.includes(k)) && known.every(k => k in out), 'the visual check\'s outputs offered in the editor are exactly what it returns')
+}

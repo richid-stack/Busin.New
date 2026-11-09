@@ -113,6 +113,9 @@ export function finishInspection(raw: z.infer<typeof modelSchema>, previous: Pre
     const s = said.get(p.id)
     return { id: p.id, status: s?.status ?? 'unclear', note: s?.note ?? 'The review did not say.' }
   })
+  // A re-check that finds no new defects is not a pass while an earlier one is still there, or the review could not tell.
+  if (verdict === 'pass' && progress.some(p => p.status === 'still_present')) verdict = 'fail'
+  else if (verdict === 'pass' && progress.some(p => p.status === 'unclear')) verdict = 'unsure'
   return { verdict, score: raw.score, summary: raw.summary, defects, progress, counts }
 }
 

@@ -26,6 +26,8 @@ const showLog = ref(false)
 const status = computed(() => (task.value ? TASK_STATUS[task.value.status] : null))
 const working = computed(() => Boolean(status.value?.working))
 /** Paused for you: the browser page is open and waiting for an answer. */
+/** A finished task with a part only the person can judge can be confirmed, even when another check did not pass; that one stays as it was. */
+const canConfirm = computed(() => task.value?.status === 'needs_review' || ((task.value?.status === 'partial' || task.value?.status === 'failed') && task.value.criteria.some(c => c.status === 'pending' || c.status === 'unsure')))
 const waiting = computed(() => task.value?.status === 'needs_you' ? task.value.waiting ?? null : null)
 /** The live page is shown while a task that uses the browser is working or waiting. */
 const showBrowser = computed(() => Boolean(task.value?.tools.includes('browser') && (working.value || waiting.value)))
@@ -63,7 +65,10 @@ async function load() {
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(async () => {
   await load()
-  timer = setInterval(() => { if (working.value || waiting.value || !task.value) load() }, 3000)
+  timer = setInterval(() => {
+    if (missing.value) { clearInterval(timer); return }
+    if (working.value || waiting.value || !task.value) load()
+  }, 3000)
 })
 onBeforeUnmount(() => clearInterval(timer))
 
@@ -303,8 +308,8 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
 
         <div class="flex flex-wrap items-center gap-2 mb-8">
           <UButton
-            v-if="task.status === 'needs_review'"
-            label="Looks good, mark as done"
+            v-if="canConfirm"
+            :label="task.status === 'needs_review' ? 'Looks good, mark as done' : 'I checked the rest'"
             icon="i-lucide-check"
             color="neutral"
             :loading="busy === 'accept'"

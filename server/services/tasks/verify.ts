@@ -21,6 +21,8 @@ export interface VerifyContext {
   result: string
   artifacts: Artifact[]
   toolLog: ToolNote[]
+  /** Set when the person presses Stop or time runs out: no further check (each can be a paid model call) is started. */
+  signal?: AbortSignal
 }
 
 export interface CheckJudgement { status: 'met' | 'unmet' | 'unsure', reason: string, fix: string }
@@ -41,7 +43,7 @@ function checkFile(c: Criterion, ctx: VerifyContext): Criterion {
 
 async function checkVisual(c: Criterion, ctx: VerifyContext, deps: VerifyDeps): Promise<Criterion> {
   try {
-    const out = await deps.inspect({ userId: ctx.userId, requirements: c.text, url: c.url })
+    const out = await deps.inspect({ userId: ctx.userId, requirements: c.text, url: c.url, signal: ctx.signal })
     if (out.verdict === 'pass') return { ...c, status: 'met', evidence: `Looked at ${out.source}: ${out.summary}`, fix: undefined }
     if (out.verdict === 'fail') {
       return { ...c, status: 'unmet', evidence: `Looked at ${out.source} (${out.counts.blocker} blocker, ${out.counts.major} major): ${out.summary}`, fix: out.defects.filter(d => d.severity !== 'minor').map(d => `${d.area}: ${d.problem} Fix: ${d.fix}`).join(' | ').slice(0, 900) }
@@ -49,6 +51,7 @@ async function checkVisual(c: Criterion, ctx: VerifyContext, deps: VerifyDeps): 
     return { ...c, status: 'unsure', evidence: `Looked at ${out.source} but could not decide: ${out.summary}` }
   } catch (err: any) {
     // A look that could not be taken is not a failed page: say so, and leave the decision to the person.
+    if (ctx.signal?.aborted) throw err
     if (err instanceof InspectError) return { ...c, status: 'unsure', evidence: `Could not look at the page: ${err.message}` }
     throw err
   }
@@ -57,6 +60,7 @@ async function checkVisual(c: Criterion, ctx: VerifyContext, deps: VerifyDeps): 
 export async function verifyCriteria(criteria: Criterion[], ctx: VerifyContext, deps: VerifyDeps): Promise<Criterion[]> {
   const out: Criterion[] = []
   for (const c of criteria) {
+    ctx.signal?.throwIfAborted()
     if (c.kind === 'manual') out.push({ ...c, status: 'pending', evidence: '' })
     else if (c.kind === 'file') out.push(checkFile(c, ctx))
     else if (c.kind === 'visual') out.push(await checkVisual(c, ctx, deps))
@@ -64,7 +68,8 @@ export async function verifyCriteria(criteria: Criterion[], ctx: VerifyContext, 
       try {
         const j = await deps.judgeCheck({ criterion: c.text, ctx })
         out.push({ ...c, status: j.status, evidence: `Judged by an AI model: ${j.reason}`, fix: j.status === 'met' ? undefined : j.fix || undefined })
-      } catch {
+      } catch (err) {
+        if (ctx.signal?.aborted) throw err
         out.push({ ...c, status: 'unsure', evidence: 'The check could not be completed. Try again, or review it yourself.' })
       }
     }
@@ -100,7 +105,8 @@ export function judgePrompt(criterion: string, ctx: VerifyContext): string {
 export function modelJudge(model: LanguageModel, opts: { generate?: typeof generateObject, signal?: AbortSignal } = {}): VerifyDeps['judgeCheck'] {
   const run = opts.generate ?? generateObject
   return async ({ criterion, ctx }) => {
-    const { object } = await run({ model, schema: judgeSchema, system: JUDGE_SYSTEM, prompt: judgePrompt(criterion, ctx), abortSignal: opts.signal ?? AbortSignal.timeout(45_000) })
+    const abortSignal = AbortSignal.any([opts.signal ?? AbortSignal.timeout(45_000), ...(ctx.signal ? [ctx.signal] : [])])
+    const { object } = await run({ model, schema: judgeSchema, system: JUDGE_SYSTEM, prompt: judgePrompt(criterion, ctx), abortSignal })
     return object
   }
 }
