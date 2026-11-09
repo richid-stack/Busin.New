@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 380" width="1280" height="380" role="img" aria-labelledby="t d">
+  <title id="t">OpenLobs</title>
+  <desc id="d">OpenLobs: chat, agents, workflows and your own computer in one place.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0a0f"/><stop offset="1" stop-color="#15101d"/></linearGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#ffd9d4"/></linearGradient>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="70"/></filter>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.04"/></pattern>
+    <radialGradient id="fade" cx="0.35" cy="0.45" r="0.8"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <mask id="gridmask"><rect width="1280" height="380" fill="url(#fade)"/></mask>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.03"/></linearGradient>
+  </defs>
+  <rect width="1280" height="380" fill="url(#bg)"/>
+  <ellipse cx="260" cy="190" rx="260" ry="150" fill="#ff5a4d" opacity="0.30" filter="url(#blur)"/>
+  <ellipse cx="1040" cy="90" rx="300" ry="140" fill="#7c5cff" opacity="0.26" filter="url(#blur)"/>
+  <ellipse cx="900" cy="340" rx="260" ry="90" fill="#1e90ff" opacity="0.14" filter="url(#blur)"/>
+  <rect width="1280" height="380" fill="url(#grid)" mask="url(#gridmask)"/>
+  <rect x="0.5" y="0.5" width="1279" height="379" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+  <g font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <g transform="translate(96,86)">
+      <rect width="152" height="152" rx="36" fill="url(#tile)" stroke="#ffffff" stroke-opacity="0.16"/>
+      <g transform="translate(16,14) scale(1.88)"><defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FF6B5E"/>
+      <stop offset="1" stop-color="#D93A3A"/>
+    </linearGradient>
+  </defs>
+  <!-- antennae -->
+  <path d="M28 20 C24 12 20 8 14 6" fill="none" stroke="#B82E34" stroke-width="2" stroke-linecap="round"/>
+  <path d="M36 20 C40 12 44 8 50 6" fill="none" stroke="#B82E34" stroke-width="2" stroke-linecap="round"/>
+  <!-- arms -->
+  <path d="M25 30 C18 30 14 26 12 22" fill="none" stroke="#D93A3A" stroke-width="4" stroke-linecap="round"/>
+  <path d="M39 30 C46 30 50 26 52 22" fill="none" stroke="#D93A3A" stroke-width="4" stroke-linecap="round"/>
+  <!-- claws -->
+  <path fill="url(#shell)" d="M12 22 C3 20 1 10 6 6 C8 4 10 6 10 9 C11 7 14 7 15 10 C18 13 18 20 12 22 Z"/>
+  <path fill="url(#shell)" d="M52 22 C61 20 63 10 58 6 C56 4 54 6 54 9 C53 7 50 7 49 10 C46 13 46 20 52 22 Z"/>
+  <!-- tail fan -->
+  <path fill="#B82E34" d="M32 50 L22 61 C27 63 37 63 42 61 Z"/>
+  <path fill="#FF6B5E" d="M32 50 L27 62 C29.5 62.6 34.5 62.6 37 62 Z"/>
+  <!-- body segments -->
+  <ellipse cx="32" cy="45" rx="8" ry="7" fill="#D93A3A"/>
+  <ellipse cx="32" cy="32" rx="11" ry="15" fill="url(#shell)"/>
+  <path d="M22 40 H42 M23.500 46 H40.500" stroke="#B82E34" stroke-width="1.600" stroke-linecap="round" fill="none"/>
+  <!-- legs -->
+  <path d="M22 33 L16 36 M22 38 L17 42 M42 33 L48 36 M42 38 L47 42" stroke="#D93A3A" stroke-width="2.200" stroke-linecap="round"/>
+  <!-- eyes -->
+  <circle cx="27.500" cy="22" r="3" fill="#fff"/>
+  <circle cx="36.500" cy="22" r="3" fill="#fff"/>
+  <circle cx="28" cy="22.300" r="1.500" fill="#1B1B1F"/>
+  <circle cx="36" cy="22.300" r="1.500" fill="#1B1B1F"/>
+</g>
+    </g>
+    <text x="288" y="168" font-size="84" font-weight="800" letter-spacing="-2.5" fill="url(#word)">OpenLobs</text>
+    <text x="291" y="214" font-size="25" fill="#c9c9d6">Chat, agents and workflows that do the work,</text>
+    <text x="291" y="246" font-size="25" fill="#c9c9d6">on your apps, your models and your own computer.</text>
+    <g transform="translate(291,282)"><g transform="translate(0,0)"><rect width="71" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.14"/><text x="35" y="22.5" text-anchor="middle" font-size="15" fill="#e7e7ee" font-weight="500">Chat</text></g><g transform="translate(85,0)"><rect width="89" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.14"/><text x="45" y="22.5" text-anchor="middle" font-size="15" fill="#e7e7ee" font-weight="500">Agents</text></g><g transform="translate(188,0)"><rect width="117" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.14"/><text x="58" y="22.5" text-anchor="middle" font-size="15" fill="#e7e7ee" font-weight="500">Workflows</text></g><g transform="translate(319,0)"><rect width="80" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.14"/><text x="40" y="22.5" text-anchor="middle" font-size="15" fill="#e7e7ee" font-weight="500">Tasks</text></g><g transform="translate(413,0)"><rect width="154" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.14"/><text x="77" y="22.5" text-anchor="middle" font-size="15" fill="#e7e7ee" font-weight="500">Your computer</text></g><g transform="translate(580,0)"><rect width="172" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.14"/><text x="86" y="22.5" text-anchor="middle" font-size="15" fill="#e7e7ee" font-weight="500">Your own models</text></g></g>
+  </g>
+</svg>
