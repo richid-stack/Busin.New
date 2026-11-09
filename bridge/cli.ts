@@ -6,6 +6,7 @@ import { BRIDGE_VERSION, PERMISSIONS, defaultDeps, disconnect, pair, run } from 
 import { findEngine } from './sheets/engine'
 import { selfTest } from './sheets/selftest'
 import { clearQuit, fileControl, setPaused } from './control'
+import { takeLock } from './lock'
 import { pickFolder } from './pickFolder'
 import { startTray } from './tray'
 import { openWorkspace } from './workspace'
@@ -48,14 +49,19 @@ const [command, ...args] = process.argv.slice(2)
 
 /** Output goes to the screen and, when asked, to a file that is kept small (a hidden background Bridge has no screen). */
 const logPath = option(args, '--log') || process.env.OPENLOBS_BRIDGE_LOG
+/** The tray icon's "recent activity" always reads this file, so it is written even when no log file was asked for. */
+const activityPath = path.join(dir, 'bridge.log')
+function appendKept(file: string, line: string) {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    if (fs.existsSync(file) && fs.statSync(file).size > 1_000_000) fs.renameSync(file, `${file}.1`)
+    fs.appendFileSync(file, `${new Date().toISOString()} ${line}\n`)
+  } catch { /* logging must never stop the Bridge */ }
+}
 function log(line: string) {
   console.log(line)
-  if (!logPath) return
-  try {
-    fs.mkdirSync(path.dirname(logPath), { recursive: true })
-    if (fs.existsSync(logPath) && fs.statSync(logPath).size > 1_000_000) fs.renameSync(logPath, `${logPath}.1`)
-    fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`)
-  } catch { /* logging must never stop the Bridge */ }
+  appendKept(activityPath, line)
+  if (logPath && path.resolve(logPath) !== path.resolve(activityPath)) appendKept(logPath, line)
 }
 const control = fileControl(dir)
 /** The browser OpenLobs may use on this computer lives in a folder of its own, apart from the person's everyday browser. */
@@ -64,28 +70,15 @@ const profileDir = path.join(process.platform === 'win32' ? path.join(process.en
 const deviceBrowser = new DeviceBrowser({ profileDir })
 const deps = { ...defaultDeps(log), control, liveBrowser: createLiveHost(deviceBrowser) }
 
-/** Only one Bridge runs per computer: a second one would just double the polling. */
-const lockFile = path.join(dir, 'run.lock')
-function takeLock() {
-  try {
-    const pid = Number(fs.readFileSync(lockFile, 'utf8'))
-    if (pid && pid !== process.pid) {
-      try { process.kill(pid, 0); throw new Error('The Bridge is already running on this computer.') } catch (err: any) { if (err.message.startsWith('The Bridge')) throw err }
-    }
-  } catch (err: any) { if (err.message?.startsWith('The Bridge')) throw err }
-  fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(lockFile, String(process.pid))
-}
-const dropLock = () => { try { if (Number(fs.readFileSync(lockFile, 'utf8')) === process.pid) fs.rmSync(lockFile, { force: true }) } catch { /* already gone */ } }
-
 try {
   if (command === 'pair') {
     const code = args.find(a => !a.startsWith('--') && a !== option(args, '--server') && a !== option(args, '--name'))
     const server = option(args, '--server') || process.env.OPENLOBS_URL
     if (!code || !server) throw new Error('Usage: bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]')
     const config = await pair(server, code, option(args, '--name') || os.hostname().slice(0, 60), deps)
-    save({ ...config, allow: load()?.allow, workspace: load()?.workspace })
-    console.log(`Paired as "${config.name}". Run "bridge run" to connect.`)
+    // A new pairing is a new computer in OpenLobs, so nothing is carried over from an earlier one: what it may do is chosen again, here.
+    save(config)
+    console.log(`Paired as "${config.name}". Run "bridge run" to connect. Nothing is allowed yet except a test ping; choose what to allow with "bridge allow".`)
   } else if (command === 'connect') {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
     try {
@@ -93,26 +86,28 @@ try {
       const code = (await rl.question('Pairing code from the Computers page: ')).trim()
       if (!server || !code) throw new Error('An address and a code are both needed.')
       const config = await pair(server, code, os.hostname().slice(0, 60), deps)
-      save({ ...config, allow: load()?.allow, workspace: load()?.workspace })
-      console.log(`Paired as "${config.name}". It will connect the next time the Bridge starts (or at your next sign-in).`)
+      save(config)
+      console.log(`Paired as "${config.name}". It will connect the next time the Bridge starts (or at your next sign-in). Nothing is allowed yet except a test ping; choose what to allow in the Start menu or with "bridge allow".`)
     } finally { rl.close() }
   } else if (command === 'run') {
     const config = load()
     if (!config) throw new Error('Not paired yet. Run "bridge pair" first.')
-    takeLock()
+    const giveBackLock = takeLock(dir)
     const stop = new AbortController()
     process.on('SIGINT', () => stop.abort())
     process.on('SIGTERM', () => stop.abort())
-    process.on('exit', dropLock)
+    process.on('exit', giveBackLock)
     clearQuit(dir)
     // The tray icon (Windows). It is a convenience and an emergency stop; the Bridge works without it.
     const tray = args.includes('--no-tray') ? null : startTray(dir)
     tray?.on('exit', () => log('The tray icon closed.'))
+    tray?.on('error', () => log('The tray icon could not start. The Bridge runs without it.'))
     process.on('exit', () => { try { tray?.kill() } catch { /* already gone */ } })
     const result = await run(config, deps, stop.signal, load)
     await deviceBrowser.closeBrowser()
     try { tray?.kill() } catch { /* already gone */ }
-    if (result === 'disconnected') { fs.rmSync(file, { force: true }); process.exitCode = 1 }
+    // Only this Bridge's own connection is removed: if the person paired again meanwhile, the file now holds the new one.
+    if (result === 'disconnected') { if (load()?.token === config.token) fs.rmSync(file, { force: true }); process.exitCode = 1 }
     else console.log('Stopped.')
   } else if (command === 'status') {
     const config = load()

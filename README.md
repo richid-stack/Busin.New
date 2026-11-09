@@ -153,7 +153,7 @@ sequenceDiagram
 - **Keys are sealed.** Your own model keys and tokens are encrypted at rest and never sent back to the browser.
 - **The web is fenced.** Fetching, MCP and your own addresses go through public-address checks: no private networks, no redirects into them.
 - **Memory only on your word.** It cannot be planted by a web page or a file, and it refuses passwords and card numbers.
-- **Your data is yours.** Download everything as JSON, or delete the account and the data with it.
+- **Your data is yours.** Download your data as JSON (file contents and secrets are left out), or delete the account and the data with it.
 - **The Bridge only calls out.** It opens no port, runs no commands, and can be paused in one click.
 
 ## How it fits together
