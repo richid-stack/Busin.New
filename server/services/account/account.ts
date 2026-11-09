@@ -13,9 +13,9 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
 /** Collections with one document per person, named by their id. */
-const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings'] as const
+const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings', 'voice_settings'] as const
 /** Nested data that goes with its parent document. */
 const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflows: ['runs'], tasks: ['events'], devices: ['events'] }
 
@@ -124,6 +124,7 @@ export interface UserExport {
   memory: { enabled: boolean, items: unknown[] }
   mcpServers: unknown[]
   modelProviders: unknown[]
+  voice: unknown
   files: unknown[]
   payments: unknown[]
   notifications: unknown
@@ -202,6 +203,13 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     return { id: doc.id, provider: d.providerId, baseUrl: d.baseUrl || null, modelsAvailable: Array.isArray(d.models) ? d.models.length : 0, enabled: d.enabled ?? [], manual: d.manual ?? [], createdAt: plain(d.createdAt) }
   })
 
+  // Lobby's voice choices, and which services have a voice key saved (never the key itself).
+  const voiceSettings = await db.collection('voice_settings').doc(id).get()
+  const voiceKeys = (await ownedDocs(db, 'voice_keys', id)).map((doc) => {
+    const d = doc.data()
+    return { service: d.service, last4: d.last4 || '', savedAt: plain(d.savedAt) }
+  })
+
   return {
     format: EXPORT_FORMAT,
     exportedAt: now.toISOString(),
@@ -220,6 +228,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     memory: { enabled: memSettings.exists ? memSettings.data()?.enabled !== false : true, items: memories },
     mcpServers: servers,
     modelProviders,
+    voice: { settings: voiceSettings.exists ? plain(voiceSettings.data()) : null, keys: voiceKeys },
     files,
     payments,
     notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true },

@@ -7,6 +7,8 @@ import { useUserSession } from '../composables/useUserSession'
 import { useAccount } from '../composables/useAccount'
 import { useBilling } from '../composables/useBilling'
 
+import LobbyVoiceSettings from '../components/settings/LobbyVoiceSettings.vue'
+
 const ModalDeleteAccount = defineAsyncComponent(() => import('../components/settings/ModalDeleteAccount.vue'))
 
 const router = useRouter()
@@ -281,6 +283,12 @@ const LINKS = [
               </RouterLink>
             </li>
           </ul>
+        </section>
+
+        <!-- Lobby voice -->
+        <section aria-labelledby="s-voice">
+          <h2 id="s-voice" class="text-sm font-semibold text-highlighted mb-3">Lobby voice</h2>
+          <LobbyVoiceSettings />
         </section>
 
         <!-- Appearance -->

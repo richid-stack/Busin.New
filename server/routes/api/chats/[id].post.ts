@@ -42,6 +42,7 @@ import { resolveModel } from '../../../services/models/resolve'
 import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
+import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
 const RATE_LIMIT_PATTERN = /quota|RESOURCE_EXHAUSTED|429|rate[ -]?limit|\bI?O?TPM\b/i
 
@@ -82,11 +83,13 @@ export default defineHandler(async (event) => {
     id: z.string()
   }).parse)
 
-  const { model, messages } = await readValidatedBody(event, z.object({
+  const { model, messages, voice } = await readValidatedBody(event, z.object({
     model: z.string().refine(value => MODELS.some(m => m.value === value) || parseMyModelId(value) !== null, {
       message: 'Invalid model'
     }),
-    messages: z.array(z.custom<UIMessage>())
+    messages: z.array(z.custom<UIMessage>()),
+    /** The person is talking to Lobby: narrate the work in short spoken sentences. */
+    voice: z.boolean().optional()
   }).parse)
 
   assertMessageSizes(messages)
@@ -325,7 +328,7 @@ ${Object.keys(tools).some(n => n.startsWith('mcp_')) ? `**MCP TOOLS:**
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}`,
+${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`,
           messages: await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })),
           tools,
           providerOptions: ownKey ? undefined : {

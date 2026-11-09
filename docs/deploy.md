@@ -190,6 +190,13 @@ Both cost a little for storage; raise the retention only when you need it. To re
 - **Moderators:** set `REEF_ADMINS` on the service to a comma-separated list of the emails (or account ids) of the people who may work the review queue and hand out badges.
 - **The official account:** sign in as the account that should speak for OpenLobs, make its Reef profile, then give it the official badge from its profile page (a moderator does this; the handle `openlobs` is reserved).
 
+## 5f. Lobby (voice)
+
+- Nothing is required. The free browser voice works with no setup, and people can add their own voice keys in Settings.
+- To let **Pro accounts and the accounts in `USAGE_UNLIMITED_USER_IDS`** use voice without a key of their own, the app's provider keys are used: `GEMINI_API_KEY` (listening and speaking), `OPENAI_API_KEY`, `GROQ_API_KEY` (listening) and, for ElevenLabs, `ELEVENLABS_API_KEY`. Add the last one the same way as the others: `printf '%s' "your-key" | gcloud secrets create ELEVENLABS_API_KEY --data-file=-`, then add it to `--set-secrets`. Voice is billed per sentence by the provider, so keep this to people you mean to cover.
+- Lobby needs the microphone, so it works only on `https` (Cloud Run) or `localhost`.
+- Details: [Lobby](lobby.md).
+
 ## 9. Before you tell people about it
 
 - Set the contact email (step 4) and have a Ghanaian lawyer read `src/pages/terms.vue` and `src/pages/privacy.vue`. They are written in plain English from what the app does, but they are not legal advice.

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ATTACH_ACCEPT } from '../../utils/attachmentTypes'
-import { ref, computed, watch, onMounted, provide } from 'vue'
+import { ref, computed, reactive, watch, onMounted, provide } from 'vue'
 import { $fetch } from 'ofetch'
 import { useChat } from '@ai-sdk/vue'
 import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, getToolName, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai'
@@ -20,6 +20,11 @@ import ChatMessageContent from '../../components/chat/message/MessageContent.vue
 import ChatMessageActions from '../../components/chat/message/MessageActions.vue'
 import ChatVisibility from '../../components/chat/ChatVisibility.vue'
 import ChatTitle from '../../components/chat/ChatTitle.vue'
+import PromptWaves from '../../components/lobby/PromptWaves.vue'
+import DictateButton from '../../components/lobby/DictateButton.vue'
+import PromptVoiceButton from '../../components/lobby/PromptVoiceButton.vue'
+import { useLobby } from '../../composables/useLobby'
+import { useDictation } from '../../composables/useDictation'
 import ChatIndicator from '../../components/chat/Indicator.vue'
 import TextSelectionToolbar from '../../components/chat/TextSelectionToolbar.vue'
 import Navbar from '../../components/Navbar.vue'
@@ -101,6 +106,9 @@ const mcpItems = computed<DropdownMenuItem[][]>(() => [
   ]
 ])
 
+// While Lobby is on the stage the assistant is told to talk the way it should be heard: short, narrating as it works.
+const voiceMode = ref(false)
+
 const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalResponse } = useChat({
   id: data?.id,
   messages: data?.messages,
@@ -119,7 +127,8 @@ const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalR
         const reqBody = JSON.parse(body)
         body = JSON.stringify({
           ...reqBody,
-          model: model.value
+          model: model.value,
+          voice: voiceMode.value || undefined
         })
       } else if (body instanceof FormData) {
         body.append('model', model.value)
@@ -202,6 +211,15 @@ const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalR
   }
 })
 
+const lobby = reactive(useLobby({
+  messages,
+  status,
+  send: text => sendMessage({ text }),
+  stop: () => stop(),
+  respond: (id, approved) => addToolApprovalResponse({ id, approved })
+}))
+watch(() => lobby.open, (on) => { voiceMode.value = on })
+
 // The approval cards in the messages answer through this.
 provide('respondToToolApproval', (id: string, approved: boolean) => addToolApprovalResponse({ id, approved }))
 
@@ -245,9 +263,18 @@ const activeActivityText = computed(() => {
   return 'Thinking...'
 })
 
+const hasInput = computed(() => input.value.trim() !== '' || attachments.value.length > 0)
+const dictation = useDictation(input)
+// With nothing typed, the waveform sits where Send does and the small mic beside it dictates into the box.
+const showVoiceButton = computed(() => !hasInput.value && status.value === 'ready')
+const showDictate = computed(() => dictation.supported.value && (dictation.listening.value || dictation.working.value || showVoiceButton.value))
+// Typing while Lobby listens would send the room's noise as a message, so listening waits until the person is done.
+watch(hasInput, (typing) => { if (typing && lobby.open) lobby.pause() })
+
 async function handleSubmit() {
   if (processing.value) return
   if (!input.value.trim() && attachments.value.length === 0) return
+  if (lobby.open) lobby.silence()
 
   const files = attachments.value.length > 0 ? await toFileParts() : undefined
   sendMessage({ text: input.value, files })
@@ -354,6 +381,11 @@ onMounted(() => {
   if (isOwner.value && data?.messages?.length === 1) {
     regenerate()
   }
+  // "Talk to Lobby" on the home page lands here with the stage already open.
+  if (isOwner.value && route.query.lobby === '1') {
+    router.replace({ path: route.path })
+    void lobby.show()
+  }
 })
 
 function handleTextAction(action: string, selectedText: string) {
@@ -452,10 +484,14 @@ function handleTextAction(action: string, selectedText: string) {
           color="neutral"
           variant="subtle"
           class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10 border-t border-default shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]"
-          :ui="{ base: 'px-3 py-2' }"
+          :ui="{ base: 'px-3 py-2', body: lobby.open ? 'hidden' : '' }"
           @submit="handleSubmit"
         >
           <template #header>
+            <PromptWaves
+              v-if="lobby.open"
+              :lobby="lobby"
+            />
             <PromptAttachments
               :attachments="attachments"
               @remove="removeAttachment"
@@ -500,14 +536,56 @@ function handleTextAction(action: string, selectedText: string) {
               <ModelSelect v-if="!agent?.model" v-model="model" />
             </div>
 
-            <UChatPromptSubmit
-              :status="status"
-              color="primary"
-              size="sm"
-              class="rounded-full"
-              @stop="stop()"
-              @reload="regenerate()"
-            />
+            <div class="flex items-center gap-1.5">
+              <!-- Voice mode: the box above is the waveform; these are mute, end, and the one tap that does the obvious thing. -->
+              <template v-if="lobby.open">
+                <UButton
+                  :icon="lobby.muted ? 'i-lucide-volume-x' : 'i-lucide-volume-2'"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="rounded-full"
+                  :aria-label="lobby.muted ? 'Turn Lobby’s voice on' : 'Mute Lobby’s voice'"
+                  @click="lobby.toggleMute()"
+                />
+                <UButton
+                  icon="i-lucide-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="rounded-full"
+                  aria-label="Stop talking to Lobby"
+                  @click="lobby.hide()"
+                />
+                <PromptVoiceButton
+                  :state="lobby.state"
+                  :level="lobby.level"
+                  @press="lobby.tap()"
+                />
+              </template>
+              <template v-else>
+                <DictateButton
+                  v-if="showDictate"
+                  :listening="dictation.listening.value"
+                  :working="dictation.working.value"
+                  @press="dictation.toggle()"
+                />
+                <!-- With nothing typed the waveform is where Send is; as soon as there is text it becomes Send. -->
+                <PromptVoiceButton
+                  v-if="showVoiceButton"
+                  @press="lobby.show()"
+                />
+                <UChatPromptSubmit
+                  v-else
+                  :status="status"
+                  color="primary"
+                  size="sm"
+                  class="rounded-full"
+                  @stop="stop()"
+                  @reload="regenerate()"
+                />
+              </template>
+            </div>
           </template>
         </UChatPrompt>
       </UContainer>
