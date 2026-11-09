@@ -363,8 +363,8 @@ const emit = defineEmits<{
         </p>
       </UChatTool>
       <UChatTool
-        v-else-if="getToolName(part) === 'run_on_computer'"
-        :text="isToolStreaming(part) ? 'Running the plan on your computer...' : getRunTrace(part).failed ? 'Could not run the plan' : getRunTrace(part).stopped ? 'The plan stopped on a step' : getRunTrace(part).steps.length === 1 ? 'Ran 1 step on your computer' : `Ran ${getRunTrace(part).steps.length} steps on your computer`"
+        v-else-if="getToolName(part) === 'run_on_computer' || getToolName(part) === 'run_in_cloud'"
+        :text="isToolStreaming(part) ? (getToolName(part) === 'run_in_cloud' ? 'Running the plan in the cloud...' : 'Running the plan on your computer...') : getRunTrace(part).failed ? 'Could not run the plan' : getRunTrace(part).stopped ? 'The plan stopped on a step' : getRunTrace(part).steps.length === 1 ? `Ran 1 step ${getToolName(part) === 'run_in_cloud' ? 'in the cloud' : 'on your computer'}` : `Ran ${getRunTrace(part).steps.length} steps ${getToolName(part) === 'run_in_cloud' ? 'in the cloud' : 'on your computer'}`"
         :suffix="getRunTrace(part).summary"
         :streaming="isToolStreaming(part)"
         icon="i-lucide-terminal"

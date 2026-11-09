@@ -1,0 +1,22 @@
+# The cloud box worker for OpenLobs: runs one approved plan in a throw-away folder, then restarts.
+# Build: `docker build -f Dockerfile.runner -t openlobs-runner .`  Deploy on Cloud Run: see docs/deploy.md, "The cloud box".
+# The image holds the programs a plan may use: node, npm and yarn come with the base image; python, pip and git are added; pnpm is installed.
+FROM node:22-bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-pip python3-venv git ca-certificates procps \
+ && rm -rf /var/lib/apt/lists/* \
+ && ln -sf /usr/bin/python3 /usr/local/bin/python \
+ && ln -sf /usr/bin/pip3 /usr/local/bin/pip \
+ && npm install -g --no-audit --no-fund pnpm@9
+# The ordinary user programs run as. The worker itself starts as root only so it can switch to this user and keep its own secret out of reach.
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin boxuser
+WORKDIR /app
+# The worker's own two dependencies, installed next to it (not globally: ES imports do not look in global folders).
+RUN npm init -y >/dev/null && npm install --no-audit --no-fund zod@4 tsx@4
+# Only the files the worker needs, so a change elsewhere in the app does not rebuild this image.
+COPY runner/ ./runner/
+COPY bridge/run.ts bridge/workspace.ts ./bridge/
+COPY shared/runPlan.ts shared/cloudBox.ts shared/sheetOps.ts ./shared/
+ENV NODE_ENV=production PORT=8080 RUNNER_UID=10001
+EXPOSE 8080
+CMD ["./node_modules/.bin/tsx", "runner/server.ts"]
