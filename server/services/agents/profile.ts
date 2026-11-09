@@ -20,6 +20,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { id: 'read_files', label: 'Read attached files', detail: 'Opens PDFs, Word files, spreadsheets and text you attach.', tools: ['read_document'] },
   { id: 'save_files', label: 'Save files and look at images', detail: 'Downloads a file or photo from a link you give it, and looks at images to judge them.', tools: ['fetch_file', 'view_image'] },
   { id: 'study_sites', label: 'Study websites', detail: 'Looks at live pages like a person would and reads the colours and fonts they use.', tools: ['look_at_page', 'design_tokens'] },
+  { id: 'design_assets', label: 'Find icons and fonts', detail: 'Searches free, open-source icon sets and web fonts and checks their licences.', tools: ['find_icons', 'find_fonts'] },
+  { id: 'read_code', label: 'Read GitHub and the Reef', detail: 'Reads public GitHub projects and searches what people have shared in the Reef. Read-only.', tools: ['github_read', 'community_search'] },
   { id: 'create_files', label: 'Create files', detail: 'Makes Word, PDF, Excel and PowerPoint files you can download.', tools: ['create_document', 'create_spreadsheet', 'create_presentation'] },
   { id: 'inspect', label: 'Check designs and pages', detail: 'Looks at a web page or a picture you attach and lists what is wrong with it, then checks again after fixes.', tools: ['inspect_design'] },
   { id: 'browser', label: 'Use a browser for you', detail: 'Opens websites in a private, signed-out browser and does the clicking and typing. It asks you before it sends, buys or deletes anything, and you take over to sign in or pay.', tools: ['browser'], sensitive: true },

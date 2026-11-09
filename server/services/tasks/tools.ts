@@ -14,6 +14,9 @@ import { holdStore, startWait } from '../browser/holds'
 import { browserKey } from '../browser/service'
 import { createFetchFileTool, createViewImageTool } from '../../utils/tools/fetchFile'
 import { createDesignTokensTool, createLookAtPageTool } from '../../utils/tools/lookAtPage'
+import { createFindFontsTool, createFindIconsTool } from '../../utils/tools/findAssets'
+import { createGithubReadTool } from '../../utils/tools/githubRead'
+import { createCommunitySearchTool } from '../../utils/tools/communitySearch'
 import { allowedToolNames } from './registry'
 
 /** What a running task hands its tools: how to pause itself, and what the person approved before it paused. */
@@ -32,6 +35,10 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
     view_image: createViewImageTool(userId),
     look_at_page: createLookAtPageTool(userId),
     design_tokens: createDesignTokensTool(userId),
+    find_icons: createFindIconsTool(userId),
+    find_fonts: createFindFontsTool(userId),
+    github_read: createGithubReadTool(userId),
+    community_search: createCommunitySearchTool(userId),
     create_document: createDocumentTool(userId),
     create_spreadsheet: createSpreadsheetTool(userId),
     create_presentation: createPresentationTool(userId),
