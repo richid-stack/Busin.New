@@ -12,6 +12,8 @@ export interface McpPreset {
   /** none: no sign-in. key: the person pastes a key from the maker's site. */
   auth: 'none' | 'key'
   /** What it gives the assistant, in plain words. */
+  /** A logo from the bundled brand set (src/assets/brands). Without one, the list shows the first letter. */
+  icon?: string
   summary: string
   /** read: only reads. changes: it can also create or change things, depending on the key given. */
   access: 'read' | 'changes'
@@ -46,6 +48,7 @@ export const MCP_PRESETS: McpPreset[] = [
     url: 'https://mcp.context7.com/mcp',
     headerName: 'Authorization',
     auth: 'key',
+    icon: 'i-brand-context7',
     summary: 'Up-to-date documentation and code examples for programming libraries.',
     access: 'read',
     keyHelp: 'Create a free API key in your Context7 dashboard.',
@@ -59,6 +62,7 @@ export const MCP_PRESETS: McpPreset[] = [
     url: 'https://learn.microsoft.com/api/mcp',
     headerName: 'Authorization',
     auth: 'none',
+    icon: 'i-brand-microsoft-color',
     summary: 'Search and read Microsoft\'s official documentation (Azure, Windows, Microsoft 365, .NET).',
     access: 'read',
     docsUrl: 'https://learn.microsoft.com/training/support/mcp',
@@ -82,6 +86,7 @@ export const MCP_PRESETS: McpPreset[] = [
     url: 'https://developerknowledge.googleapis.com/mcp',
     headerName: 'X-Goog-Api-Key',
     auth: 'key',
+    icon: 'i-brand-google-color',
     summary: 'Search Google\'s official developer documentation (Firebase, Google Cloud, Android, Chrome and more).',
     access: 'read',
     keyHelp: 'In Google Cloud, enable the Developer Knowledge API and create an API key. Restrict it to that API.',
@@ -95,6 +100,7 @@ export const MCP_PRESETS: McpPreset[] = [
     url: 'https://api.githubcopilot.com/mcp',
     headerName: 'Authorization',
     auth: 'key',
+    icon: 'i-brand-github',
     summary: 'Read repositories, issues and pull requests, and, if the key allows it, change them.',
     access: 'changes',
     keyHelp: 'Make a fine-grained personal access token with read-only access to just the repositories you want. Give write access only when you are sure.',
@@ -106,3 +112,6 @@ export const MCP_PRESETS: McpPreset[] = [
 ]
 
 export const presetById = (id: string) => MCP_PRESETS.find(p => p.id === id)
+
+/** The recommended server at this address, if any, so a server added from the shelf keeps its logo. */
+export const presetByUrl = (url: string): McpPreset | undefined => MCP_PRESETS.find(p => p.url === url)

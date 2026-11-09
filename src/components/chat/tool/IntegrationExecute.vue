@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import ActionSteps from './ActionSteps.vue'
 
 const props = defineProps<{
   invocation: any
@@ -22,8 +23,15 @@ const isCompleted = computed(() => {
   return toolResult.value !== null && toolResult.value !== undefined
 })
 
+const steps = computed<Array<{ label: string, status: 'running' | 'done' | 'failed', detail?: string }>>(() => {
+  const list = toolResult.value?.steps ?? toolResult.value?.output?.steps
+  return Array.isArray(list) ? list : []
+})
+
 const isExecuting = computed(() => {
   if (props.invocation?.state === 'call' || props.invocation?.toolInvocation?.state === 'call') return true
+  // A progress update arrives as a partial result; the task is still going until the final one.
+  if (props.invocation?.preliminary === true || toolResult.value?.running === true) return true
   return !isCompleted.value
 })
 
@@ -207,6 +215,9 @@ function copyOutput() {
           <UIcon name="i-lucide-loader-2" class="size-3.5 text-muted animate-spin shrink-0" />
         </div>
         <p class="text-xs text-muted truncate mt-0.5 m-0">{{ instruction }}</p>
+        <div v-if="steps.length" class="mt-2.5">
+          <ActionSteps :steps="steps" />
+        </div>
       </div>
     </div>
 
@@ -253,6 +264,10 @@ function copyOutput() {
         </div>
       </div>
 
+      <div v-if="steps.length" class="mt-3.5 pl-1">
+        <ActionSteps :steps="steps" />
+      </div>
+
       <!-- Execution Output Display -->
       <div
         v-if="outputText"
@@ -278,6 +293,9 @@ function copyOutput() {
           <p class="text-xs text-error/80 mt-1 m-0">
             {{ errorMessage }}
           </p>
+          <div v-if="steps.length" class="mt-3">
+            <ActionSteps :steps="steps" />
+          </div>
           <div v-if="authUrl" class="mt-3">
             <UButton
               :to="authUrl"

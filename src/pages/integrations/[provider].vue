@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, watch, defineAsyncComponent } from 'vue'
+import { computed, onMounted, ref, watch, defineAsyncComponent } from 'vue'
+import { $fetch } from 'ofetch'
 import { showcaseFor } from '../../utils/integrationShowcase'
 import { useRoute, useRouter } from 'vue-router'
 import { useClipboard } from '@vueuse/core'
@@ -34,6 +35,24 @@ const {
 const { busyProvider, connect, disconnect, saveKey } = useIntegrationConnect()
 
 const integration = computed(() => getIntegrationByProvider(provider.value))
+
+// The full list of what the app can do, from the service itself. Until it arrives (or if it cannot be had), the short example list stands in.
+interface ActionRow { slug: string, name: string, description: string, effect: 'read' | 'change' }
+const allActions = ref<ActionRow[] | null>(null)
+const showActions = ref(false)
+async function loadActions() {
+  allActions.value = null
+  showActions.value = false
+  if (!loggedIn.value || !provider.value) return
+  const asked = provider.value
+  try {
+    const res = await $fetch<{ actions: ActionRow[] }>(`/api/integrations/${encodeURIComponent(asked)}/actions`)
+    if (asked === provider.value) allActions.value = res.actions
+  } catch { /* the example count is shown instead */ }
+}
+watch([provider, loggedIn], loadActions, { immediate: true })
+const readActions = computed(() => (allActions.value ?? []).filter(a => a.effect === 'read'))
+const changeActions = computed(() => (allActions.value ?? []).filter(a => a.effect === 'change'))
 const isConnected = computed(() => integration.value?.status === 'connected')
 const busy = computed(() => busyProvider.value === provider.value)
 const usesKey = computed(() => integration.value?.type === 'custom')
@@ -307,9 +326,37 @@ const links = computed(() => {
               <span class="text-muted">Account</span>
               <span class="font-medium text-default text-right truncate">{{ integration.account }}</span>
             </div>
-            <div class="flex items-center justify-between gap-4 py-4">
-              <span class="text-muted">Actions</span>
-              <span class="font-medium text-default">{{ integration.supportedActionsCount || integration.capabilities?.length || 0 }}</span>
+            <div class="py-4">
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-muted">Actions</span>
+                <span class="font-medium text-default text-right">
+                  <template v-if="allActions">{{ allActions.length }} <span class="text-muted font-normal">· {{ readActions.length }} only read</span></template>
+                  <template v-else>{{ integration.supportedActionsCount || integration.capabilities?.length || 0 }} <span class="text-muted font-normal">· examples</span></template>
+                </span>
+              </div>
+              <button
+                v-if="allActions?.length"
+                type="button"
+                class="mt-2 text-xs text-dimmed hover:text-default inline-flex items-center gap-1 rounded focus-visible:outline-2 focus-visible:outline-primary"
+                :aria-expanded="showActions"
+                @click="showActions = !showActions"
+              >
+                <UIcon :name="showActions ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5" />
+                {{ showActions ? 'Hide' : 'See' }} everything it can do
+              </button>
+              <div v-if="showActions" class="mt-3 space-y-4">
+                <div v-for="group in [{ title: 'Only reads', list: readActions }, { title: 'Can change things (asks you first in chat)', list: changeActions }]" :key="group.title">
+                  <template v-if="group.list.length">
+                    <p class="text-xs font-medium text-highlighted mb-1.5">{{ group.title }} · {{ group.list.length }}</p>
+                    <ul class="space-y-1 max-h-72 overflow-y-auto pr-1">
+                      <li v-for="a in group.list" :key="a.slug" class="text-xs leading-relaxed">
+                        <span class="text-default">{{ a.name }}</span>
+                        <span v-if="a.description" class="text-muted"> — {{ a.description }}</span>
+                      </li>
+                    </ul>
+                  </template>
+                </div>
+              </div>
             </div>
             <div class="flex items-center justify-between gap-4 py-4">
               <span class="text-muted">Category</span>

@@ -75,7 +75,7 @@ export function connectorTools(userId: string, def: ConnectorDef, deps: Connecto
 }
 
 /** Natural-language path: the model may only pick from this connector's declared actions. */
-export async function runConnectorInstruction(userId: string, def: ConnectorDef, instruction: string, deps: ConnectorDeps & { abortSignal?: AbortSignal, readOnly?: boolean } = {}): Promise<IntegrationRunResult | (ConnectorRunResult & { toolCalls: number })> {
+export async function runConnectorInstruction(userId: string, def: ConnectorDef, instruction: string, deps: ConnectorDeps & { abortSignal?: AbortSignal, readOnly?: boolean, onProgress?: (steps: import('../../utils/actionSteps').ActionStep[]) => void } = {}): Promise<IntegrationRunResult | (ConnectorRunResult & { toolCalls: number })> {
   let creds: Record<string, string> | null
   try {
     creds = await getCredentials(deps.db ?? defaultDb(), userId, def.provider)
@@ -87,7 +87,7 @@ export async function runConnectorInstruction(userId: string, def: ConnectorDef,
     return { success: false, authRequired: true, authUrl: `/integrations/${def.provider}`, output: null, toolCalls: 0, message: `Add your ${def.name} key to continue.` }
   }
   // Each action of a connector says for itself whether it changes anything, so that is used, not its name.
-  return runWithTools({ userId, providerName: def.name, instruction, abortSignal: deps.abortSignal, readOnly: deps.readOnly, isRead: id => def.actions.find(a => a.id === id)?.effect === 'read', getTools: async () => connectorTools(userId, def, deps) })
+  return runWithTools({ userId, providerName: def.name, instruction, abortSignal: deps.abortSignal, readOnly: deps.readOnly, onProgress: deps.onProgress, isRead: id => def.actions.find(a => a.id === id)?.effect === 'read', getTools: async () => connectorTools(userId, def, deps) })
 }
 
 /** Tries a new key with a harmless read before it is saved. Returns null when the service has no such check. */
