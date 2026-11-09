@@ -80,7 +80,7 @@ const PILLARS = [
 
       <PageSkeleton v-else-if="!loaded" shape="rows" />
 
-      <StateCard v-else-if="isEmpty" icon="i-lucide-sparkles" title="No kept skills yet" text="In a chat, ask OpenLobs to keep a skill from a link. It shows up here once you approve it." kind="empty">
+      <StateCard v-else-if="isEmpty" icon="i-lucide-book-open-text" title="No kept skills yet" text="In a chat, ask OpenLobs to keep a skill from a link. It shows up here once you approve it." kind="empty">
         <UButton label="Start a chat" icon="i-lucide-message-square" color="neutral" to="/" />
       </StateCard>
 
@@ -88,7 +88,7 @@ const PILLARS = [
         <div v-for="skill in skills" :key="skill.name" class="rounded-2xl border border-default bg-default p-5 hover:shadow-md transition-shadow">
           <div class="flex items-start gap-4">
             <div class="p-2.5 rounded-xl border border-default shadow-sm bg-default shrink-0">
-              <UIcon name="i-lucide-sparkles" class="size-5 text-primary" />
+              <UIcon name="i-lucide-book-open-text" class="size-5 text-primary" />
             </div>
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2 mb-0.5">
@@ -100,7 +100,13 @@ const PILLARS = [
             </div>
           </div>
 
-          <UAlert v-if="skill.warnings.length" class="mt-4" color="warning" variant="subtle" icon="i-lucide-triangle-alert" title="Noted when it was checked" :description="skill.warnings.join(' ')" />
+          <div v-if="skill.warnings.length" class="mt-4 flex items-start gap-3 rounded-xl border border-amber-500/20 p-3.5 bg-gradient-to-b from-amber-400/20 to-orange-400/20 dark:from-amber-500/10 dark:to-orange-500/10">
+            <UIcon name="i-lucide-triangle-alert" class="size-4 mt-0.5 text-warning shrink-0" />
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-highlighted">Noted when it was checked</p>
+              <p class="text-sm text-default leading-snug mt-0.5">{{ skill.warnings.join(' ') }}</p>
+            </div>
+          </div>
 
           <div class="flex items-center gap-2 mt-4 pt-4 border-t border-default">
             <UButton label="Remove" icon="i-lucide-trash" size="sm" color="error" variant="ghost" class="ml-auto" @click="remove(skill)" />

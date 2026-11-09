@@ -68,7 +68,7 @@ const title = computed(() => {
   if (isAdd.value) return preset.value?.name || 'a tool server'
   return words(toolName.value)
 })
-const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
+const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-book-open-text' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
 const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? (isKeep.value ? 'Keep a skill' : 'Skill from GitHub') : isCloud.value ? 'Run in the cloud' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */

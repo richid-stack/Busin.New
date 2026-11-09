@@ -152,7 +152,7 @@ const modes = [
 const LINKS = [
   { to: '/memory', icon: 'i-lucide-brain', title: 'Memory', detail: 'Notes OpenLobs keeps about you. Add, edit, or switch memory off.' },
   { to: '/agents', icon: 'i-lucide-bot', title: 'Agents', detail: 'Your saved agents, what each can use, and which skills they follow.' },
-  { to: '/skills', icon: 'i-lucide-sparkles', title: 'Skills', detail: 'Skills you chose to keep, ready in every chat.' },
+  { to: '/skills', icon: 'i-lucide-book-open-text', title: 'Skills', detail: 'Skills you chose to keep, ready in every chat.' },
   { to: '/integrations', icon: 'i-lucide-blocks', title: 'Connected apps', detail: 'Connect or disconnect Google, Microsoft, Slack and more.' },
   { to: '/integrations/mcp', icon: 'i-lucide-plug', title: 'MCP servers', detail: 'Tools from servers you add, each approved by you first.' },
   { to: '/workflows', icon: 'i-lucide-workflow', title: 'Workflows', detail: 'Automations and their schedules.' }
