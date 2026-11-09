@@ -21,7 +21,8 @@ export interface ScreenshotRequest {
 
 export interface Screenshot {
   bytes: Uint8Array
-  mediaType: 'image/jpeg'
+  /** A cloud browser always gives JPEG; a computer's browser may send PNG. The label must match the bytes. */
+  mediaType: 'image/jpeg' | 'image/png'
   width: number
   height: number
   url: string

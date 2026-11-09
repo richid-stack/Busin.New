@@ -21,7 +21,7 @@ const MAX_IMAGE_BYTES = 900_000
  * screenshot of a web page (or look at an uploaded picture), get a list of defects, fix them, then look again with
  * the earlier defects so the result says what is fixed and what is not.
  */
-export function createInspectDesignTool(userId: string, messages: UIMessage[]) {
+export function createInspectDesignTool(userId: string, messages: UIMessage[], modelId?: string | null) {
   return tool({
     description: 'Look at a web page or a picture and judge it against requirements, as a careful designer would. Use it to check a design, a page you or the user built, or an uploaded screenshot. It returns a verdict and a list of specific defects with fixes. After fixing things, call it again with the earlier defects in "previous" to see which are fixed. Give a public web address, or leave "url" out to use the latest picture the user attached. Set onMyComputer to look with the user\'s own connected computer instead: it can open a site running on that computer (like http://localhost:5173) and also reports page errors. It only works if the user connected a computer and allowed browser looks on it; if it fails, tell them what the error says.',
     inputSchema: z.object({
@@ -48,7 +48,7 @@ export function createInspectDesignTool(userId: string, messages: UIMessage[]) {
             image = { bytes: parsed.bytes, mediaType: attached.mediaType || parsed.mediaType, name: attached.filename }
           }
           const result = await runInspection(
-            { userId, requirements: input.requirements, url: input.url, image, previous: input.previous, fullPage: input.fullPage, width: input.width, colorScheme: input.colorScheme },
+            { userId, requirements: input.requirements, url: input.url, image, preferredModel: modelId, previous: input.previous, fullPage: input.fullPage, width: input.width, colorScheme: input.colorScheme },
             { provider: input.onMyComputer ? bridgeProvider({ store: bridgeStore(), files: fileStore(), userId, computer: input.computer }) : defaultProvider(), save: i => fileStore().save(i), signal }
           )
           return {
