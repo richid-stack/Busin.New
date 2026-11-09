@@ -40,15 +40,17 @@ const integration = computed(() => getIntegrationByProvider(provider.value))
 // The full list of what the app can do, from the service itself. Until it arrives (or if it cannot be had), the short example list stands in.
 interface ActionRow { slug: string, name: string, description: string, effect: 'read' | 'change' }
 const allActions = ref<ActionRow[] | null>(null)
+const actionsTruncated = ref(false)
 const showActions = ref(false)
 async function loadActions() {
   allActions.value = null
+  actionsTruncated.value = false
   showActions.value = false
   if (!loggedIn.value || !provider.value) return
   const asked = provider.value
   try {
-    const res = await $fetch<{ actions: ActionRow[] }>(`/api/integrations/${encodeURIComponent(asked)}/actions`)
-    if (asked === provider.value) allActions.value = res.actions
+    const res = await $fetch<{ actions: ActionRow[], truncated?: boolean }>(`/api/integrations/${encodeURIComponent(asked)}/actions`)
+    if (asked === provider.value) { allActions.value = res.actions; actionsTruncated.value = res.truncated === true }
   } catch { /* the example count is shown instead */ }
 }
 watch([provider, loggedIn], loadActions, { immediate: true })
@@ -322,7 +324,7 @@ const links = computed(() => {
               <div class="flex items-center justify-between gap-4">
                 <span class="text-muted">Actions</span>
                 <span class="font-medium text-default text-right">
-                  <template v-if="allActions">{{ allActions.length }} <span class="text-muted font-normal">· {{ readActions.length }} only read</span></template>
+                  <template v-if="allActions">{{ allActions.length }}{{ actionsTruncated ? '+' : '' }} <span class="text-muted font-normal">· {{ readActions.length }} only read</span></template>
                   <template v-else>{{ integration.supportedActionsCount || integration.capabilities?.length || 0 }} <span class="text-muted font-normal">· examples</span></template>
                 </span>
               </div>

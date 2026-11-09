@@ -56,7 +56,9 @@ export class BridgeBrowserService implements BrowserService {
     if (!devices.length) throw new BrowserError('No computer is connected to OpenLobs. Add one on the Computers page first.', 'failed')
     const online = devices.filter(d => isOnline(d, this.now()))
     if (!online.length) throw new BrowserError(`${devices.length === 1 ? `"${devices[0]!.name}" is` : 'Your computers are'} offline. Start the Bridge on it, or switch the browser back to the cloud in Settings.`, 'failed')
-    const allowed = online.filter(d => d.capabilities.includes(BROWSER_USE_CAPABILITY))
+    const awake = online.filter(d => !d.paused)
+    if (!awake.length) throw new BrowserError(`${online.length === 1 ? `"${online[0]!.name}" is` : 'Your computers are'} paused. Resume it from the Bridge icon in its system tray.`, 'failed')
+    const allowed = awake.filter(d => d.capabilities.includes(BROWSER_USE_CAPABILITY))
     if (!allowed.length) throw new BrowserError(`"${online[0]!.name}" has not been allowed to let OpenLobs use a browser. On that computer, run: bridge allow browser_use`, 'failed')
     return [...allowed].sort((a, b) => String(b.lastSeenAt).localeCompare(String(a.lastSeenAt)))[0]!
   }

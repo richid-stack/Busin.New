@@ -4,6 +4,7 @@ import { VOICE_KEY_PURPOSE, resolveVoiceKey } from '../server/services/voice/res
 import { listenFor, speakFor, voiceFailure } from '../server/services/voice/speech'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../server/services/voice/persona'
 import { seal } from '../server/utils/secretBox'
+import { readCapped } from '../server/utils/readCapped'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
 const rejects = async (fn: () => Promise<unknown>) => { try { await fn() } catch (e) { return e as any } return null }
@@ -100,4 +101,12 @@ assert((await rejects(() => listenFor('u', new Uint8Array([1]), { deps: deps({ s
 // ---- What the assistant is told ----
 assert(/Before each action/.test(NARRATION_PROMPT) && /no tools needs no narration/.test(NARRATION_PROMPT) && /OK before it changes anything/.test(NARRATION_PROMPT), 'every chat is told to narrate its steps in plain words, and to say what needs an OK')
 assert(/yes or no/.test(VOICE_PROMPT) && /Never read out a key/.test(VOICE_PROMPT) && /cedis/.test(VOICE_PROMPT) && /read aloud/.test(VOICE_PROMPT), 'voice mode keeps what is said speakable, asks questions that can be answered yes or no, and keeps secrets off the air')
+// ---- Uploads are cut off while they arrive, not after they are all in memory ----
+const chunked = (sizes: number[], onPull?: () => void) => new ReadableStream<Uint8Array>({ pull(c) { const n = sizes.shift(); onPull?.(); if (n === undefined) c.close(); else c.enqueue(new Uint8Array(n)) } })
+const small = await readCapped(chunked([1000, 1000, 500]), 4000)
+assert(small?.byteLength === 2500, 'a recording under the limit is read whole')
+let pulls = 0
+const big = await readCapped(chunked(Array(1000).fill(1_000_000), () => { pulls++ }), 4_000_000)
+assert(big === null && pulls < 10, 'a recording over the limit with no length header is dropped after a few chunks, not read to the end')
+assert((await readCapped(null, 10))?.byteLength === 0, 'no body is an empty recording')
 console.log(process.exitCode ? 'Voice tests FAILED' : 'Voice tests OK')

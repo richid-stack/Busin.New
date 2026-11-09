@@ -14,7 +14,8 @@ const { loggedIn } = useUserSession()
 const { computers, loading, loaded, unauthorized, loadError, fetchComputers, downloadUrl, fetchDownload, newCode, startTest, startLook, getJob, cancelJob, disconnect } = useBridge()
 
 onMounted(() => { fetchComputers(); fetchDownload() })
-watch(loggedIn, fetchComputers)
+// Signing in on this page is what makes the download available, so it is asked for again then.
+watch(loggedIn, () => { fetchComputers(); fetchDownload() })
 
 // Online dots go stale quickly, so keep the list fresh while the page is open.
 const refresh = setInterval(() => { if (!document.hidden) fetchComputers() }, 10_000)
@@ -234,7 +235,7 @@ async function remove(c: ComputerItem) {
                     <p class="text-sm font-medium text-highlighted truncate">{{ c.name }}</p>
                     <p class="text-xs text-muted">
                       {{ PLATFORM_LABEL[c.platform] }} ·
-                      <span :class="c.online ? 'text-success' : ''">{{ c.online ? 'Online now' : c.lastSeenAt ? `Last seen ${timeAgo(c.lastSeenAt)}` : 'Not seen yet' }}</span>
+                      <span :class="c.online ? 'text-success' : ''">{{ c.online && c.paused ? 'Paused (resume it from its tray icon)' : c.online ? 'Online now' : c.lastSeenAt ? `Last seen ${timeAgo(c.lastSeenAt)}` : 'Not seen yet' }}</span>
                       · Bridge {{ c.bridgeVersion }}
                     </p>
                   </div>

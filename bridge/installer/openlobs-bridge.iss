@@ -30,19 +30,19 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Source: "..\..\dist\bridge-app\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 
 [Icons]
-Name: "{userprograms}\OpenLobs Bridge\Bridge status"; Filename: "{cmd}"; Parameters: "/k ""{app}\bridge.cmd"" status"
-Name: "{userprograms}\OpenLobs Bridge\Connect to OpenLobs"; Filename: "{cmd}"; Parameters: "/k ""{app}\bridge.cmd"" connect"
-Name: "{userprograms}\OpenLobs Bridge\Allow looking at web pages"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow browser & pause"
-Name: "{userprograms}\OpenLobs Bridge\Pause everything now"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" pause & pause"
-Name: "{userprograms}\OpenLobs Bridge\Resume"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" resume & pause"
-Name: "{userprograms}\OpenLobs Bridge\Allow spreadsheet work in one folder"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow excel & pause"
-Name: "{userprograms}\OpenLobs Bridge\Stop allowing spreadsheet work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny excel & pause"
-Name: "{userprograms}\OpenLobs Bridge\Check that spreadsheets work"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" selftest & pause"
-Name: "{userprograms}\OpenLobs Bridge\Stop allowing web page looks"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny browser & pause"
-Name: "{userprograms}\OpenLobs Bridge\Allow OpenLobs to use a browser"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" allow browser_use & pause"
-Name: "{userprograms}\OpenLobs Bridge\Stop allowing browser use"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" deny browser_use & pause"
-Name: "{userprograms}\OpenLobs Bridge\Sign in to sites for OpenLobs"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" browser login & pause"
-Name: "{userprograms}\OpenLobs Bridge\Sign out of all sites in the OpenLobs browser"; Filename: "{cmd}"; Parameters: "/c ""{app}\bridge.cmd"" browser forget & pause"
+Name: "{userprograms}\OpenLobs Bridge\Bridge status"; Filename: "{cmd}"; Parameters: "/k """"{app}\bridge.cmd"" status"""
+Name: "{userprograms}\OpenLobs Bridge\Connect to OpenLobs"; Filename: "{cmd}"; Parameters: "/k """"{app}\bridge.cmd"" connect"""
+Name: "{userprograms}\OpenLobs Bridge\Allow looking at web pages"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" allow browser & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Pause everything now"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" pause & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Resume"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" resume & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Allow spreadsheet work in one folder"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" allow excel & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Stop allowing spreadsheet work"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" deny excel & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Check that spreadsheets work"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" selftest & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Stop allowing web page looks"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" deny browser & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Allow OpenLobs to use a browser"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" allow browser_use & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Stop allowing browser use"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" deny browser_use & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Sign in to sites for OpenLobs"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" browser login & pause"""
+Name: "{userprograms}\OpenLobs Bridge\Sign out of all sites in the OpenLobs browser"; Filename: "{cmd}"; Parameters: "/c """"{app}\bridge.cmd"" browser forget & pause"""
 Name: "{userprograms}\OpenLobs Bridge\Start the Bridge"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\bridge-hidden.vbs"""
 Name: "{userprograms}\OpenLobs Bridge\Recent activity"; Filename: "{win}\notepad.exe"; Parameters: """{userappdata}\OpenLobsBridge\bridge.log"""
 ; Starts by itself when you sign in to Windows.
@@ -84,22 +84,31 @@ begin
     if Pos(UpperCase(S[I]), Allowed) = 0 then Result := False;
 end;
 
-function NextButtonClick(CurPageID: Integer): Boolean;
+{ What was typed (or passed to a silent install) must be safe to put on a command line. Empty means fine. }
+function ConnectProblem: String;
 var Server, Code: String;
+begin
+  Result := '';
+  Server := Trim(ConnectPage.Values[0]);
+  Code := Trim(ConnectPage.Values[1]);
+  if (Code <> '') and (Server = '') then begin
+    Result := 'Please type the address of your OpenLobs too.'; Exit;
+  end;
+  if (Server <> '') and (not CleanText(Server, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:/.-_~')) then begin
+    Result := 'The address contains a character that is not allowed. Use something like https://openlobs.example'; Exit;
+  end;
+  if (Code <> '') and (not CleanText(Code, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-')) then begin
+    Result := 'The pairing code has only letters and numbers. Copy it again from the Computers page.'; Exit;
+  end;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var Problem: String;
 begin
   Result := True;
   if CurPageID = ConnectPage.ID then begin
-    Server := Trim(ConnectPage.Values[0]);
-    Code := Trim(ConnectPage.Values[1]);
-    if (Code <> '') and (Server = '') then begin
-      MsgBox('Please type the address of your OpenLobs too.', mbError, MB_OK); Result := False; Exit;
-    end;
-    if (Server <> '') and (not CleanText(Server, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:/.-_~')) then begin
-      MsgBox('The address contains a character that is not allowed. Use something like https://openlobs.example', mbError, MB_OK); Result := False; Exit;
-    end;
-    if (Code <> '') and (not CleanText(Code, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-')) then begin
-      MsgBox('The pairing code has only letters and numbers. Copy it again from the Computers page.', mbError, MB_OK); Result := False; Exit;
-    end;
+    Problem := ConnectProblem;
+    if Problem <> '' then begin MsgBox(Problem, mbError, MB_OK); Result := False; end;
   end;
 end;
 
@@ -108,16 +117,23 @@ begin
   Exec(ExpandConstant('{cmd}'), '/C ""' + ExpandConstant('{app}\bridge.cmd') + '" ' + Args + ' > "' + ExpandConstant('{tmp}\' + LogName) + '" 2>&1"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+{ Stops the Bridge that runs from this installation's folder, and no other copy of it. }
 procedure StopRunningBridge;
-var Code: Integer;
+var Code: Integer; Folder: String;
 begin
-  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM openlobs-bridge.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Folder := ExpandConstant('{app}\');
+  StringChangeEx(Folder, '''', '''''', True);
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -Command "Get-Process openlobs-bridge -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith(''' + Folder + ''', [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force"',
+    '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
+  { Silent installs skip the wizard pages, so what was passed on the command line is checked here, before anything is run. }
+  Result := ConnectProblem;
+  if Result <> '' then Exit;
   StopRunningBridge;
-  Result := '';
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -127,6 +143,8 @@ begin
   Server := Trim(ConnectPage.Values[0]);
   Code2 := Trim(ConnectPage.Values[1]);
   if Code2 <> '' then begin
+    { Installing again with a new code makes a new computer in OpenLobs, so the earlier one is removed first (best effort). }
+    if FileExists(ExpandConstant('{userappdata}\OpenLobsBridge\config.json')) then RunBridge('disconnect', 'disconnect.txt', Code);
     RunBridge('pair ' + Code2 + ' --server ' + Server, 'pair.txt', Code);
     LoadStringFromFile(ExpandConstant('{tmp}\pair.txt'), AnsiOut);
     Output := Trim(String(AnsiOut));

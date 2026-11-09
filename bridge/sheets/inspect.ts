@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
-import { SHEET_LIMITS } from '../../shared/sheetOps'
+import { SHEET_LIMITS, checkFormula } from '../../shared/sheetOps'
 
 /** Reading a spreadsheet: what is in it, and what a plain file library would lose if it saved a copy. */
 
@@ -32,6 +32,21 @@ export async function readWorkbook(file: string): Promise<ExcelJS.Workbook> {
     else await wb.xlsx.readFile(file)
   } catch { throw new Error('That file could not be read as a spreadsheet.') }
   return wb
+}
+
+/** Addresses (with sheet names) of formulas already in a workbook that the shared rule would not allow anyone to write. */
+export function unsafeFormulas(wb: ExcelJS.Workbook): string[] {
+  const bad: string[] = []
+  for (const ws of wb.worksheets) {
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      row.eachCell({ includeEmpty: false }, (c) => {
+        const v = c.value as any
+        const f = v && typeof v === 'object' && !(v instanceof Date) && typeof v.formula === 'string' ? v.formula : null
+        if (f !== null && checkFormula(f) && bad.length < 50) bad.push(`${ws.name}!${c.address}`)
+      })
+    })
+  }
+  return bad
 }
 
 /** What a cell shows, as short plain text. */
@@ -89,11 +104,31 @@ export async function inspectWorkbook(file: string, shownName: string) {
   if (features.charts || features.pivots || features.pictures || features.macros) notes.push('This file has charts, pivot tables, pictures or macros. A changed copy made without a spreadsheet program would lose them.')
   if (features.externalLinks) notes.push('This file links to other workbooks; those links are not followed.')
   if (sheets.some(s => s.formulas && s.rows && !s.sample.length)) notes.push('Formula results are shown only if the file was last saved by a spreadsheet program.')
-  return {
-    file: shownName,
+  const result = {
+    file: shownName.slice(0, 200),
     sizeKb: Math.ceil(fs.statSync(file).size / 1024),
     sheets,
     features,
     notes
   }
+  return fitResult(result)
+}
+
+/** A result that is too big to send back is made smaller, never refused: fewer sample rows first, then fewer columns, then fewer sheets. */
+export function fitResult<T extends { sheets: SheetSummary[], notes: string[] }>(result: T): T {
+  const size = () => JSON.stringify(result).length
+  if (size() <= SHEET_LIMITS.maxResultChars) return result
+  let trimmed = false
+  for (const keep of [3, 1, 0]) {
+    if (size() <= SHEET_LIMITS.maxResultChars) break
+    for (const s of result.sheets) s.sample = s.sample.slice(0, keep)
+    trimmed = true
+  }
+  for (const cols of [12, 8, 5]) {
+    if (size() <= SHEET_LIMITS.maxResultChars) break
+    for (const s of result.sheets) { s.headers = s.headers.slice(0, cols); s.sample = s.sample.map(r => r.slice(0, cols)) }
+  }
+  while (size() > SHEET_LIMITS.maxResultChars && result.sheets.length > 1) { result.sheets.pop(); trimmed = true }
+  if (trimmed) result.notes = [...result.notes, 'The file is large, so only part of it is shown here.'].slice(0, 10)
+  return result
 }

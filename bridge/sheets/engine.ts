@@ -66,10 +66,11 @@ try {
   foreach ($ws in $wb.Worksheets) {
     $range = $null
     try { $range = $ws.UsedRange.SpecialCells(-4123) } catch { }
-    if ($null -ne $range) {
-      $formulas = $formulas + [int]$range.Count
+    if ($null -ne $range) { $formulas = $formulas + [int]$range.Count }
+    # An error that is typed in as a plain value (not a formula) is still an error the person would see.
+    foreach ($kind in @(-4123, 2)) {
       $bad = $null
-      try { $bad = $ws.UsedRange.SpecialCells(-4123, 16) } catch { }
+      try { $bad = $ws.UsedRange.SpecialCells($kind, 16) } catch { }
       if ($null -ne $bad) {
         foreach ($cell in $bad.Cells) {
           if ($errs.Count -lt 20) { [void]$errs.Add($ws.Name + '!' + $cell.Address($false, $false)) }
@@ -149,9 +150,12 @@ try:
         sheet = sheets.getByName(c['sheet'])
         c1, r1, c2, r2 = split_range(c['categories'])
         v1, s1, v2, s2 = split_range(c['values'])
-        if r1 != s1 or r2 != s2 or v1 != v2 or c1 != c2 or v1 != c1 + 1:
-            raise Exception('LibreOffice needs the labels in the column directly left of the values, over the same rows.')
-        address = sheet.getCellRangeByPosition(c1 - 1, r1 - 1, v2 - 1, r2 - 1).RangeAddress
+        if r1 != s1 or r2 != s2 or c1 != c2 or v1 != v2:
+            raise Exception('LibreOffice needs the labels and the values to be one column each, over the same rows.')
+        # Labels and values may sit anywhere on the sheet: both ranges are given and the first one is read as the labels.
+        labels = sheet.getCellRangeByPosition(c1 - 1, r1 - 1, c1 - 1, r2 - 1).RangeAddress
+        numbers = sheet.getCellRangeByPosition(v1 - 1, s1 - 1, v1 - 1, s2 - 1).RangeAddress
+        address = sheet.getCellRangeByPosition(c1 - 1, r1 - 1, v1 - 1, r2 - 1).RangeAddress if v1 == c1 + 1 else None
         anchor = sheet.getCellRangeByName(c['anchor'])
         rect = uno.createUnoStruct('com.sun.star.awt.Rectangle')
         rect.X = anchor.Position.X
@@ -160,7 +164,7 @@ try:
         rect.Height = 8000
         made += 1
         name = 'OpenLobsChart' + str(made) + '_' + uuid.uuid4().hex[:6]
-        sheet.Charts.addNewByName(name, rect, (address,), False, True)
+        sheet.Charts.addNewByName(name, rect, ((address,) if address is not None else (labels, numbers)), False, True)
         emb = sheet.Charts.getByName(name).EmbeddedObject
         kind = {'column': 'com.sun.star.chart.BarDiagram', 'bar': 'com.sun.star.chart.BarDiagram',
                 'line': 'com.sun.star.chart.LineDiagram', 'pie': 'com.sun.star.chart.PieDiagram'}[c['type']]
@@ -213,7 +217,8 @@ async function inTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   try { return await fn(dir) } finally { fs.rmSync(dir, { recursive: true, force: true }) }
 }
 
-function readOutcome(file: string, stderr: string, code: number, timedOut: boolean, who: string): EngineOutcome {
+function readOutcome(file: string, stderr: string, code: number, timedOut: boolean, who: string, signal?: AbortSignal): EngineOutcome {
+  if (signal?.aborted) throw new Error('Stopped.')
   if (timedOut) throw new Error(`${who} took too long and was stopped.`)
   let raw: any
   try { raw = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, '')) } catch { /* handled below */ }
@@ -235,7 +240,7 @@ export function excelEngine(): Engine {
         fs.writeFileSync(script, `﻿${EXCEL_SCRIPT}`, 'utf8')
         fs.writeFileSync(jobFile, JSON.stringify(job), 'utf8')
         const r = await runProgram('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, '-JobFile', jobFile, '-ResultFile', result], { timeoutMs: TIMEOUT_MS, signal })
-        return readOutcome(result, r.stderr, r.code, r.timedOut, 'Excel')
+        return readOutcome(result, r.stderr, r.code, r.timedOut, 'Excel', signal)
       })
     }
   }
@@ -252,7 +257,7 @@ export function libreOfficeEngine(soffice: string, python: string): Engine {
         // LibreOffice's own Python finds its "uno" module next to itself; the script folder is one this run just made.
         const bundled = path.dirname(python) === path.dirname(soffice)
         const r = await runProgram(python, bundled ? [script, soffice, jobFile, result] : ['-I', script, soffice, jobFile, result], { timeoutMs: TIMEOUT_MS, signal, env: bundled ? { ...process.env, PYTHONPATH: path.dirname(soffice) } : process.env })
-        return readOutcome(result, r.stderr, r.code, r.timedOut, 'LibreOffice')
+        return readOutcome(result, r.stderr, r.code, r.timedOut, 'LibreOffice', signal)
       })
     }
   }
