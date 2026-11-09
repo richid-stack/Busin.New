@@ -3,7 +3,10 @@ import { composioToolkitSlug } from './slugs'
 import { getAgentClient } from './execute'
 
 export interface ToolkitAction { slug: string, name: string, description: string, effect: 'read' | 'change' }
-export interface ToolkitActions { total: number, actions: ToolkitAction[] }
+/** `truncated` is true when the app has at least as many actions as were asked for, so the list is a first part, not the whole. */
+export interface ToolkitActions { total: number, actions: ToolkitAction[], truncated?: boolean }
+
+const LIST_LIMIT = 300
 
 const TTL = 6 * 60 * 60_000
 const cache = new Map<string, { at: number, value: ToolkitActions }>()
@@ -31,8 +34,10 @@ export async function listToolkitActions(provider: string): Promise<ToolkitActio
   if (!client) return null
   try {
     // A limit turns off Composio's "important only" filter, so this is the whole list.
-    const raw = await client.tools.getRawComposioTools({ toolkits: [toolkit], limit: 300 })
+    const raw = await client.tools.getRawComposioTools({ toolkits: [toolkit], limit: LIST_LIMIT })
     const value = describeTools(raw as any)
+    // Composio does not say how many more there are, only that the page was full.
+    if (Array.isArray(raw) && raw.length >= LIST_LIMIT) value.truncated = true
     cache.set(toolkit, { at: Date.now(), value })
     return value
   } catch (err) {

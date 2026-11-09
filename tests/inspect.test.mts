@@ -168,3 +168,19 @@ assert(await cfgErr({ url: 'http://169.254.169.254/', requirements: 'Clear headl
 // ---- The worker refuses to run without a real secret ----
 const worker = await import('node:child_process').then(m => m.spawnSync('npx', ['tsx', 'inspector/server.ts'], { env: { ...process.env, INSPECTOR_SECRET: 'short', PORT: '0' }, encoding: 'utf8', timeout: 30000 }))
 assert(worker.status !== 0 && /INSPECTOR_SECRET/.test(`${worker.stderr}${worker.stdout}`), 'the screenshot worker will not start without a long secret')
+
+// ---- A re-check cannot pass while an earlier defect is still there ----
+{
+  const prev = [{ id: 'd1', area: 'hero', problem: 'cut off' }]
+  assert(finishInspection(raw({ verdict: 'pass', previous: [{ id: 'd1', status: 'still_present', note: 'still cut off' }] }), prev).verdict === 'fail', 'a pass with an earlier defect still present is a fail')
+  assert(finishInspection(raw({ verdict: 'pass', previous: [] }), prev).verdict === 'unsure', 'a pass that did not say what became of an earlier defect is "unsure"')
+  assert(finishInspection(raw({ verdict: 'pass', previous: [{ id: 'd1', status: 'fixed', note: 'ok' }] }), prev).verdict === 'pass', 'a pass with every earlier defect fixed stays a pass')
+}
+// ---- The model of the chat is kept when it can look at pictures ----
+{
+  const { pickVisionModel } = await import('../server/services/inspect/inspect')
+  const { availableModels, providerOf } = await import('../server/utils/models')
+  const usable = availableModels().filter(m => providerOf(m) !== 'groq')
+  if (usable.length >= 2) assert(pickVisionModel(usable[1])?.id === usable[1] && pickVisionModel('nope/none')?.id === usable[0], 'the chat\'s own model is used for the look when it can see pictures')
+  else console.log('SKIP (fewer than two picture-capable models are configured here)')
+}

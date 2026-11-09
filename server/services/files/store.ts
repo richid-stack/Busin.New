@@ -1,3 +1,4 @@
+import { assertNotDeleting } from '../account/tombstone'
 import { randomUUID } from 'node:crypto'
 
 /** Files OpenLobs creates for a user. Each one belongs to its creator and expires. */
@@ -42,6 +43,8 @@ export function createFileStore(db: FileDb, now: () => Date = () => new Date()) 
   return {
     async save(input: { userId: string, name: string, mime: string, bytes: Uint8Array }): Promise<{ id: string, expiresAt: Date }> {
       if (input.bytes.length > MAX_FILE_BYTES) throw new Error('The file is too large to save.')
+      // Nothing is saved for a person whose account is being deleted: a task or tool still running must not leave files behind after the erase.
+      await assertNotDeleting(input.userId, db)
       const id = randomUUID()
       const createdAt = now()
       const expiresAt = new Date(createdAt.getTime() + FILE_RETENTION_DAYS * 86_400_000)

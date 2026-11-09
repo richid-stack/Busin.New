@@ -21,7 +21,7 @@ export interface TaskToolContext { taskId: string, pause: TaskBrowser['pause'], 
  * The tools a task may use. Every tool is built for the task's owner, then cut down to the groups chosen
  * for the task and to those the registry allows without a person watching.
  */
-export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolContext, browserService: BrowserService | null = null): Record<string, any> {
+export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolContext, browserService: BrowserService | null = null, taskModel: string | null = null): Record<string, any> {
   const sessionKey = ctx ? browserKey(userId, `task-${ctx.taskId}`) : ''
   const all: Record<string, any> = {
     web_search: createWebSearchTool(userId),
@@ -30,7 +30,7 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
     create_spreadsheet: createSpreadsheetTool(userId),
     create_presentation: createPresentationTool(userId),
     // A task has no attachments, so these two see only the web.
-    inspect_design: createInspectDesignTool(userId, []),
+    inspect_design: createInspectDesignTool(userId, [], taskModel),
     ...(createReadDocumentTool(userId, []) ? { read_document: createReadDocumentTool(userId, []) } : {}),
     chart: chartTool,
     plan: planTool,
