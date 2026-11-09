@@ -60,6 +60,18 @@ A task (the **Tasks** page, `/api/tasks`) is a goal plus the ways you will know 
 - **Email:** a task that ran two minutes or more emails you when it ends (Settings, Notifications; off switch; once per task; never for cancelled ones).
 - Tasks and their logs are part of the account export and erase.
 
+## Bridge (computers)
+
+The **Computers** page connects your own computer to OpenLobs through the Bridge (`bridge/`), a small program you run there. This is the base for working with desktop apps later (a real browser, Excel); today it does one harmless thing, answer a ping, so the connection can be proven before anything riskier is built on it.
+
+- **Pairing:** the page makes an 8-character code (valid 10 minutes, usable once, stored hashed, one open code per person). `npm run bridge -- pair CODE --server https://your-openlobs` trades it for a device token, which the server keeps only as a hash. Up to 3 computers per person.
+- **Only calls out:** the Bridge long-polls `POST /api/bridge/poll` with its token. It opens no port and starts no program on its own (a test scans its source for that).
+- **A fixed list:** the server only creates jobs from `JOB_KINDS` in `server/services/bridge/model.ts` (today `ping`), and the Bridge refuses anything not in its own `HANDLERS` list, so a hacked server still cannot make it run arbitrary commands. Results are checked with a strict schema. Jobs expire after 2 minutes, at most 5 are open per computer.
+- **Control:** Test connection, Stop, and Disconnect (the token stops working at once and open jobs are cancelled). The Bridge says what it is doing, backs off when the server is unreachable, and stops on its own if it is disconnected.
+- Computers, their logs and jobs are part of the account export (never the token) and the erase.
+
+Not built yet: an installer or `.exe`, a tray icon, storing the token in the Windows credential store (it is a file only you can read, in `%APPDATA%\OpenLobsBridge`), and Mac or Linux testing. Windows with Node 22 is the target. See `bridge/README.md`.
+
 ## Visual checks
 
 Chat has an `inspect_design` tool (agent tool group "Check designs and pages") and workflows have a **Visual Check** step. Both screenshot a web address with a real browser, or look at a picture the user attached, and a vision model reports defects against the requirements (blocker, major or minor, with where it is and how to fix it). Called again with the earlier defects, it says which are fixed, still there or unclear, so "build, look, fix, look again" is a loop an agent can run (see the `visual-qa` skill). It works for any page or screen, not only code an agent wrote, and the result is advice from a model: it cannot judge hover states, animation or other pages.

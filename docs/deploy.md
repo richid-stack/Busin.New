@@ -148,6 +148,16 @@ The worker has no roles, so even a page that tricked the browser into reaching t
 
 Not tested by the authors: the exact base image tag (`mcr.microsoft.com/playwright:v1.56.0-noble`) and the commands above; check them on first deploy.
 
+## 5d. Computers (Bridge)
+
+Nothing extra to deploy: the Bridge talks to the app's own `/api/bridge/*` endpoints. Three things to know:
+
+- **Indexes:** every Bridge query is a single-field equality (`devices.tokenHash`, `devices.userId`, `bridge_jobs.deviceId`, `bridge_pairings.userId`), which Firestore indexes automatically, so no composite index is needed.
+- **Cost of a waiting computer:** each connected computer holds a request open for 25 s and looks at the database every 12 s, roughly 10,000 reads a day when it is always on. That is fine on the free tier for a few computers; if you have many, raise `pollCheckMs` in `server/services/bridge/model.ts`.
+- **Cloud Run:** a held request counts as an active request, so an instance with a connected computer stays up. The default 300 s request timeout is far above the 25 s hold.
+
+Not tested by the authors against a real Firestore: the transactions in `server/services/bridge/store.ts` are tested with the in-memory fake.
+
 ## 6. Created files expire on their own
 
 Files OpenLobs creates are kept for 30 days (`expiresAt`). The app hides expired files, but Firestore only deletes them if a TTL policy is on:

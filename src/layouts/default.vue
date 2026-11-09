@@ -122,6 +122,10 @@ defineShortcuts({
             to: '/tasks',
             icon: 'i-lucide-list-checks'
           }, {
+            label: 'Computers',
+            to: '/computers',
+            icon: 'i-lucide-monitor-smartphone'
+          }, {
             label: 'Workflow Studio',
             to: '/workflows',
             icon: 'i-lucide-workflow'

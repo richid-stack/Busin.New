@@ -12,11 +12,11 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings'] as const
 /** Nested data that goes with its parent document. */
-const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflows: ['runs'], tasks: ['events'] }
+const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflows: ['runs'], tasks: ['events'], devices: ['events'] }
 
 export const EXPORT_FORMAT = 1
 
@@ -113,6 +113,8 @@ export interface UserExport {
   chats: unknown[]
   workflows: unknown[]
   tasks: unknown[]
+  computers: unknown[]
+  computerJobs: unknown[]
   agents: unknown[]
   memory: { enabled: boolean, items: unknown[] }
   mcpServers: unknown[]
@@ -153,10 +155,12 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, ...data }
     })
 
-  const [chats, workflows, tasks, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
+  const [chats, workflows, tasks, devices, bridgeJobs, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
     withNested('chats'),
     withNested('workflows').then(list => list.map(redactWorkflow)),
     withNested('tasks').then(list => list.map((t: any) => { const rest = { ...t }; delete rest.leaseToken; delete rest.leaseUntil; return rest })),
+    withNested('devices').then(list => list.map((d: any) => { const rest = { ...d }; delete rest.tokenHash; return rest })),
+    simple('bridge_jobs'),
     simple('agents'),
     simple('memories'),
     ownedDocs(db, 'mcp_servers', id).then(docs => docs.map((doc) => {
@@ -187,6 +191,8 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     chats,
     workflows,
     tasks,
+    computers: devices,
+    computerJobs: bridgeJobs,
     agents,
     memory: { enabled: memSettings.exists ? memSettings.data()?.enabled !== false : true, items: memories },
     mcpServers: servers,

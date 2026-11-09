@@ -66,6 +66,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/computers/': RouteRecordInfo<
+      '/computers/',
+      '/computers',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/connect-callback': RouteRecordInfo<
       '/connect-callback',
       '/connect-callback',
@@ -202,6 +209,14 @@ declare module 'vue-router/auto-routes' {
         | never
       pathParamNames:
         | 'id'
+    }
+    'src/pages/computers/index.vue': {
+      routes:
+        | '/computers/'
+      views:
+        | never
+      pathParamNames:
+        | never
     }
     'src/pages/connect-callback.vue': {
       routes:
