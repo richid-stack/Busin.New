@@ -66,12 +66,14 @@ assert(done.status === 'done' && (done.result as any).exitCode === 0 && /hi from
 // ---- A long command does not hold up the Bridge, and the stop button works ----
 const long = await store.enqueue('rae', id, 'run_command', { program: 'node', args: ['long.js'], limitMs: 60_000 })
 const t0 = Date.now()
-await pollOnce(cfg, deps, running, undefined, { detach: true })
+const tasks = new Set<Promise<void>>()
+await pollOnce(cfg, deps, running, undefined, tasks)
 assert(Date.now() - t0 < 3000 && (await store.getJob('rae', long.id)).status === 'sent', 'a long command does not block the Bridge from calling in')
 assert(await until(() => fs.existsSync(path.join(root, 'started.txt'))), 'the program really started')
 const pid = Number(fs.readFileSync(path.join(root, 'started.txt'), 'utf8'))
 await store.cancelJob('rae', long.id)
-await pollOnce(cfg, deps, running, undefined, { detach: true })
+await pollOnce(cfg, deps, running, undefined, tasks)
+await Promise.all([...tasks])
 const gone = await until(() => { try { process.kill(pid, 0) } catch { return true } try { return /^\d+ \(.*\) [ZX]/.test(fs.readFileSync(`/proc/${pid}/stat`, 'utf8')) } catch { return false } })
 assert(gone, 'cancelling the job from OpenLobs stops the program on the computer')
 

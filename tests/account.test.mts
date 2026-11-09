@@ -16,7 +16,7 @@ const seed = async (uid: string) => {
   await db.collection('workflows').doc(`w-${uid}`).set({ userId: uid, name: 'Flow' })
   await db.collection('workflows').doc(`w-${uid}`).collection('runs').doc('r1').set({ userId: uid, status: 'completed' })
   await db.collection('agents').doc(`a-${uid}`).set({ userId: uid, name: 'Agent' })
-  await db.collection('tasks').doc(`t-${uid}`).set({ userId: uid, goal: 'Do a thing', status: 'done', leaseToken: 'LEASE-SECRET', leaseUntil: null })
+  await db.collection('tasks').doc(`t-${uid}`).set({ userId: uid, goal: 'Do a thing', status: 'done', leaseToken: 'LEASE-SECRET', leaseUntil: null, criteria: [{ id: 'c1', text: 'Looks right', kind: 'visual', url: 'https://example.com/p?api_key=TASK-URL-SECRET&x=1' }] })
   await db.collection('shared_items').doc(`sh-${uid}`).set({ userId: uid, title: 'Invoice helper', payload: { instructions: 'x' } })
   await db.collection('reef_profiles').doc(uid).set({ userId: uid, handle: uid, name: uid, followers: 0, following: 0, starsEarned: 0, projects: 1 })
   await db.collection('reef_handles').doc(uid).set({ userId: uid, handle: uid })
@@ -28,7 +28,7 @@ const seed = async (uid: string) => {
   await db.collection('voice_keys').doc(`${uid}__elevenlabs`).set({ userId: uid, service: 'elevenlabs', sealedKey: 'VOICE-KEY-SECRET', last4: 'abcd', savedAt: '2026-10-27T10:00:00Z' })
   await db.collection('share_reports').doc(`r-${uid}`).set({ userId: uid, shareId: 'x', reason: 'spam' })
   await db.collection('task_schedules').doc(`ts-${uid}`).set({ userId: uid, title: 'Morning brief', cron: '0 9 * * *' })
-  await db.collection('tasks').doc(`t-${uid}`).collection('events').doc('e1').set({ at: '2026-10-22T10:00:00Z', kind: 'note', text: 'hi' })
+  await db.collection('tasks').doc(`t-${uid}`).collection('events').doc('e1').set({ at: '2026-10-22T10:00:00Z', kind: 'note', text: 'fetched https://x.example/a?token=EVENT-URL-SECRET' })
   await db.collection('devices').doc(`d-${uid}`).set({ userId: uid, name: 'Desk', tokenHash: 'TOKEN-HASH-SECRET', platform: 'win32' })
   await db.collection('devices').doc(`d-${uid}`).collection('events').doc('e1').set({ at: '2026-10-22T10:00:00Z', text: 'paired' })
   await db.collection('bridge_jobs').doc(`j-${uid}`).set({ userId: uid, deviceId: `d-${uid}`, kind: 'ping', status: 'done' })
@@ -70,6 +70,7 @@ assert(out.reef.profile.length === 1 && out.reef.projects.length === 1 && out.re
 assert((out.sharedItems as any[]).length === 1 && (out.sharedItems[0] as any).title === 'Invoice helper', 'shared links are exported')
 assert((out.taskSchedules as any[]).length === 1 && (out.taskSchedules[0] as any).title === 'Morning brief', 'task schedules are exported')
 assert((out.tasks[0] as any).events.length === 1 && !JSON.stringify(out.tasks).includes('LEASE-SECRET'), 'tasks are exported with their logs, without lease details')
+assert(!JSON.stringify(out.tasks).includes('TASK-URL-SECRET') && !JSON.stringify(out.tasks).includes('EVENT-URL-SECRET') && JSON.stringify(out.tasks).includes('example.com/p?api_key=[not exported]&x=1'), 'a key inside an address in a task or its log is not exported')
 assert((out.computers[0] as any).name === 'Desk' && (out.computers[0] as any).events.length === 1 && out.computerJobs.length === 1, 'computers are exported with their logs, plus their jobs')
 assert(!JSON.stringify(out).includes('TOKEN-HASH-SECRET') && !JSON.stringify(out).includes('CODE-HASH-SECRET'), 'computer tokens and pairing codes never leave in an export')
 assert((out.voice as any).settings.speak.service === 'elevenlabs' && (out.voice as any).keys[0].last4 === 'abcd' && !JSON.stringify(out).includes('VOICE-KEY-SECRET'), 'voice choices are exported, and voice keys only as their last four characters')
@@ -83,6 +84,28 @@ assert((out.mcpServers[0] as any).approvedTools[0] === 'mcp_linear_search', 'MCP
 assert(!text.includes('SEALED-KEY') && (out.connectedKeys[0] as any).hint === '…abcd' && out.connectorActivity.length === 1, 'saved service keys are listed by their last four characters only, with what was done')
 assert(!text.includes('bob') && !text.includes('hello from bob'), 'nothing of another person is exported')
 assert(!('data' in (out.files[0] as any)) && (out.files[0] as any).name === 'report.xlsx', 'files are listed, not embedded')
+// Attached files sit inside chat messages as data: URLs. The export keeps each file's name and size, not its contents.
+await db.collection('chats').doc('c-carol').set({ userId: 'carol', title: 'Files' })
+await db.collection('chats').doc('c-carol').collection('messages').doc('m1').set({
+  role: 'user',
+  parts: [
+    { type: 'file', mediaType: 'text/plain', filename: 'notes.txt', url: 'data:text/plain;base64,aGVsbG8gd29ybGQ=' },
+    { type: 'file', mediaType: 'text/plain', filename: 'plain.txt', url: 'data:text/plain,hello%20there' },
+    { type: 'text', text: 'data:text/plain,typed by the person' }
+  ]
+})
+await db.collection('chats').doc('c-carol').collection('messages').doc('m2').set({
+  role: 'assistant',
+  parts: [{ type: 'tool-chart', output: { image: 'data:image/png;base64,AAAAAAAA', caption: 'A chart' } }]
+})
+const carol = await collectUserData(deps(), { id: 'carol', name: 'Carol' })
+const carolMessages = (carol.chats[0] as any).messages as any[]
+const carolParts = carolMessages.find(m => m.id === 'm1').parts
+assert(carolParts[0].filename === 'notes.txt' && carolParts[0].size === 11 && !('url' in carolParts[0]), 'an attached file is exported as its name and size, without its contents')
+assert(carolParts[1].filename === 'plain.txt' && carolParts[1].size === 11 && !('url' in carolParts[1]), 'the size is right for a file that is not base64')
+assert(carolParts[2].text === 'data:text/plain,typed by the person', 'what the person typed is exported as it was')
+assert(carolMessages.find(m => m.id === 'm2').parts[0].output.image === '[file contents not exported, 6 bytes]' && carolMessages.find(m => m.id === 'm2').parts[0].output.caption === 'A chart', 'file data inside a result is replaced by its size too')
+assert(!JSON.stringify(carol).includes('aGVsbG8gd29ybGQ') && !JSON.stringify(carol).includes('hello%20there') && !JSON.stringify(carol).includes('AAAAAAAA'), 'no attached file contents are anywhere in the export')
 const empty = await collectUserData(deps({ listConnections: async () => { throw new Error('down') } }), { id: 'nobody', name: 'N' })
 assert(empty.chats.length === 0 && empty.plan !== undefined && empty.connectedApps.length === 0 && empty.memory.enabled === true, 'a person with nothing exports cleanly, even if the apps service is down')
 

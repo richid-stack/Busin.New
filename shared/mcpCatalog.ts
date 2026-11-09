@@ -114,4 +114,5 @@ export const MCP_PRESETS: McpPreset[] = [
 export const presetById = (id: string) => MCP_PRESETS.find(p => p.id === id)
 
 /** The recommended server at this address, if any, so a server added from the shelf keeps its logo. */
-export const presetByUrl = (url: string): McpPreset | undefined => MCP_PRESETS.find(p => p.url === url)
+const sameAddress = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '')
+export const presetByUrl = (url: string): McpPreset | undefined => MCP_PRESETS.find(p => sameAddress(p.url, url))
