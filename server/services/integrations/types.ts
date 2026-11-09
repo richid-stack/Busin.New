@@ -5,6 +5,7 @@ export type IntegrationCategory =
   | 'project_management'
   | 'crm'
   | 'developer'
+  | 'design'
   | 'ghana'
 
 export interface IntegrationAction {

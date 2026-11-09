@@ -30,6 +30,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   project_management: 'Project management',
   crm: 'CRM',
   developer: 'Developer',
+  design: 'Design',
   ghana: 'Made for Ghana'
 }
 

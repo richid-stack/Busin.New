@@ -5,6 +5,8 @@ import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
 import McpServerForm from '../../components/mcp/McpServerForm.vue'
 import McpToolReview from '../../components/mcp/McpToolReview.vue'
+import { MCP_PRESETS } from '../../../shared/mcpCatalog'
+import type { McpPreset } from '../../../shared/mcpCatalog'
 import type { McpApproval, McpNewServer, McpServerView, McpToolListing } from '../../types/mcp'
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
@@ -29,11 +31,17 @@ const formOpen = ref(false)
 const adding = ref(false)
 const addError = ref<string | null>(null)
 
-function openAdd() {
+const chosenPreset = ref<McpPreset | null>(null)
+
+function openAdd(preset: McpPreset | null = null) {
   if (unauthorized.value) return openAuthModal()
   addError.value = null
+  chosenPreset.value = preset
   formOpen.value = true
 }
+
+// Recommended servers that are not added yet (matched by address).
+const shelf = computed(() => MCP_PRESETS.filter(p => !servers.value.some(s => s.url.replace(/\/$/, '') === p.url)))
 
 async function submitAdd(input: McpNewServer) {
   adding.value = true
@@ -153,7 +161,7 @@ const PILLARS = [
           <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-highlighted mb-3">MCP servers</h1>
           <p class="text-muted text-base md:text-lg">Give OpenLobs extra tools from servers you trust.</p>
         </div>
-        <UButton v-if="!unauthorized" label="Add server" icon="i-lucide-plus" color="neutral" class="shrink-0" :disabled="atLimit" @click="openAdd" />
+        <UButton v-if="!unauthorized" label="Add server" icon="i-lucide-plus" color="neutral" class="shrink-0" :disabled="atLimit" @click="openAdd()" />
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
@@ -194,7 +202,7 @@ const PILLARS = [
         </div>
         <h2 class="text-base font-semibold text-highlighted mb-1">No servers yet</h2>
         <p class="text-sm text-muted mb-5">Add a server's address, read its tools, and approve the ones you want.</p>
-        <UButton label="Add server" icon="i-lucide-plus" color="neutral" @click="openAdd" />
+        <UButton label="Add server" icon="i-lucide-plus" color="neutral" @click="openAdd()" />
       </div>
 
       <div v-else class="flex flex-col gap-4">
@@ -229,12 +237,31 @@ const PILLARS = [
         </div>
       </div>
 
+      <section v-if="loaded && !unauthorized && !loadError && shelf.length" class="mt-12" aria-labelledby="recommended-heading">
+        <h2 id="recommended-heading" class="text-sm font-semibold text-highlighted mb-1">Recommended servers</h2>
+        <p class="text-xs text-muted mb-3">Checked against each maker's own documentation. Adding one only fills in the form; you still approve every tool.</p>
+        <ul class="divide-y divide-default rounded-2xl border border-default bg-default">
+          <li v-for="p in shelf" :key="p.id" class="flex items-start gap-3 px-4 py-3">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-medium text-highlighted">{{ p.name }}</span>
+                <UBadge :label="p.access === 'read' ? 'Reads only' : 'Can change things'" :color="p.access === 'read' ? 'neutral' : 'warning'" variant="subtle" size="sm" />
+                <UBadge v-if="p.auth === 'none'" label="No key needed" color="neutral" variant="subtle" size="sm" />
+              </div>
+              <p class="text-xs text-muted mt-0.5">{{ p.summary }}</p>
+            </div>
+            <UButton label="Add" size="sm" color="neutral" variant="subtle" :disabled="atLimit" :aria-label="`Add ${p.name}`" @click="openAdd(p)" />
+          </li>
+        </ul>
+        <p class="text-xs text-dimmed mt-2">Canva, Figma, Notion, Slack and other apps that need a sign-in are on the <RouterLink to="/integrations" class="underline underline-offset-2">Integrations</RouterLink> page.</p>
+      </section>
+
       <p v-if="loaded && servers.length" class="text-xs text-muted mt-4">
         {{ servers.length }} of {{ limits.servers }} servers · {{ approvedTotal }} of {{ limits.approvedTotal }} tools approved
       </p>
     </div>
 
-    <McpServerForm v-model:open="formOpen" :saving="adding" :error="addError" @save="submitAdd" />
+    <McpServerForm v-model:open="formOpen" :saving="adding" :error="addError" :preset="chosenPreset" @save="submitAdd" />
     <McpToolReview
       v-model:open="reviewOpen"
       :server="reviewing"

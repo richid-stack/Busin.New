@@ -1,8 +1,16 @@
 name: ci
 
+# Branches are tested once, through their pull request. Pushes to main are tested too.
 on:
   push:
+    branches: [main]
   pull_request:
+
+# A newer push to the same pull request replaces the older, now pointless run.
+# Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci:

@@ -19,6 +19,11 @@ on:
         required: false
         default: ''
 
+# A newer push to the same pull request replaces the older, now pointless run.
+concurrency:
+  group: bridge-windows-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   windows:
     runs-on: windows-latest
