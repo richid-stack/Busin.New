@@ -42,6 +42,11 @@ export const useBridge = createSharedComposable(() => {
     }
   }
 
+  const downloadUrl = ref<string | null>(null)
+  async function fetchDownload() {
+    try { downloadUrl.value = (await $fetch<{ url: string | null }>('/api/bridge/download', { headers: headers() })).url } catch { downloadUrl.value = null }
+  }
+
   const newCode = () => $fetch<PairingCode>('/api/bridge/pairings', { method: 'POST', headers: headers() })
 
   const startTest = (id: string) => $fetch<BridgeJobItem>(`/api/bridge/devices/${encodeURIComponent(id)}/test`, { method: 'POST', headers: headers() })
@@ -64,5 +69,5 @@ export const useBridge = createSharedComposable(() => {
     unauthorized.value = false
   })
 
-  return { computers, loading, loaded, unauthorized, loadError, fetchComputers, newCode, startTest, startLook, getJob, cancelJob, disconnect }
+  return { computers, loading, loaded, unauthorized, loadError, fetchComputers, downloadUrl, fetchDownload, newCode, startTest, startLook, getJob, cancelJob, disconnect }
 })

@@ -1,13 +1,15 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import readline from 'node:readline/promises'
 import { BRIDGE_VERSION, PERMISSIONS, defaultDeps, disconnect, pair, run } from './core'
 import type { Config } from './core'
 
 /**
  * OpenLobs Bridge, command line.
  *   bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]
- *   bridge run
+ *   bridge connect            (asks for the address and code)
+ *   bridge run [--log FILE]
  *   bridge allow browser | bridge deny browser
  *   bridge status
  *   bridge disconnect
@@ -30,8 +32,34 @@ function option(args: string[], name: string): string | undefined {
   return i >= 0 ? args[i + 1] : undefined
 }
 
-const deps = defaultDeps()
 const [command, ...args] = process.argv.slice(2)
+
+/** Output goes to the screen and, when asked, to a file that is kept small (a hidden background Bridge has no screen). */
+const logPath = option(args, '--log') || process.env.OPENLOBS_BRIDGE_LOG
+function log(line: string) {
+  console.log(line)
+  if (!logPath) return
+  try {
+    fs.mkdirSync(path.dirname(logPath), { recursive: true })
+    if (fs.existsSync(logPath) && fs.statSync(logPath).size > 1_000_000) fs.renameSync(logPath, `${logPath}.1`)
+    fs.appendFileSync(logPath, `${new Date().toISOString()} ${line}\n`)
+  } catch { /* logging must never stop the Bridge */ }
+}
+const deps = defaultDeps(log)
+
+/** Only one Bridge runs per computer: a second one would just double the polling. */
+const lockFile = path.join(dir, 'run.lock')
+function takeLock() {
+  try {
+    const pid = Number(fs.readFileSync(lockFile, 'utf8'))
+    if (pid && pid !== process.pid) {
+      try { process.kill(pid, 0); throw new Error('The Bridge is already running on this computer.') } catch (err: any) { if (err.message.startsWith('The Bridge')) throw err }
+    }
+  } catch (err: any) { if (err.message?.startsWith('The Bridge')) throw err }
+  fs.mkdirSync(dir, { recursive: true })
+  fs.writeFileSync(lockFile, String(process.pid))
+}
+const dropLock = () => { try { if (Number(fs.readFileSync(lockFile, 'utf8')) === process.pid) fs.rmSync(lockFile, { force: true }) } catch { /* already gone */ } }
 
 try {
   if (command === 'pair') {
@@ -39,14 +67,26 @@ try {
     const server = option(args, '--server') || process.env.OPENLOBS_URL
     if (!code || !server) throw new Error('Usage: bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]')
     const config = await pair(server, code, option(args, '--name') || os.hostname().slice(0, 60), deps)
-    save(config)
+    save({ ...config, allow: load()?.allow })
     console.log(`Paired as "${config.name}". Run "bridge run" to connect.`)
+  } else if (command === 'connect') {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    try {
+      const server = (await rl.question('OpenLobs address (for example https://openlobs.example): ')).trim() || process.env.OPENLOBS_URL || ''
+      const code = (await rl.question('Pairing code from the Computers page: ')).trim()
+      if (!server || !code) throw new Error('An address and a code are both needed.')
+      const config = await pair(server, code, os.hostname().slice(0, 60), deps)
+      save({ ...config, allow: load()?.allow })
+      console.log(`Paired as "${config.name}". It will connect the next time the Bridge starts (or at your next sign-in).`)
+    } finally { rl.close() }
   } else if (command === 'run') {
     const config = load()
     if (!config) throw new Error('Not paired yet. Run "bridge pair" first.')
+    takeLock()
     const stop = new AbortController()
     process.on('SIGINT', () => stop.abort())
     process.on('SIGTERM', () => stop.abort())
+    process.on('exit', dropLock)
     const result = await run(config, deps, stop.signal, load)
     if (result === 'disconnected') { fs.rmSync(file, { force: true }); process.exitCode = 1 }
     else console.log('Stopped.')
@@ -75,7 +115,7 @@ try {
     fs.rmSync(file, { force: true })
     console.log('Disconnected.')
   } else {
-    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge run\n  bridge allow browser | deny browser\n  bridge status\n  bridge disconnect`)
+    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge connect\n  bridge run [--log FILE]\n  bridge allow browser | deny browser\n  bridge status\n  bridge disconnect`)
   }
 } catch (err: any) {
   console.error(err.message)

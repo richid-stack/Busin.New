@@ -9,9 +9,9 @@ import { timeAgo } from '../../utils/taskTime'
 
 const { openAuthModal } = useFirebaseAuth()
 const { loggedIn } = useUserSession()
-const { computers, loading, loaded, unauthorized, loadError, fetchComputers, newCode, startTest, startLook, getJob, cancelJob, disconnect } = useBridge()
+const { computers, loading, loaded, unauthorized, loadError, fetchComputers, downloadUrl, fetchDownload, newCode, startTest, startLook, getJob, cancelJob, disconnect } = useBridge()
 
-onMounted(fetchComputers)
+onMounted(() => { fetchComputers(); fetchDownload() })
 watch(loggedIn, fetchComputers)
 
 // Online dots go stale quickly, so keep the list fresh while the page is open.
@@ -260,7 +260,7 @@ async function remove(c: ComputerItem) {
                 </div>
                 <p class="mt-1 ml-5 text-xs text-dimmed">
                   <template v-if="canLook(c)">Allowed here: test ping, look at web pages.</template>
-                  <template v-else>Allowed here: test ping. To let OpenLobs look at web pages, run <code class="text-highlighted">npm run bridge -- allow browser</code> on that computer.</template>
+                  <template v-else>Allowed here: test ping. To let OpenLobs look at web pages, choose "Allow looking at web pages" in the Start menu under OpenLobs Bridge on that computer, or run <code class="text-highlighted">npm run bridge -- allow browser</code>.</template>
                 </p>
                 <form v-if="lookOf(c.id).open && canLook(c)" class="mt-3 ml-5 space-y-3" @submit.prevent="look(c)">
                   <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
@@ -306,7 +306,19 @@ async function remove(c: ComputerItem) {
                 <p class="font-mono text-3xl sm:text-4xl font-semibold tracking-[0.25em] text-highlighted select-all" aria-live="polite">{{ pairing.code }}</p>
                 <p class="text-xs text-muted mt-2">Works once and expires in {{ clock }}.</p>
 
-                <ol class="mt-5 space-y-3 text-sm text-muted list-decimal pl-5">
+                <ol v-if="downloadUrl" class="mt-5 space-y-3 text-sm text-muted list-decimal pl-5">
+                  <li>
+                    Download the installer for Windows and run it.
+                    <div class="mt-2"><UButton label="Download for Windows" icon="i-lucide-download" size="sm" color="neutral" variant="subtle" :to="downloadUrl" external /></div>
+                    <p class="mt-1 text-xs text-dimmed">Windows may say the publisher is unknown, because the installer is not signed yet. Choose "More info", then "Run anyway".</p>
+                  </li>
+                  <li>
+                    When it asks, type this address and the code above:
+                    <code class="mt-2 block overflow-x-auto whitespace-nowrap rounded-lg bg-elevated px-3 py-2 text-xs text-highlighted select-all">{{ origin }}</code>
+                  </li>
+                  <li>It starts by itself from then on. This page updates when it connects.</li>
+                </ol>
+                <ol v-else class="mt-5 space-y-3 text-sm text-muted list-decimal pl-5">
                   <li>On the computer, get the OpenLobs Bridge and open a terminal in its folder (Node 22 or newer).</li>
                   <li>
                     Run this:
