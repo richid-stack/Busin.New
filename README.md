@@ -215,17 +215,30 @@ OpenLobs is in active development. What is here, honestly:
 | Workflow Studio, timer and webhook triggers | Working |
 | Tasks with self-checks and browser inspection | Working |
 | Bridge for Windows (browser look, spreadsheets, tray, installer) | Early; Windows first |
-| Scheduled tasks | Next |
-| Community: share and fork agents, workflows and skills | Planned |
+| Scheduled tasks (repeat or once, pauses itself after repeated failures) | Working; new, give it a real run |
+| The Reef: a community to share and fork agents, skills and workflows, and to ask and answer questions | Planned, see the [plan](docs/the-reef.md) |
+| One-command Docker setup | Planned |
 
 ## Docs
 
 - [Reference](docs/reference.md): configuration, limits and how each safety rule works
 - [Deploying to Google Cloud](docs/deploy.md)
 - [The Bridge](bridge/README.md)
+- [The Reef: the community plan](docs/the-reef.md)
+- [Contributing](CONTRIBUTING.md)
+
+## Contribute
+
+OpenLobs is open source and built to be improved by more people than its first author. You do not have to write code: a better skill, a clear bug report, a tested integration or a fixed sentence all help.
+
+- **Start here:** [CONTRIBUTING.md](CONTRIBUTING.md) lists the ways to help, how to set up, the checks to run and what we look for.
+- **Have a question?** Ask in [Discussions](../../discussions). Answering someone else's is a contribution too.
+- **Found a bug or have an idea?** [Open an issue](../../issues/new/choose).
+- **Found a security problem?** Report it privately: [SECURITY.md](SECURITY.md).
+- Everyone is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Credits and licence
 
-Started from the [Nuxt UI chat template](https://github.com/nuxt-ui-templates/chat) and built on [Vue](https://vuejs.org), [Nuxt UI](https://ui.nuxt.com), [Nitro](https://nitro.build), the [AI SDK](https://ai-sdk.dev), [Firebase](https://firebase.google.com) and [Composio](https://composio.dev). See [LICENSE](LICENSE).
+Started from the [Nuxt UI chat template](https://github.com/nuxt-ui-templates/chat) and built on [Vue](https://vuejs.org), [Nuxt UI](https://ui.nuxt.com), [Nitro](https://nitro.build), the [AI SDK](https://ai-sdk.dev), [Firebase](https://firebase.google.com) and [Composio](https://composio.dev). Released under the [MIT licence](LICENSE).
 
 <div align="center"><sub>Made in Ghana 🇬🇭 by Mensah Labs</sub></div>

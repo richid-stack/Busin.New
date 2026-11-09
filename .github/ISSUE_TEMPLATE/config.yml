@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a question
+    url: https://github.com/richid-stack/Busin.New/discussions/categories/q-a
+    about: Not sure how something works? Ask in Discussions. Answering is a contribution too.
+  - name: Report a security problem
+    url: https://github.com/richid-stack/Busin.New/security/advisories/new
+    about: Please report privately, not in a public issue.

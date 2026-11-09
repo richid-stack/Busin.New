@@ -1,0 +1,34 @@
+name: Something is broken
+description: It did the wrong thing, showed an error, or looked wrong.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: In your own words. What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we see it?
+      description: The steps, from a fresh page if you can.
+      placeholder: "1. Open Models\n2. Add a Groq key\n3. Press Get models\n4. See the error"
+    validations:
+      required: true
+  - type: input
+    id: error
+    attributes:
+      label: The exact message, if any
+      description: Copy it exactly. Never paste a key or token.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where are you running it?
+      options: [The hosted app, On my own machine, In Docker, Not sure]
+  - type: input
+    id: system
+    attributes:
+      label: Browser and system
+      placeholder: Chrome 130 on Windows 11
