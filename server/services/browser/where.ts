@@ -36,6 +36,8 @@ export async function computerBrowserStatus(userId: string, deps: { store?: { li
   if (!devices.length) return { ready: false, name: null, note: 'No computer is connected yet. Add one on the Computers page.' }
   const capable = devices.filter(d => d.capabilities.includes(BROWSER_USE_CAPABILITY))
   const online = capable.filter(d => isOnline(d, now))
+  const ready = online.filter(d => !d.paused)
+  if (online.length && !ready.length) return { ready: false, name: online[0].name, note: `“${online[0].name}” is paused. Resume it from the Bridge icon in its system tray.` }
   if (online.length) return { ready: true, name: online[0].name, note: `Ready on “${online[0].name}”.` }
   if (capable.length) return { ready: false, name: capable[0].name, note: `“${capable[0].name}” is offline. Start the Bridge on it.` }
   return { ready: false, name: null, note: 'No computer has allowed this yet. On the computer, run: bridge allow browser_use' }
