@@ -1,0 +1,23 @@
+{
+  "title": "Deck Builder",
+  "description": "Plans the story of a presentation first, then builds the slides: one idea per slide, titles that state the point, notes for what you will say.",
+  "tags": [
+    "presentations",
+    "slides",
+    "pitch",
+    "storytelling"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "read_files",
+    "create_files",
+    "utilities"
+  ],
+  "skills": [
+    "presentation-storyline",
+    "summarize-document"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

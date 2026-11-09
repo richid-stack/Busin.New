@@ -1,0 +1,20 @@
+{
+  "title": "Web Errand Runner",
+  "description": "Does jobs on websites that have no API: looks things up, compares options and fills forms in a real browser, and stops to ask before it sends, buys or books.",
+  "tags": [
+    "browser",
+    "automation",
+    "errands",
+    "web"
+  ],
+  "licence": "mit",
+  "tools": [
+    "browser",
+    "web"
+  ],
+  "skills": [
+    "browser-task"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

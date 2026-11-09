@@ -1,0 +1,27 @@
+{
+  "title": "Ghana Books and Tax",
+  "description": "Helps a small business in Ghana with invoices, bookkeeping summaries, payroll estimates, import costs and payment matching. Looks up current rates and cites them.",
+  "tags": [
+    "ghana",
+    "accounting",
+    "tax",
+    "invoices"
+  ],
+  "licence": "mit",
+  "tools": [
+    "web",
+    "read_files",
+    "create_files",
+    "utilities"
+  ],
+  "skills": [
+    "ghana-invoice",
+    "ghana-tax-lookup",
+    "bookkeeping-summary",
+    "payroll-estimate",
+    "import-costing",
+    "payment-reconciliation"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}

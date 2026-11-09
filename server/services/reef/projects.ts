@@ -254,7 +254,8 @@ export function createProjectStore(db: TaskDb, profiles: Pick<ProfileStore, 'req
           tx.set(versions().doc(`${id}__${version}`), { projectId: id, userId, version, note, description, readme: input.readme, payload, needs, scan, createdAt: at })
           return { project: fromDoc(id, { ...snap.data(), ...patch }), created: false }
         }
-        if (mine.size >= LIMITS.projectsPerUser) throw new ReefError(`You can share up to ${LIMITS.projectsPerUser} projects. Remove one to add another.`, 'limit')
+        // The official account holds the ready-made projects, which may outnumber what one person is allowed.
+        if (!me.official && mine.size >= LIMITS.projectsPerUser) throw new ReefError(`You can share up to ${LIMITS.projectsPerUser} projects. Remove one to add another.`, 'limit')
         const note = input.note || 'First version'
         const doc = {
           userId, owner: me.handle, name: input.name, kind: 'agent', description, tags: input.tags, licence: input.licence, readme: input.readme, payload, needs, scan,

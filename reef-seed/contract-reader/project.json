@@ -1,0 +1,21 @@
+{
+  "title": "Contract Reader",
+  "description": "Explains a contract, lease or terms of service in plain words: what you must do, the costs, how to get out, and the clauses to ask about. Not legal advice.",
+  "tags": [
+    "contracts",
+    "legal",
+    "plain-english",
+    "documents"
+  ],
+  "licence": "mit",
+  "tools": [
+    "read_files",
+    "web"
+  ],
+  "skills": [
+    "contract-summary",
+    "summarize-document"
+  ],
+  "maxSteps": 10,
+  "note": "First version"
+}
