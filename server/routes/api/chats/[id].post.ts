@@ -20,6 +20,9 @@ import { createDesignTokensTool, createLookAtPageTool } from '../../../utils/too
 import { createFindFontsTool, createFindIconsTool } from '../../../utils/tools/findAssets'
 import { createGithubReadTool } from '../../../utils/tools/githubRead'
 import { fetchGuidance } from '../../../services/design/guidance'
+import { createCheckSetupTool } from '../../../utils/tools/checkSetup'
+import { getResolvedUserIntegrations } from '../../../services/integrations/registry'
+import { isOnline } from '../../../services/bridge/model'
 import { createFindSkillTool, createLoadExternalSkillTool } from '../../../utils/tools/externalSkill'
 import { createCommunitySearchTool } from '../../../utils/tools/communitySearch'
 import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
@@ -272,7 +275,7 @@ export default defineHandler(async (event) => {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
     // Saving files and looking at images act on the person's own storage, so they need an account.
-    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
+    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
@@ -450,3 +453,13 @@ ${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activ
     stream
   })
 })
+
+/** Where the setup check looks: the person's connected apps, tool servers, skills and computers. Each is read only when asked. */
+function setupSources(userId: string, skills: { name: string, description: string }[]) {
+  return {
+    skills,
+    apps: async () => (await getResolvedUserIntegrations(userId)).map(a => ({ provider: a.provider, name: a.name, type: a.type, status: a.status, description: a.description, canConnect: a.canConnect, hasActions: (a.supportedActionsCount ?? 0) > 0, getKeyUrl: a.getKeyUrl })),
+    servers: async () => (await listServers(userId)).map(s => ({ name: s.name, enabled: s.enabled, lastError: s.lastError })),
+    computers: async () => (await bridgeStore().listDevices(userId)).map(d => ({ name: d.name, online: isOnline(d, new Date()) }))
+  }
+}
