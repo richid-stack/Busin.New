@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 
 export type { ChildProcess }
@@ -13,12 +13,43 @@ export interface RunResult { code: number, stdout: string, stderr: string, timed
 
 export function runProgram(exe: string, args: string[], opts: { timeoutMs: number, signal?: AbortSignal, env?: NodeJS.ProcessEnv }): Promise<RunResult> {
   return new Promise((resolve) => {
-    const child = execFile(exe, args, { encoding: 'utf8', windowsHide: true, timeout: opts.timeoutMs, maxBuffer: 2_000_000, env: opts.env ?? process.env, signal: opts.signal }, (err, stdout, stderr) => {
-      const e = err as (NodeJS.ErrnoException & { killed?: boolean, code?: number | string }) | null
-      resolve({ code: e ? (typeof e.code === 'number' ? e.code : 1) : 0, stdout: stdout ?? '', stderr: stderr ?? '', timedOut: !!e?.killed })
-    })
-    child.on('error', () => { /* reported through the callback */ })
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    let done = false
+    const cap = (text: string, more: Buffer) => (text.length < 2_000_000 ? text + more.toString('utf8') : text)
+    // Its own process group on Linux and macOS, so everything it starts can be stopped with it.
+    const child = spawn(exe, args, { windowsHide: true, env: opts.env ?? process.env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' })
+    child.stdout?.on('data', (d: Buffer) => { stdout = cap(stdout, d) })
+    child.stderr?.on('data', (d: Buffer) => { stderr = cap(stderr, d) })
+    const stop = () => killTree(child)
+    const timer = setTimeout(() => { timedOut = true; stop() }, opts.timeoutMs)
+    const onAbort = () => stop()
+    if (opts.signal?.aborted) onAbort()
+    else opts.signal?.addEventListener('abort', onAbort, { once: true })
+    const finish = (code: number) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      opts.signal?.removeEventListener('abort', onAbort)
+      resolve({ code, stdout, stderr, timedOut })
+    }
+    child.on('error', () => finish(1))
+    child.on('close', (code, signal) => finish(typeof code === 'number' ? code : signal ? 1 : 0))
   })
+}
+
+/** Stops a program and everything it started: a spreadsheet program started by a script does not end when the script is killed. */
+export function killTree(child: ChildProcess): void {
+  if (child.pid === undefined || child.exitCode !== null) return
+  try {
+    if (process.platform === 'win32') {
+      const k = spawn('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true, stdio: 'ignore' })
+      k.on('error', () => { try { child.kill() } catch { /* already gone */ } })
+    } else {
+      try { process.kill(-child.pid, 'SIGKILL') } catch { child.kill('SIGKILL') }
+    }
+  } catch { /* already gone */ }
 }
 
 /** Starts a fixed program that keeps running next to the Bridge (the tray icon). The caller stops it when the Bridge stops. */
