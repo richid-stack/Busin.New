@@ -1,0 +1,62 @@
+name: code-scan
+
+# Free automatic code review for a public repository: GitHub's own CodeQL scan and Semgrep rules.
+# Both only read the code and report; neither changes anything. Results: the Security tab (CodeQL) and the
+# "semgrep-report" file attached to each run.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: code-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-and-quality
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript
+
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Run Semgrep
+        run: |
+          pip install --quiet semgrep
+          semgrep scan --quiet --metrics=off \
+            --config p/typescript --config p/javascript --config p/nodejs --config p/owasp-top-ten --config p/secrets \
+            --json --output semgrep.json src server shared bridge runner || true
+          python3 - <<'PY'
+          import json
+          d = json.load(open('semgrep.json'))
+          r = d.get('results', [])
+          print(f"Semgrep found {len(r)} things to look at")
+          for x in r:
+              print(f"{x['extra'].get('severity','?'):8} {x['path']}:{x['start']['line']} {x['check_id'].split('.')[-1]}")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: semgrep.json
