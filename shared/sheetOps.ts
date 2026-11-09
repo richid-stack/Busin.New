@@ -47,7 +47,7 @@ const outputFile = workspaceFile.refine(p => p.toLowerCase().endsWith('.xlsx'), 
  * A formula runs inside the spreadsheet program, and some functions reach outside it: the web, other programs,
  * other files. None of those may be written, whatever the reason.
  */
-const FORBIDDEN_FORMULA = /\b(WEBSERVICE|FILTERXML|ENCODEURL|CALL|REGISTER(\.ID)?|EXEC|SHELL|HYPERLINK|RTD|DDE|IMPORTDATA|IMPORTXML|IMPORTHTML|IMPORTRANGE|IMAGE|INFO|CELL|GETPIVOTDATA|EVALUATE|FORMULA)\s*\(|[\\|]|\[|https?:|file:|ftp:|\bcmd\b|\bpowershell\b/i
+const FORBIDDEN_FORMULA = /\b(WEBSERVICE|FILTERXML|ENCODEURL|CALL|REGISTER(\.ID)?|EXEC|SHELL|HYPERLINK|RTD|DDE|IMPORTDATA|IMPORTXML|IMPORTHTML|IMPORTRANGE|IMAGE|INFO|CELL|GETPIVOTDATA|EVALUATE|FORMULA|INDIRECT|SQL\.REQUEST|SERVICE|COM\.MICROSOFT\.[A-Z]+|_xll\.[A-Z0-9_.]+)\s*\(|[\\|]|\[|https?:|file:|ftp:|\bcmd\b|\bpowershell\b/i
 export function checkFormula(formula: string): string | null {
   const f = formula.replace(/^=/, '')
   if (!f.trim()) return 'The formula is empty.'
