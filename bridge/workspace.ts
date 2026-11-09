@@ -38,11 +38,33 @@ export function resolveExisting(root: string, rel: string): string {
   return real
 }
 
-/** A place for a new file inside the folder: its parent must be inside, and an existing file is never reused (a number is added). */
+/**
+ * The real location of the nearest part of a path that already exists. Folders are made only after this is known to be
+ * inside the chosen folder, so a link or junction in the middle of the path cannot make folders somewhere else.
+ */
+function nearestRealAncestor(target: string): string {
+  let at = target
+  for (;;) {
+    try { return fs.realpathSync(at) } catch { /* not there yet, or a link that leads nowhere */ }
+    // Something is there but cannot be followed: a link to a place that does not exist yet. Making folders through it would make them at its far end.
+    try { fs.lstatSync(at); throw new WorkspaceError('That location is outside the chosen folder.') } catch (err) { if (err instanceof WorkspaceError) throw err }
+    const up = path.dirname(at)
+    if (up === at) throw new WorkspaceError('That location is outside the chosen folder.')
+    at = up
+  }
+}
+
+/**
+ * A place for a new file inside the folder: its parent must be inside, and an existing file is never reused (a number
+ * is added). The name is reserved by creating the empty file in the same step that checks it is free, so two jobs
+ * cannot choose the same name, and a link (even one that leads nowhere) is never written through. Whoever reserves a
+ * name is responsible for removing the file if the job does not finish.
+ */
 export function newFilePath(root: string, rel: string): { full: string, rel: string } {
   const parts = rel.split(/[\\/]/)
   const parent = path.resolve(root, ...parts.slice(0, -1))
   if (!isInside(root, parent)) throw new WorkspaceError('That location is outside the chosen folder.')
+  if (!isInside(root, nearestRealAncestor(parent))) throw new WorkspaceError('That location is outside the chosen folder.')
   fs.mkdirSync(parent, { recursive: true })
   const realParent = fs.realpathSync(parent)
   if (!isInside(root, realParent)) throw new WorkspaceError('That location is outside the chosen folder.')
@@ -51,7 +73,14 @@ export function newFilePath(root: string, rel: string): { full: string, rel: str
   for (let n = 1; n < 1000; n++) {
     const name = n === 1 ? `${stem}${ext}` : `${stem} (${n})${ext}`
     const full = path.join(realParent, name)
-    if (!fs.existsSync(full)) return { full, rel: path.relative(root, full).split(path.sep).join('/') }
+    try {
+      // "wx" fails if anything is there, including a link, and never follows one.
+      fs.closeSync(fs.openSync(full, 'wx'))
+      return { full, rel: path.relative(root, full).split(path.sep).join('/') }
+    } catch (err: any) {
+      if (err?.code === 'EEXIST') continue
+      throw new WorkspaceError('A new file could not be created in the chosen folder.')
+    }
   }
   throw new WorkspaceError('Too many files with that name already exist.')
 }
@@ -59,20 +88,24 @@ export function newFilePath(root: string, rel: string): { full: string, rel: str
 export interface Listed { name: string, sizeKb: number, modified: string }
 
 /** Spreadsheet files in the folder (and one level of sub-folders), newest first. Links and temporary lock files are skipped. */
-export function listSpreadsheets(root: string, sub?: string): { files: Listed[], truncated: boolean } {
+export function listSpreadsheets(root: string, sub?: string, stopped: () => boolean = () => false): { files: Listed[], truncated: boolean } {
   const start = sub ? resolveDir(root, sub) : root
   const out: Listed[] = []
   const walk = (dir: string, depth: number) => {
+    if (stopped()) return
     let entries: fs.Dirent[] = []
     try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
     for (const e of entries) {
+      if (stopped()) return
       if (e.isSymbolicLink() || e.name.startsWith('.') || e.name.startsWith('~$')) continue
       const full = path.join(dir, e.name)
       if (e.isDirectory()) { if (depth < 2) walk(full, depth + 1); continue }
       if (!e.isFile() || !SHEET_EXTENSIONS.some(x => e.name.toLowerCase().endsWith(x))) continue
       try {
+        const shown = path.relative(root, full).split(path.sep).join('/')
+        if (shown.length > 200) continue // too long to name in a result; it can still be opened by its short path
         const st = fs.statSync(full)
-        out.push({ name: path.relative(root, full).split(path.sep).join('/'), sizeKb: Math.ceil(st.size / 1024), modified: st.mtime.toISOString() })
+        out.push({ name: shown, sizeKb: Math.ceil(st.size / 1024), modified: st.mtime.toISOString() })
       } catch { /* vanished while listing */ }
     }
   }

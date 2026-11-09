@@ -182,12 +182,17 @@ function run(wb: ExcelJS.Workbook, op: SheetOp, out: OpOutcome): string {
       const keys: string[] = []
       for (let n = op.headerRow + 1; n <= last; n++) {
         const k = cellText(src.getCell(n, g).value).trim()
-        if (!k || keys.includes(k)) continue
+        // Summary formulas ignore capitals, so "north" and "North" are one group.
+        if (!k || keys.some(x => x.toLowerCase() === k.toLowerCase())) continue
         // These characters mean something special inside SUMIF-style criteria, so a group named like that cannot be matched exactly.
         if (/^[=<>]|[*?~]/.test(k)) throw new OpError(`The group "${k.slice(0, 30)}" contains characters (= < > * ? ~) that cannot be matched exactly in a summary formula.`)
         keys.push(k)
         if (keys.length > SHEET_LIMITS.maxSummaryGroups) throw new OpError(`There are more than ${SHEET_LIMITS.maxSummaryGroups} different values in column ${op.groupBy}, which is too many for one summary.`)
       }
+      // A label that looks like a number is written as one so the formulas match it; two labels that become the same number would be counted together.
+      const asNumber = (k: string) => /^-?[0-9]+(\.[0-9]+)?$/.test(k) ? Number(k) : null
+      const numeric = keys.map(asNumber).filter((n): n is number => n !== null)
+      if (new Set(numeric).size !== numeric.length) throw new OpError(`Two groups in column ${op.groupBy} are the same number written differently (for example 1 and 01), so a summary would count them together. Clean the column first.`)
       const ws = wb.addWorksheet(op.target)
       const label = { sum: 'Total', average: 'Average', count: 'Count', min: 'Smallest', max: 'Largest' }[op.fn]
       ws.getCell('A1').value = cellText(src.getCell(op.headerRow, g).value) || op.groupBy
@@ -198,7 +203,7 @@ function run(wb: ExcelJS.Workbook, op: SheetOp, out: OpOutcome): string {
       const fn = { sum: 'SUMIF', average: 'AVERAGEIF', count: 'COUNTIF', min: 'MINIFS', max: 'MAXIFS' }[op.fn]
       keys.forEach((k, idx) => {
         const row = idx + 2
-        ws.getCell(`A${row}`).value = /^-?[0-9]+(\.[0-9]+)?$/.test(k) ? Number(k) : k
+        ws.getCell(`A${row}`).value = asNumber(k) ?? k
         const f = op.fn === 'count' ? `COUNTIF(${rg},A${row})` : op.fn === 'min' || op.fn === 'max' ? `${fn}(${rv},${rg},A${row})` : `${fn}(${rg},A${row},${rv})`
         ws.getCell(`B${row}`).value = { formula: f } as ExcelJS.CellFormulaValue
       })

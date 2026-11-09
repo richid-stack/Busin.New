@@ -28,7 +28,9 @@ export function chooseComputer(devices: Device[], now: Date, name?: string, kind
   if (!pool.length) throw new InspectError(`There is no connected computer named "${name!.slice(0, 60)}". Connected: ${devices.map(d => d.name).join(', ')}.`)
   const online = pool.filter(d => isOnline(d, now))
   if (!online.length) throw new InspectError(`${pool.length === 1 ? `"${pool[0]!.name}" is` : 'Your computers are'} offline right now. Start the Bridge on it and try again.`)
-  const allowed = online.filter(d => d.capabilities.includes(kind))
+  const awake = online.filter(d => !d.paused)
+  if (!awake.length) throw new InspectError(`${online.length === 1 ? `"${online[0]!.name}" is` : 'Your computers are'} paused. Resume it from the Bridge icon in its system tray.`)
+  const allowed = awake.filter(d => d.capabilities.includes(kind))
   if (!allowed.length) {
     const needs = JOB_PERMISSION[kind] ?? 'browser'
     if (needs === 'browser') throw new InspectError(`"${online[0]!.name}" has not allowed looking at web pages. On that computer, run: npm run bridge -- allow browser`)
@@ -70,7 +72,7 @@ export function bridgeProvider(opts: BridgeProviderOptions): ScreenshotProvider 
       if (!file || !file.bytes.length) throw new InspectError('The computer finished but its picture was not available.')
       return {
         bytes: file.bytes,
-        mediaType: 'image/jpeg',
+        mediaType: file.mime === 'image/png' ? 'image/png' : 'image/jpeg',
         width: Number(r.width) || 0,
         height: Number(r.height) || 0,
         url: String(r.finalUrl || req.url),
