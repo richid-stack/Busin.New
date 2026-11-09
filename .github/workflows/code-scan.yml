@@ -35,6 +35,24 @@ jobs:
       - uses: github/codeql-action/analyze@v3
         with:
           category: /language:javascript-typescript
+          output: codeql-results
+      - name: Print what CodeQL found
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, glob
+          files = glob.glob('codeql-results/**/*.sarif', recursive=True)
+          n = 0
+          for f in files:
+              for run in json.load(open(f)).get('runs', []):
+                  rules = {r['id']: r for r in run.get('tool', {}).get('driver', {}).get('rules', [])}
+                  for res in run.get('results', []):
+                      loc = res['locations'][0]['physicalLocation']
+                      level = res.get('level') or rules.get(res['ruleId'], {}).get('defaultConfiguration', {}).get('level', 'warning')
+                      print(f"{level:8} {loc['artifactLocation']['uri']}:{loc.get('region', {}).get('startLine', '?')} {res['ruleId']}")
+                      n += 1
+          print(f"CodeQL found {n} things to look at")
+          PY
 
   semgrep:
     runs-on: ubuntu-latest
