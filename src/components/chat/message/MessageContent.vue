@@ -413,11 +413,11 @@ const emit = defineEmits<{
         </p>
       </UChatTool>
       <UChatTool
-        v-else-if="getToolName(part) === 'look_in_folder' || getToolName(part) === 'add_tool_server'"
-        :text="isToolStreaming(part) ? (getToolName(part) === 'add_tool_server' ? 'Adding the tool server...' : 'Looking in your folder...') : getRowsTrace(part).failed ? (getToolName(part) === 'add_tool_server' ? getRowsTrace(part).title : 'Could not look in the folder') : getRowsTrace(part).title"
+        v-else-if="getToolName(part) === 'look_in_folder' || getToolName(part) === 'add_tool_server' || getToolName(part) === 'install_skill'"
+        :text="isToolStreaming(part) ? (getToolName(part) === 'add_tool_server' ? 'Adding the tool server...' : getToolName(part) === 'install_skill' ? 'Keeping the skill...' : 'Looking in your folder...') : getRowsTrace(part).failed ? (getToolName(part) !== 'look_in_folder' ? getRowsTrace(part).title : 'Could not look in the folder') : getRowsTrace(part).title"
         :suffix="getRowsTrace(part).summary"
         :streaming="isToolStreaming(part)"
-        :icon="getToolName(part) === 'add_tool_server' ? 'i-lucide-plug' : 'i-lucide-folder-search'"
+        :icon="getToolName(part) === 'add_tool_server' ? 'i-lucide-plug' : getToolName(part) === 'install_skill' ? 'i-lucide-wand-sparkles' : 'i-lucide-folder-search'"
         :chevron="getRowsTrace(part).rows.length || getRowsTrace(part).error ? 'leading' : undefined"
       >
         <div

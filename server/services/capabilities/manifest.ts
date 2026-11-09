@@ -74,7 +74,7 @@ export async function resolveSetup(requests: string[], sources: SetupSources): P
   return requests.map((asked): CapabilityCard => {
     // 1. Skills: instructions that are already built in.
     const skill = sources.skills.find(s => names(asked, s.name))
-    if (skill) return { kind: 'skill', id: skill.name, name: skill.name, asked, does: skill.description, state: 'ready', risk: 'guidance', needs: [], next: 'Built in. It opens when the job needs it.' }
+    if (skill) return { kind: 'skill', id: skill.name, name: skill.name, asked, does: skill.description, state: 'ready', risk: 'guidance', needs: [], next: skill.description.includes('(kept by the user') ? 'Kept in your list. It opens when the job needs it.' : 'Built in. It opens when the job needs it.' }
 
     // 2. The person's own computer.
     if (asksForComputer(asked)) {
