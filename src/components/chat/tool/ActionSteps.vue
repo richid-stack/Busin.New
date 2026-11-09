@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { stepWords } from '../../../utils/stepWords'
+
 defineProps<{ steps: Array<{ label: string, status: 'running' | 'done' | 'failed', detail?: string }> }>()
 </script>
 
@@ -8,15 +10,14 @@ defineProps<{ steps: Array<{ label: string, status: 'running' | 'done' | 'failed
     class="flex flex-col"
     aria-label="What it is doing"
   >
-    <!-- Each step is a small tool-call row, the same kind the rest of the chat shows. -->
+    <!-- Each step reads as a sentence. Its icon says what kind of action it is and stays put: only the words change as it runs. -->
     <UChatTool
       v-for="(s, i) in steps"
       :key="i"
-      :text="s.label"
+      :text="stepWords(s.label, s.status).text"
       :suffix="s.detail"
       :streaming="s.status === 'running'"
-      :loading="s.status === 'running'"
-      :icon="s.status === 'failed' ? 'i-lucide-circle-x' : 'i-lucide-check'"
+      :icon="stepWords(s.label, s.status).icon"
       :ui="s.status === 'failed' ? { leadingIcon: 'text-error', label: 'text-error' } : undefined"
     />
   </div>
