@@ -55,6 +55,8 @@ export function phraseFor(part: Part): string {
   if (name === 'look_at_page') return 'Looking at the page.'
   if (name === 'find_icons') return 'Looking for icons.'
   if (name === 'find_fonts') return 'Looking for fonts.'
+  if (name === 'find_skill') return 'Looking for a skill.'
+  if (name === 'load_external_skill') return 'Opening a skill.'
   if (name === 'github_read') return 'Reading the project.'
   if (name === 'community_search') return 'Searching the Reef.'
   if (name === 'design_tokens') return 'Reading the page\'s design.'

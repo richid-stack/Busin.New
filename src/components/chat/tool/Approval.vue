@@ -16,6 +16,7 @@ const input = computed<Record<string, unknown>>(() => (props.part.input && typeo
 const isApp = computed(() => toolName.value === 'integration_execute')
 const isMcp = computed(() => toolName.value.startsWith('mcp_'))
 const isBrowser = computed(() => toolName.value === 'browser')
+const isSkill = computed(() => toolName.value === 'load_external_skill')
 
 const SPELLING: Record<string, string> = { github: 'GitHub', gitlab: 'GitLab', onedrive: 'OneDrive', one_drive: 'OneDrive', hubspot: 'HubSpot', paystack: 'Paystack', google_drive: 'Google Drive', google_calendar: 'Google Calendar' }
 const words = (text: string) => text.replace(/[_-]+/g, ' ').trim()
@@ -26,14 +27,15 @@ const title = computed(() => {
   }
   if (isMcp.value) return words(toolName.value.slice(4))
   if (isBrowser.value) return props.label || 'a website'
+  if (isSkill.value) return [input.value.repo, input.value.folder].filter(Boolean).join('/') || 'a skill'
   return words(toolName.value)
 })
-const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : mcpLogo(toolName.value)))
-const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : 'Action')
+const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : mcpLogo(toolName.value)))
+const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */
 const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
-const fields = computed(() => isBrowser.value ? [] : Object.entries(input.value)
+const fields = computed(() => isBrowser.value || isSkill.value ? [] : Object.entries(input.value)
   .filter(([key]) => !(isApp.value && ['provider', 'instruction', 'access'].includes(key)))
   .map(([key, value]) => ({ key: words(key), value: (typeof value === 'string' ? value : JSON.stringify(value)) ?? '' })))
 
@@ -70,7 +72,7 @@ async function answer(approved: boolean) {
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>
           <p class="text-xs text-muted mt-0.5">
-            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : 'It may change things or reach other people.' }}
+            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : 'It may change things or reach other people.' }}
           </p>
         </div>
       </div>
