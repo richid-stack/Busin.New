@@ -21,6 +21,7 @@ import { createFindFontsTool, createFindIconsTool } from '../../../utils/tools/f
 import { createGithubReadTool } from '../../../utils/tools/githubRead'
 import { fetchGuidance } from '../../../services/design/guidance'
 import { createCheckSetupTool } from '../../../utils/tools/checkSetup'
+import { createAddToolServerTool } from '../../../utils/tools/addToolServer'
 import { getResolvedUserIntegrations } from '../../../services/integrations/registry'
 import { isOnline } from '../../../services/bridge/model'
 import { createFindSkillTool, createLoadExternalSkillTool } from '../../../utils/tools/externalSkill'
@@ -298,6 +299,7 @@ export default defineHandler(async (event) => {
           create_spreadsheet: createSpreadsheetTool(userId),
           create_presentation: createPresentationTool(userId),
           inspect_design: createInspectDesignTool(userId, messages, modelId),
+          add_tool_server: createAddToolServerTool(userId),
           // Only offered where a browser is set up, so the assistant is never told about a tool that cannot work.
           ...(browserService ? { browser: createBrowserTool(userId, id, browserService, waitHooks) } : {}),
           ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {}),

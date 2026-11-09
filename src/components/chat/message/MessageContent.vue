@@ -27,7 +27,7 @@ import { approvalInstruction, controlsBefore, hostBefore } from '../../../utils/
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
-import { getDocumentRead, getFetchedPage, getFileTrace, getFolderTrace, getLookupTrace, getPageTrace, getRunTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
+import { getDocumentRead, getFetchedPage, getFileTrace, getRowsTrace, getLookupTrace, getPageTrace, getRunTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -413,19 +413,19 @@ const emit = defineEmits<{
         </p>
       </UChatTool>
       <UChatTool
-        v-else-if="getToolName(part) === 'look_in_folder'"
-        :text="isToolStreaming(part) ? 'Looking in your folder...' : getFolderTrace(part).failed ? 'Could not look in the folder' : getFolderTrace(part).title"
-        :suffix="getFolderTrace(part).summary"
+        v-else-if="getToolName(part) === 'look_in_folder' || getToolName(part) === 'add_tool_server'"
+        :text="isToolStreaming(part) ? (getToolName(part) === 'add_tool_server' ? 'Adding the tool server...' : 'Looking in your folder...') : getRowsTrace(part).failed ? (getToolName(part) === 'add_tool_server' ? getRowsTrace(part).title : 'Could not look in the folder') : getRowsTrace(part).title"
+        :suffix="getRowsTrace(part).summary"
         :streaming="isToolStreaming(part)"
-        icon="i-lucide-folder-search"
-        :chevron="getFolderTrace(part).rows.length || getFolderTrace(part).error ? 'leading' : undefined"
+        :icon="getToolName(part) === 'add_tool_server' ? 'i-lucide-plug' : 'i-lucide-folder-search'"
+        :chevron="getRowsTrace(part).rows.length || getRowsTrace(part).error ? 'leading' : undefined"
       >
         <div
-          v-if="getFolderTrace(part).rows.length"
+          v-if="getRowsTrace(part).rows.length"
           class="flex flex-col gap-1 text-sm"
         >
           <p
-            v-for="row in getFolderTrace(part).rows"
+            v-for="row in getRowsTrace(part).rows"
             :key="row.verb + row.name"
             :class="['flex items-baseline gap-2 min-w-0', row.verb ? '' : 'ml-4']"
           >
@@ -434,20 +434,21 @@ const emit = defineEmits<{
               class="text-muted shrink-0"
             >{{ row.verb }}</span>
             <span
-              v-if="row.name === 'your folder'"
+              v-if="row.name === 'your folder' || (row as { plain?: boolean }).plain"
               class="text-default"
             >{{ row.name }}</span>
             <code
-              v-else
+              v-else-if="row.name"
               :class="['font-mono text-[13px] break-all', row.verb ? 'text-default' : 'text-muted']"
             >{{ row.name }}</code>
           </p>
         </div>
         <p
-          v-else-if="getFolderTrace(part).error"
+          v-if="getRowsTrace(part).error"
           class="text-sm text-muted"
+          :class="getRowsTrace(part).rows.length ? 'mt-1' : ''"
         >
-          {{ getFolderTrace(part).error }}
+          {{ getRowsTrace(part).error }}
         </p>
       </UChatTool>
       <UChatTool

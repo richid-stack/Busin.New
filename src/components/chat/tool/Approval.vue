@@ -5,6 +5,7 @@ import { accentGradient } from '../../../utils/accentGradient'
 import { appLogo } from '../../../utils/appLogo'
 import { mcpLogo } from '../../../utils/mcpLogo'
 import { checkStep, commandLine } from '../../../../shared/runPlan'
+import { MCP_PRESETS, presetById } from '../../../../shared/mcpCatalog'
 
 const props = defineProps<{ part: any, /** What will be done, when the tool cannot say it in its own inputs (the browser). */ instruction?: string, /** Replaces the tool's name in the heading (the site, for the browser). */ label?: string, /** Not a yes/no question: the page needs you to do something (sign in, a code), then press Continue. */ person?: boolean }>()
 
@@ -19,6 +20,15 @@ const isMcp = computed(() => toolName.value.startsWith('mcp_'))
 const isBrowser = computed(() => toolName.value === 'browser')
 const isSkill = computed(() => toolName.value === 'load_external_skill')
 const isRun = computed(() => toolName.value === 'run_on_computer')
+const isAdd = computed(() => toolName.value === 'add_tool_server')
+
+/** What is shown about a server to add comes from the checked list, never from what the assistant wrote. */
+const preset = computed(() => {
+  if (!isAdd.value) return undefined
+  const key = String(input.value.server || '').trim().toLowerCase()
+  return presetById(key) ?? MCP_PRESETS.find(p => p.name.toLowerCase() === key)
+})
+const presetHost = computed(() => { try { return new URL(preset.value?.url || '').hostname } catch { return '' } })
 
 /** The plan as the person reads it: each step in everyday words, the real command under it, and what to watch for. */
 const plan = computed(() => {
@@ -48,14 +58,15 @@ const title = computed(() => {
   if (isBrowser.value) return props.label || 'a website'
   if (isSkill.value) return [input.value.repo, input.value.folder].filter(Boolean).join('/') || 'a skill'
   if (isRun.value) return String(input.value.computer || 'your computer')
+  if (isAdd.value) return preset.value?.name || 'a tool server'
   return words(toolName.value)
 })
-const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : isRun.value ? 'i-lucide-terminal' : mcpLogo(toolName.value)))
-const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : isRun.value ? 'Run commands' : 'Action')
+const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
+const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */
 const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
-const fields = computed(() => isBrowser.value || isSkill.value || isRun.value ? [] : Object.entries(input.value)
+const fields = computed(() => isBrowser.value || isSkill.value || isRun.value || isAdd.value ? [] : Object.entries(input.value)
   .filter(([key]) => !(isApp.value && ['provider', 'instruction', 'access'].includes(key)))
   .map(([key, value]) => ({ key: words(key), value: (typeof value === 'string' ? value : JSON.stringify(value)) ?? '' })))
 
@@ -92,10 +103,50 @@ async function answer(approved: boolean) {
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>
           <p class="text-xs text-muted mt-0.5">
-            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : 'It may change things or reach other people.' }}
+            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : isAdd ? 'Nothing is added until you press Approve.' : 'It may change things or reach other people.' }}
           </p>
         </div>
       </div>
+
+      <template v-if="isAdd && preset">
+        <p
+          v-if="input.why"
+          class="text-sm text-default"
+        >
+          {{ input.why }}
+        </p>
+        <div class="flex flex-col gap-2 rounded-xl bg-elevated/50 border border-default px-3.5 py-3 text-sm">
+          <p class="text-default">
+            {{ preset.summary }}
+          </p>
+          <p class="text-xs text-muted font-mono break-all">
+            {{ presetHost }}
+          </p>
+          <span class="flex flex-wrap gap-1">
+            <UBadge
+              label="No sign-in needed"
+              color="neutral"
+              variant="subtle"
+              size="sm"
+            />
+            <UBadge
+              :label="preset.access === 'read' ? 'Only reads' : 'Can change things'"
+              :color="preset.access === 'read' ? 'neutral' : 'warning'"
+              variant="subtle"
+              size="sm"
+            />
+          </span>
+          <p
+            v-if="preset.caution"
+            class="text-xs text-muted"
+          >
+            {{ preset.caution }}
+          </p>
+        </div>
+        <p class="text-xs text-muted">
+          This only adds it. Nothing is switched on: you read each of its tools and choose which to allow afterwards.
+        </p>
+      </template>
 
       <template v-if="isRun">
         <p

@@ -22,6 +22,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   { id: 'study_sites', label: 'Study designs', detail: 'Looks at live pages like a person would, reads the colours and fonts they use, and finds free icons and fonts to build with.', tools: ['look_at_page', 'design_tokens', 'find_icons', 'find_fonts'] },
   { id: 'more_skills', label: 'Find skills online', detail: 'Looks for a skill on GitHub when none fits, and loads one for a chat only after you approve it.', tools: ['find_skill', 'load_external_skill'] },
   { id: 'setup_check', label: 'Check what is connected', detail: 'Before a job, checks which of your apps, tool servers and computers are ready and what is missing. Connects nothing.', tools: ['check_setup'] },
+  { id: 'add_servers', label: 'Add tool servers for you', detail: 'Adds a checked tool server that needs no sign-in after you approve it. Nothing is switched on: you read and allow each of its tools yourself.', tools: ['add_tool_server'], sensitive: true },
   { id: 'read_code', label: 'Read GitHub and the Reef', detail: 'Reads public GitHub projects and searches what people have shared in the Reef. Read-only.', tools: ['github_read', 'community_search'] },
   { id: 'create_files', label: 'Create files', detail: 'Makes Word, PDF, Excel and PowerPoint files you can download.', tools: ['create_document', 'create_spreadsheet', 'create_presentation'] },
   { id: 'inspect', label: 'Check designs and pages', detail: 'Looks at a web page or a picture you attach and lists what is wrong with it, then checks again after fixes.', tools: ['inspect_design'] },

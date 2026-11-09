@@ -187,3 +187,28 @@ export function getFolderTrace(part: ToolPart): { rows: { verb: string, name: st
   }
   return { title: 'Read a file on your computer', rows: output.name ? [{ verb: 'Read file', name: output.name }] : [], summary: output.computer, failed: false }
 }
+
+/** Adding a tool server, one row per thing that happened: a short label, then the name, then the tools found. */
+export function getServerTrace(part: ToolPart): { rows: { verb: string, name: string, plain?: boolean }[], title: string, summary?: string, failed: boolean, error?: string } {
+  const o = part.output as { status?: string, name?: string, host?: string, tools?: string[], toolCount?: number, more?: number, approved?: number, next?: string, error?: string } | undefined
+  const name = o?.name || 'tool server'
+  if (!o || o.status === 'failed' || o.status === 'unknown') return { rows: [], title: `Could not add ${name}`, failed: true, error: plainError(o?.error) }
+  if (o.status === 'needs_key') return { rows: [{ verb: 'Needs a key', name, plain: true }], title: `${name} needs a key`, summary: 'Added in Integrations', failed: false, error: o.next }
+  if (o.status === 'already_added') return { rows: [{ verb: 'Already added', name, plain: true }], title: `${name} is already added`, summary: o.host, failed: false }
+  const tools = o.tools ?? []
+  return {
+    title: `Added ${name}`,
+    summary: `${o.toolCount ?? tools.length} ${(o.toolCount ?? tools.length) === 1 ? 'tool' : 'tools'} to review`,
+    rows: [
+      ...(o.host ? [{ verb: 'Reached', name: o.host }] : []),
+      { verb: 'Added', name, plain: true },
+      { verb: 'Found tools', name: '' },
+      ...tools.map(t => ({ verb: '', name: t })),
+      ...(o.more ? [{ verb: '', name: `and ${o.more} more` }] : [])
+    ],
+    failed: false
+  }
+}
+
+/** The rows for a trace that lists what was looked at or done: the folder, or a tool server. */
+export const getRowsTrace = (part: ToolPart) => ((part as { type?: string }).type === 'tool-add_tool_server' ? getServerTrace(part) : getFolderTrace(part))

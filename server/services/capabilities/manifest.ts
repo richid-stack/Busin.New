@@ -109,7 +109,7 @@ export async function resolveSetup(requests: string[], sources: SetupSources): P
         kind: 'tool_server', id: preset.id, name: preset.name, asked, does: preset.summary,
         state: preset.auth === 'key' ? 'needs_key' : 'not_connected', risk: preset.access === 'changes' ? 'changes' : 'reads',
         needs: preset.auth === 'key' ? [preset.keyHelp ? `A key. ${preset.keyHelp}` : `A key from ${preset.name}`] : [],
-        next: `Add ${preset.name} in Integrations, under tool servers. ${preset.auth === 'key' ? 'You paste the key there; it is never shown in chat.' : 'No sign-in needed.'}`,
+        next: preset.auth === 'key' ? `Add ${preset.name} in Integrations, under tool servers. You paste the key there; it is never shown in chat.` : `No sign-in needed. It can be added for you (the user approves first), or in Integrations under tool servers. Its tools are then read and allowed one by one on that page.`,
         where: '/integrations/mcp'
       }
     }
