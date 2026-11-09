@@ -107,7 +107,7 @@ export function knownOutputKeys(node: { type: string, data?: Record<string, any>
   const d = node.data ?? {}
   if (node.type === 'action' && d.subtype === 'api') return ['status', 'ok', 'body', 'headers', 'url']
   if (node.type === 'action' && d.subtype === 'web-fetch') return ['content', 'title', 'url', 'truncated']
-  if (node.type === 'action' && d.subtype === 'visual-check') return ['passed', 'verdict', 'score', 'summary', 'defects', 'defectCount', 'progressNote', 'screenshotFileId']
+  if (node.type === 'action' && d.subtype === 'visual-check') return ['passed', 'verdict', 'score', 'summary', 'defects', 'defectCount', 'progress', 'counts', 'source', 'progressNote', 'screenshotFileId']
   if (node.type === 'logic' && d.subtype === 'loop') return ['results', 'outputs', 'count', 'succeeded', 'failed']
   if (node.type === 'logic' && d.subtype === 'set') {
     const keys = ((d.config?.fields ?? []) as Array<{ key?: string }>).map(f => f.key).filter((k): k is string => Boolean(k))

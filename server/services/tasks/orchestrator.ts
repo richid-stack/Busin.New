@@ -7,6 +7,7 @@ import { TaskError } from './store'
 import type { ToolNote, VerifyContext } from './verify'
 import type { TaskToolContext } from './tools'
 import { BROWSER_LIMITS } from '../browser/model'
+import { finalStatus } from './status'
 
 /**
  * Runs one task from start to finish: work, check, and if the check finds problems, work again with the
@@ -64,15 +65,7 @@ function artifactFrom(output: any): Artifact | null {
   return null
 }
 
-export function finalStatus(criteria: Criterion[]): { status: 'done' | 'needs_review' | 'partial' | 'failed', outcome: string } {
-  const n = (s: Criterion['status']) => criteria.filter(c => c.status === s).length
-  const met = n('met'); const unmet = n('unmet'); const open = n('unsure') + n('pending') + n('unchecked')
-  const total = criteria.length
-  if (unmet === 0 && open === 0) return { status: 'done', outcome: `Done. All ${total} ${total === 1 ? 'criterion was' : 'criteria were'} checked and met.` }
-  if (unmet === 0) return { status: 'needs_review', outcome: `Finished, but ${open} of ${total} could not be checked automatically. Please review ${open === 1 ? 'it' : 'them'}.` }
-  if (met > 0) return { status: 'partial', outcome: `Partly done: ${met} of ${total} met, ${unmet} not met${open ? `, ${open} could not be checked` : ''}.` }
-  return { status: 'failed', outcome: `Not done: none of the ${total} ${total === 1 ? 'criterion was' : 'criteria were'} met.` }
-}
+export { finalStatus }
 
 export async function runTask(claimed: Task, lease: string, deps: RunDeps): Promise<Task> {
   const { store } = deps
@@ -90,6 +83,19 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
   const fail = async (error: string) => {
     await store.addEvent(task.id, 'error', error)
     return await store.update(task.id, lease, { status: 'failed', error, outcome: `Stopped: ${error}` }).catch(() => task)
+  }
+  /**
+   * The task cannot go on (the model kept failing, credits ran out, time ran out while checking). If some of it was already
+   * checked and met, that is reported as it is (partly done); only a task with nothing met is "failed".
+   */
+  const settle = async (reason: string, cause?: unknown) => {
+    if (cause) console.warn('[task] settled early:', (cause as Error)?.message)
+    const criteria = task.criteria.map(c => c.status === 'unchecked' ? { ...c, status: 'unsure' as const, evidence: c.evidence || 'This was not checked.' } : c)
+    if (!criteria.some(c => c.status === 'met')) return await fail(reason)
+    const end = finalStatus(criteria)
+    const outcome = `${end.outcome} ${reason}`.trim()
+    await store.addEvent(task.id, 'status', outcome)
+    return await store.update(task.id, lease, { criteria, status: 'verifying' }).then(() => store.update(task.id, lease, { status: end.status, outcome })).catch(() => task)
   }
   // A model of the person's own can be unavailable (provider removed, key unreadable): say so rather than guess another.
   let chosen: Awaited<ReturnType<RunDeps['model']>>
@@ -132,7 +138,7 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
       try {
         charge = await deps.charge(task.userId, deps.costOf(chosen.id))
       } catch (err) {
-        if (err instanceof UsageLimitError) return await fail(err.message)
+        if (err instanceof UsageLimitError) return await settle(err.message)
         throw err
       }
 
@@ -187,7 +193,7 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
           await charge.refund()
           console.warn('[task] model error:', err?.message)
           await store.addEvent(task.id, 'error', 'The AI model stopped with an error. It will be tried again if attempts remain.')
-          if (attempt >= task.maxAttempts) return await fail('The AI model kept failing. Try again in a moment.')
+          if (attempt >= task.maxAttempts) return await settle('The AI model kept failing. Try again in a moment.')
           continue
         }
       }
@@ -195,7 +201,16 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
 
       task = await store.update(task.id, lease, { status: 'verifying', result: text, artifacts })
       await store.addEvent(task.id, 'status', 'Checking the result against each criterion.')
-      const checked = await deps.verify(task.criteria, { userId: task.userId, goal: task.goal, result: text, artifacts, toolLog }, task)
+      // The checks use the same Stop as the work: a person who stopped the task is not billed for more model calls, and each check ends when time does.
+      let checked: Criterion[]
+      try {
+        checked = await deps.verify(task.criteria, { userId: task.userId, goal: task.goal, result: text, artifacts, toolLog, signal: AbortSignal.any([stopper.signal, AbortSignal.timeout(Math.max(30_000, deadline - now().getTime()))]) }, task)
+      } catch (err) {
+        if (!(await store.stillMine(task.id, lease))) return (await store.get(task.userId, task.id)) ?? task
+        // Out of time while checking: what was not checked is said so, never counted as met.
+        if (stopper.signal.aborted) return (await store.get(task.userId, task.id)) ?? task
+        return await settle('It ran out of time while checking the result.', err)
+      }
       task = await store.update(task.id, lease, { criteria: checked })
       for (const c of checked) await store.addEvent(task.id, 'verify', `${c.status === 'met' ? 'Met' : c.status === 'unmet' ? 'Not met' : c.status === 'pending' ? 'Waiting for you' : 'Unsure'}: ${c.text}`, { criterion: c.id })
 
@@ -208,10 +223,25 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
       await store.addEvent(task.id, 'status', outcome)
       return await store.update(task.id, lease, { status: end.status, outcome })
     }
-    // No attempt could run (time or limits): report what the last check said, or that nothing ran.
-    const end = finalStatus(task.criteria.map(c => c.status === 'unchecked' ? { ...c, status: 'unmet' as const } : c))
+    // No attempt could run here (time or limits), or a worker died after the last attempt and this one took over.
+    // Checks that never ran are not turned into "not met": if there is a result to check, it is checked now; otherwise they are marked unchecked-and-said-so.
+    let criteria = task.criteria
+    if (criteria.some(c => c.status === 'unchecked')) {
+      if (task.attempts > 0 && task.result) {
+        try {
+          await store.update(task.id, lease, { status: 'verifying' })
+          criteria = await deps.verify(criteria, { userId: task.userId, goal: task.goal, result: task.result, artifacts, toolLog, signal: AbortSignal.any([stopper.signal, AbortSignal.timeout(60_000)]) }, task)
+        } catch (err) {
+          if (err instanceof TaskError) return (await store.get(task.userId, task.id)) ?? task
+          criteria = criteria.map(c => c.status === 'unchecked' ? { ...c, status: 'unsure' as const, evidence: 'This could not be checked, because the worker that ran the task stopped.' } : c)
+        }
+      } else {
+        criteria = criteria.map(c => c.status === 'unchecked' ? { ...c, status: 'unmet' as const, evidence: 'The task did not get to run, so this was never done.' } : c)
+      }
+    }
+    const end = finalStatus(criteria)
     await store.addEvent(task.id, 'status', end.outcome)
-    return await store.update(task.id, lease, { status: 'verifying' }).then(() => store.update(task.id, lease, { status: end.status, outcome: end.outcome })).catch((e) => {
+    return await store.update(task.id, lease, { status: 'verifying', criteria }).then(() => store.update(task.id, lease, { status: end.status, outcome: end.outcome })).catch((e) => {
       if (e instanceof TaskError) return task
       throw e
     })

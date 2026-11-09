@@ -32,14 +32,16 @@ export interface PollOptions { waitMs?: number, checkMs?: number, now?: () => nu
 export async function pollForJobs(store: BridgeStore, device: Device, token: string, raw: unknown, opts: PollOptions = {}) {
   const body = pollInputSchema.safeParse(raw ?? {})
   const now = opts.now ?? Date.now
-  await store.touch(device, body.success ? { version: body.data.version, capabilities: body.data.capabilities } : {})
+  await store.touch(device, body.success ? { version: body.data.version, capabilities: body.data.capabilities, paused: body.data.paused } : {})
+  // A pause or resume announced on its own is answered at once; the request that is already waiting carries on.
+  if (body.success && body.data.quick) { store.wake(device.id); return { jobs: [], cancel: [] } }
   const deadline = now() + (opts.waitMs ?? LIMITS.pollWaitMs)
   for (;;) {
     // A live browser step is answered at once and costs no database read: they come many times a minute.
     const live = opts.live?.take(device.id) ?? []
     const liveStop = opts.live?.takeStops(device.id) ?? []
     if (live.length || liveStop.length) return { jobs: [], cancel: [], live, liveStop }
-    const { jobs, cancel } = await store.claimJobs(device.id)
+    const { jobs, cancel } = await store.claimJobs(device.id, { cancelOnly: device.paused === true })
     const sendable = jobs.filter(j => isJobKind(j.kind))
     if (sendable.length || cancel.length || now() >= deadline) return { jobs: sendable.map(j => ({ id: j.id, kind: j.kind, input: j.input })), cancel }
     await store.waitForWake(device.id, Math.max(1, Math.min(opts.checkMs ?? LIMITS.pollCheckMs, deadline - now())))
@@ -78,7 +80,9 @@ export async function uploadJobFile(
   device: Device,
   jobId: string,
   raw: unknown,
-  save: (input: { userId: string, name: string, mime: string, bytes: Uint8Array }) => Promise<{ id: string }>
+  save: (input: { userId: string, name: string, mime: string, bytes: Uint8Array }) => Promise<{ id: string }>,
+  /** Removes a stored picture that ended up attached to no job. */
+  discard?: (id: string, userId: string) => Promise<void>
 ) {
   const parsed = imageUploadSchema.safeParse(raw)
   if (!parsed.success) throw new ApiError(400, 'Invalid picture.')
@@ -89,7 +93,13 @@ export async function uploadJobFile(
     const job = await store.jobForUpload(device.id, jobId)
     const ext = parsed.data.mediaType === 'image/png' ? 'png' : 'jpg'
     const saved = await save({ userId: job.userId, name: `page-look.${ext}`, mime: parsed.data.mediaType, bytes })
-    await store.attachFile(device.id, jobId, saved.id)
+    try {
+      await store.attachFile(device.id, jobId, saved.id)
+    } catch (err) {
+      // The job was cancelled, or another picture won the race, between the check and now: the stored copy belongs to nothing.
+      await discard?.(saved.id, job.userId).catch(() => {})
+      throw err
+    }
     return { fileId: saved.id }
   } catch (err) {
     if (err instanceof BridgeError) throw new ApiError(err.code === 'not_found' ? 404 : 409, err.message)
