@@ -27,7 +27,7 @@ import { approvalInstruction, controlsBefore, hostBefore } from '../../../utils/
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
-import { getDocumentRead, getFetchedPage, getFileTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
+import { getDocumentRead, getFetchedPage, getFileTrace, getPageTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -195,6 +195,67 @@ const emit = defineEmits<{
           class="text-sm text-muted"
         >
           {{ getFileTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'look_at_page'"
+        :text="isToolStreaming(part) ? 'Looking at the page...' : getPageTrace(part).failed ? 'Could not open the page' : 'Looked at the page'"
+        :suffix="getPageTrace(part).source || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-scan-eye"
+        :chevron="getPageTrace(part).fileId || getPageTrace(part).error ? 'leading' : undefined"
+      >
+        <img
+          v-if="getPageTrace(part).fileId"
+          :src="`/api/files/${getPageTrace(part).fileId}`"
+          :alt="getPageTrace(part).title || getPageTrace(part).source"
+          class="w-full max-w-xl rounded-lg border border-default"
+          loading="lazy"
+        >
+        <p
+          v-else-if="getPageTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getPageTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'design_tokens'"
+        :text="isToolStreaming(part) ? 'Reading the design...' : getPageTrace(part).failed ? 'Could not read the design' : 'Read the design'"
+        :suffix="getPageTrace(part).source || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-palette"
+        :chevron="getPageTrace(part).colors.length || getPageTrace(part).error ? 'leading' : undefined"
+      >
+        <div
+          v-if="getPageTrace(part).colors.length"
+          class="flex flex-col gap-2"
+        >
+          <div class="flex flex-wrap gap-2">
+            <span
+              v-for="c in getPageTrace(part).colors"
+              :key="c.hex"
+              class="inline-flex items-center gap-1.5 rounded-full border border-default py-0.5 pr-2 pl-1 text-xs text-muted"
+            >
+              <span
+                class="size-4 rounded-full border border-default"
+                :style="{ backgroundColor: c.hex }"
+              />
+              {{ c.hex }}
+            </span>
+          </div>
+          <p
+            v-if="getPageTrace(part).fonts.length"
+            class="text-sm text-muted"
+          >
+            {{ getPageTrace(part).fonts.join(' · ') }}
+          </p>
+        </div>
+        <p
+          v-else-if="getPageTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getPageTrace(part).error }}
         </p>
       </UChatTool>
       <UChatTool
