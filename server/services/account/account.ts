@@ -34,6 +34,41 @@ function scrubUrlSecrets(value: any): any {
   return value
 }
 
+const DATA_URL = /^data:([^;,]*)((?:;[^;,]*)*),/i
+
+/** Size in bytes of the file inside a `data:` URL, worked out without decoding it. Null when the text is not a `data:` URL. */
+function dataUrlSize(url: string): number | null {
+  const match = DATA_URL.exec(url)
+  if (!match) return null
+  const payload = url.slice(match[0].length)
+  if (/;base64$/i.test(match[2] ?? '')) {
+    const padding = Math.min(2, /=*$/.exec(payload)?.[0].length ?? 0)
+    return Math.max(0, Math.floor(payload.length * 3 / 4) - padding)
+  }
+  return Buffer.byteLength(payload.replace(/%[0-9a-f]{2}/gi, '_'))
+}
+
+/**
+ * Chat messages hold attached files inline, as `data:` URLs. The export keeps each file's name and size
+ * and leaves the contents out. Text the person typed or the model wrote is passed through as it is.
+ */
+function withoutAttachmentData(value: any): any {
+  if (typeof value === 'string') {
+    const size = dataUrlSize(value)
+    return size === null ? value : `[file contents not exported, ${size} bytes]`
+  }
+  if (Array.isArray(value)) return value.map(withoutAttachmentData)
+  if (value && typeof value === 'object') {
+    if (value.type === 'text' || value.type === 'reasoning') return value
+    if (value.type === 'file' && typeof value.url === 'string' && DATA_URL.test(value.url)) {
+      const { url, ...rest } = value
+      return { ...withoutAttachmentData(rest), size: dataUrlSize(url) }
+    }
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, withoutAttachmentData(v)]))
+  }
+  return value
+}
+
 /** Workflow settings that act as passwords: the webhook secret and the value of any request header. Names stay so the flow is still readable. */
 function redactWorkflow(workflow: any): any {
   const out = { ...workflow }
@@ -137,7 +172,8 @@ export interface UserExport {
 
 /**
  * The person's data as one JSON document. Secrets are left out on purpose: MCP tokens are not
- * included (only that a server exists), and file contents are listed, not embedded.
+ * included (only that a server exists), and file contents are listed, not embedded. Files attached
+ * in chats are exported as their name and size.
  */
 export async function collectUserData(deps: AccountDeps, user: { id: string, name: string, email?: string }, now = new Date()): Promise<UserExport> {
   const { db } = deps
@@ -149,7 +185,10 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       const nested: Record<string, unknown[]> = {}
       for (const sub of NESTED[collection] ?? []) {
         const snap = await db.collection(collection).doc(doc.id).collection(sub).get()
-        nested[sub] = snap.docs.map((d: any) => ({ id: d.id, ...plain(d.data()) }))
+        nested[sub] = snap.docs.map((d: any) => {
+          const item = { id: d.id, ...plain(d.data()) }
+          return collection === 'chats' && sub === 'messages' ? withoutAttachmentData(item) : item
+        })
       }
       return { id: doc.id, ...plain(doc.data()), ...nested }
     }))

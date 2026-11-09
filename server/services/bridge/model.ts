@@ -35,6 +35,8 @@ export interface Device {
   platform: Platform
   bridgeVersion: string
   capabilities: string[]
+  /** The person paused this computer from its tray icon: it is connected, but accepts nothing until resumed. */
+  paused?: boolean
   pairedAt: string
   lastSeenAt: string | null
   revokedAt: string | null
@@ -159,7 +161,11 @@ export const resultInputSchema = z.object({
 
 export const pollInputSchema = z.object({
   version: z.string().max(30).optional(),
-  capabilities: z.array(short(40)).max(20).optional()
+  capabilities: z.array(short(40)).max(20).optional(),
+  /** The computer is paused. Sent as its own fact, so what the person allowed does not look like it was taken back. */
+  paused: z.boolean().optional(),
+  /** Only report the pause or resume and answer at once, without waiting for work. */
+  quick: z.boolean().optional()
 }).default({})
 
 export const isOnline = (d: Pick<Device, 'lastSeenAt' | 'revokedAt'>, now: Date) =>

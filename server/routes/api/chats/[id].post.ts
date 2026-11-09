@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { AnthropicLanguageModelOptions } from '@ai-sdk/anthropic'
 import type { GoogleLanguageModelOptions } from '@ai-sdk/google'
 import type { OpenAILanguageModelResponsesOptions } from '@ai-sdk/openai'
+import { replayedApprovals } from '../../../utils/approvalReplay'
 import { useUserSession, toolApprovalSecret } from '../../../utils/session'
 import { getChat, updateChatTitle, saveChatMessage, saveChatMessages } from '../../../utils/firebase'
 import { defineHandler } from 'nitro'
@@ -110,6 +111,11 @@ export default defineHandler(async (event) => {
 
   if (!chat || chat.userId !== userId) {
     throw createError({ statusCode: 404, statusMessage: 'Chat not found' })
+  }
+
+  // An approval is good for one run. If this chat already holds the result of that tool call, the approval is being replayed.
+  if (replayedApprovals(chat.messages as UIMessage[], messages).length) {
+    throw createError({ statusCode: 409, statusMessage: 'That approval was already used. Ask again to run it again.' })
   }
 
   // Extract user text for title derivation and background tasks

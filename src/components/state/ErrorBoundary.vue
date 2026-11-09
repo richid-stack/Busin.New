@@ -13,10 +13,15 @@ import StateCard from './StateCard.vue'
 const failed = ref(false)
 const route = useRoute()
 
-const LIFECYCLE = /setup|render|mounted|updated|created|watcher|scheduler|async component|transition/i
+/**
+ * Errors from click and other event handlers are not page failures. Development builds name them ("native event
+ * handler", "component event handler"); production builds pass a link instead, ending in #runtime-5 (native) or
+ * #runtime-6 (component). Everything else, in either build, means the page itself could not be built or drawn.
+ */
+const EVENT_HANDLER = /event handler|#runtime-(5|6)$/i
 
 onErrorCaptured((err, _instance, info) => {
-  if (!LIFECYCLE.test(info)) return true
+  if (EVENT_HANDLER.test(info)) return true
   console.error(err)
   reportClientError(err)
   failed.value = true
