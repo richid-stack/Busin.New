@@ -48,12 +48,19 @@ Signed-in users can ask chat for finished files: Word or PDF (`create_document`)
 
 Files are stored in the Firestore collection `generated_files` (each at most 700 KB, readable only by the user who created it through `GET /api/files/:id`) and expire after 30 days. Expired files are refused and deleted when someone asks for them. To also clean them up automatically, add a free Firestore TTL policy on the `expiresAt` field of `generated_files` (Firebase console, Firestore, TTL).
 
+## Visual checks
+
+Chat has an `inspect_design` tool (agent tool group "Check designs and pages") and workflows have a **Visual Check** step. Both screenshot a web address with a real browser, or look at a picture the user attached, and a vision model reports defects against the requirements (blocker, major or minor, with where it is and how to fix it). Called again with the earlier defects, it says which are fixed, still there or unclear, so "build, look, fix, look again" is a loop an agent can run (see the `visual-qa` skill). It works for any page or screen, not only code an agent wrote, and the result is advice from a model: it cannot judge hover states, animation or other pages.
+
+Screenshots are taken by a separate worker (`inspector/server.ts`, image built from `Dockerfile.inspector`) so the app stays small; set `INSPECTOR_URL` and `INSPECTOR_SECRET` (see `docs/deploy.md`). For development, `INSPECTOR_LOCAL=1` runs the browser inside the app (set `INSPECT_ALLOW_LOCAL=1` to allow `http://localhost` pages and `INSPECTOR_CHROMIUM_PATH` if Playwright's browser is not installed). The in-app browser is never used when `NODE_ENV=production`. Without a worker, attached screenshots still work. A model that reads images is needed (not the Groq models).
+
 ## Workflow steps
 
 Besides AI agents, approvals and connected apps, workflows have these steps:
 
 - **HTTP Request**: GET, POST, PUT, PATCH or DELETE to a public web address, with headers and a body. Local and private addresses, non-standard ports and redirects are refused. Headers are stored with the workflow.
 - **Read Web Page**: a page as text (uses Firecrawl when `FIRECRAWL_API_KEY` is set).
+- **Visual Check**: takes a screenshot of a public page, has a vision model judge it against requirements you write, and outputs `passed`, `verdict`, `score`, `defects` (each with severity, area, problem and a suggested fix) and the saved screenshot. A failing verdict is data, not an error, so a later step (an AI agent, a message, an approval) can act on the defects. Pass `{{check.defects}}` as "earlier problems" on a second Visual Check to see which are fixed. Costs credits like one chat message.
 - **Set Fields**: build new values from earlier steps (text with placeholders, a formula, or JSON).
 - **Loop**: runs one small step (read a page, send a request, set fields or ask the AI) for each item of a list, three at a time, with `{{item}}` and `{{index}}`. At most 50 items (10 for AI steps). Failed items are reported without stopping the rest, unless "stop on first error" is on.
 

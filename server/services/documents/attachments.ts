@@ -32,6 +32,26 @@ export function listDocuments(messages: UIMessage[]): AttachedFile[] {
   return out
 }
 
+/** Pictures attached to the conversation, newest last. */
+export function listImages(messages: UIMessage[]): AttachedFile[] {
+  const out: AttachedFile[] = []
+  for (const message of messages) {
+    for (const part of (message.parts ?? []) as Part[]) {
+      if (isFilePart(part) && isImage(part) && isDataUrl(part.url)) {
+        out.push({ filename: String(part.filename || 'image'), mediaType: String(part.mediaType || ''), url: part.url })
+      }
+    }
+  }
+  return out
+}
+
+/** The most recent attached picture with this name, or the latest picture when no name is given. */
+export function findImage(messages: UIMessage[], name?: string): AttachedFile | undefined {
+  const images = listImages(messages).reverse()
+  if (!name?.trim()) return images[0]
+  return images.find(f => f.filename.toLowerCase() === name.trim().toLowerCase())
+}
+
 /** The most recent attached file with this name (case-insensitive), or undefined. */
 export function findDocument(messages: UIMessage[], name: string): AttachedFile | undefined {
   const wanted = name.trim().toLowerCase()

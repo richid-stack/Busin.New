@@ -6,6 +6,7 @@ import { runSandboxedCode } from './sandbox'
 import { LOOP_LIMITS, NodeConfigError, loopCap, loopItems, mapWithConcurrency, runHttpNode, runSetNode, runWebFetchNode, spendOutbound } from './workflowNodes'
 import type { HttpConfig, NodeDeps, SetField, WebFetchConfig } from './workflowNodes'
 import { UnsafeUrlError } from './netSafety'
+import { runVisualCheckNode } from './workflowVisual'
 import { UsageLimitError, chargeUsage } from '../services/usage/usage'
 import { trackToolWork } from '../services/integrations/execute'
 import { modelCost } from '../services/usage/plans'
@@ -376,6 +377,10 @@ export async function executeSingleNode(
       spendOutbound(userId)
       output = await runWebFetchNode(node.data.config ?? {}, inputs, AbortSignal.timeout(45_000), deps)
       message = `Read ${output.url}`
+    } else if (node.type === 'action' && node.data.subtype === 'visual-check') {
+      spendOutbound(userId)
+      output = await runVisualCheckNode(node.data.config ?? {}, inputs, userId, AbortSignal.timeout(90_000))
+      message = `${output.verdict === 'pass' ? 'Passed' : output.verdict === 'fail' ? 'Found problems' : 'Unsure'}: ${output.defectCount} defect${output.defectCount === 1 ? '' : 's'} in ${output.source}`
     } else if (node.type === 'action') {
       const provider = node.data.provider
       if (!provider) throw new NodeConfigError('Action node has no provider selected.')

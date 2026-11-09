@@ -58,7 +58,8 @@ export const NODE_CATEGORIES: Array<{ id: string, label: string, icon: string, n
       { type: 'action', subtype: 'slack', title: 'Send Slack', subtitle: 'Message', icon: 'i-logos-slack-icon', color: 'text-emerald-500' },
       { type: 'action', subtype: 'google_drive', title: 'Save to Drive', subtitle: 'File', icon: 'i-logos-google-drive', color: 'text-emerald-500' },
       { type: 'action', subtype: 'api', title: 'HTTP Request', subtitle: 'Call an API', icon: 'i-lucide-globe', color: 'text-emerald-500', config: { method: 'GET', url: '', headers: [], body: '', timeoutSec: 15 } },
-      { type: 'action', subtype: 'web-fetch', title: 'Read Web Page', subtitle: 'Page to text', icon: 'i-lucide-book-open-text', color: 'text-emerald-500', config: { url: '', maxChars: 8000 } }
+      { type: 'action', subtype: 'web-fetch', title: 'Read Web Page', subtitle: 'Page to text', icon: 'i-lucide-book-open-text', color: 'text-emerald-500', config: { url: '', maxChars: 8000 } },
+      { type: 'action', subtype: 'visual-check', title: 'Visual Check', subtitle: 'Look at a page', icon: 'i-lucide-scan-eye', color: 'text-emerald-500', config: { url: '', requirements: '', previous: '', width: 1280, fullPage: false, colorScheme: 'light' } }
     ]
   }
 ]
