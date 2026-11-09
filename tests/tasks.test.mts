@@ -38,6 +38,11 @@ assert(withheldTools(['apps']).some(w => w.tool === 'integration_execute'), 'wha
 const tools = buildTaskTools('u1', [...TASK_TOOL_GROUPS])
 assert(Object.keys(tools).includes('web_fetch') && Object.keys(tools).includes('inspect_design') && !('integration_execute' in tools) && !('workflow_run' in tools), 'a task is given only the allowed tools')
 assert(Object.keys(buildTaskTools('u1', ['utilities'])).sort().join() === 'calculator,chart,plan,weather', 'a task gets only the groups chosen for it')
+const opened = Object.keys(buildTaskTools('u1', ['save_files', 'study_sites', 'read_code'])).sort()
+assert(['fetch_file', 'view_image', 'look_at_page', 'design_tokens', 'find_icons', 'find_fonts', 'github_read', 'community_search'].every(t => opened.includes(t)), 'a task can save files, study designs (with icons and fonts) and read code when those are chosen')
+assert(!opened.includes('load_external_skill') && !opened.includes('check_setup') && !opened.includes('find_skill'), 'a task never loads outside skills or checks setup on its own')
+assert(!taskInputSchema.safeParse({ ...base, tools: ['more_skills'] }).success && !taskInputSchema.safeParse({ ...base, tools: ['design_assets'] }).success, 'the skills group is not offered to tasks, and the old icons group no longer exists')
+assert(parse({ ...base }).success && (parse({ ...base }) as any).data.tools.join() === 'web,create_files,inspect,utilities', 'tasks without a choice keep the same default tools as before')
 
 // ---- Store ----
 let clock = new Date('2026-10-22T10:00:00Z')
@@ -266,6 +271,10 @@ const start = async (h: ReturnType<typeof harness>, over: Record<string, unknown
   assert(ok.status === 'proposed' && ok.draft.criteria.length === 1 && /Nothing runs until/.test(ok.note), 'the chat tool drafts a task and says nothing has started')
   const bad = await t.execute({ goal: 'Check my page looks right on a phone.', criteria: [{ text: 'Looks right', kind: 'visual' }] }, {})
   assert(bad.status === 'failed' && /address/.test(bad.error), 'a draft the task form would refuse is refused, with the reason')
+  const more = await t.execute({ goal: 'Study three bank sites and save their logos for me.', criteria: [], alsoUse: ['study_sites', 'save_files'] }, {})
+  assert(more.status === 'proposed' && more.draft.tools.includes('study_sites') && more.draft.tools.includes('save_files') && more.draft.tools.includes('web') && !more.draft.tools.includes('browser'), 'a draft can opt in to the extra read-only abilities, on top of the usual ones')
+  assert(!('tools' in ok.draft), 'a plain draft carries no extra tools')
+  assert(!t.inputSchema.safeParse({ goal: 'Do something with accounts please.', criteria: [], alsoUse: ['apps'] }).success, 'a draft cannot ask for abilities that act in accounts')
 }
 
 // ---- Emails when a task finishes ----
