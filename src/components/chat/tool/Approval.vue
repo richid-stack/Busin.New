@@ -74,13 +74,17 @@ const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool fro
 const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
 const fields = computed(() => isBrowser.value || isSkill.value || isRun.value || isAdd.value ? [] : Object.entries(input.value)
   .filter(([key]) => !(isApp.value && ['provider', 'instruction', 'access'].includes(key)))
-  .map(([key, value]) => ({ key: words(key), value: (typeof value === 'string' ? value : JSON.stringify(value)) ?? '' }))
-  .slice(0, 12))
+  .map(([key, value]) => ({ key: words(key), value: (typeof value === 'string' ? value : JSON.stringify(value)) ?? '' })))
 
 async function answer(approved: boolean) {
   if (answered.value !== null || !props.part.approval?.id) return
   answered.value = approved
-  await respond?.(props.part.approval.id, approved)
+  try {
+    await respond?.(props.part.approval.id, approved)
+  } catch {
+    // The answer did not go through (connection lost, server refused it), so the buttons come back and it can be tried again.
+    answered.value = null
+  }
 }
 </script>
 
@@ -231,6 +235,7 @@ async function answer(approved: boolean) {
         {{ instruction }}
       </p>
 
+      <!-- Every input is listed, and a long value scrolls instead of being cut off: what is approved is what is shown. -->
       <dl
         v-if="fields.length"
         class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-xl bg-elevated/50 border border-default px-3.5 py-2.5"
@@ -242,7 +247,7 @@ async function answer(approved: boolean) {
           <dt class="text-muted capitalize">
             {{ f.key }}
           </dt>
-          <dd class="text-default font-mono break-words line-clamp-4">
+          <dd class="text-default font-mono whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
             {{ f.value }}
           </dd>
         </template>

@@ -71,8 +71,8 @@ pausedNow = true
 await waitFor('the job to be stopped', () => aborted === 1)
 await waitFor('the stop to be reported', () => calls.some(c => c.path.endsWith('/j1/result') && c.body.cancelled === true))
 assert(aborted === 1 && logs.some(l => /Paused from the tray icon/.test(l)), 'pausing stops the running job at once and reports it as stopped')
-await waitFor('the paused poll', () => calls.some(c => c.path === '/api/bridge/poll' && Array.isArray(c.body.capabilities) && c.body.capabilities.length === 0))
-assert(true, 'while paused, the computer tells OpenLobs it can do nothing')
+await waitFor('the paused poll', () => calls.some(c => c.path === '/api/bridge/poll' && c.body.paused === true))
+assert(calls.some(c => c.path === '/api/bridge/poll' && c.body.paused === true), 'while paused, the computer tells OpenLobs it is paused (what was allowed stays as it was)')
 assert(states.at(-1)?.paused === true && states.some(s => s.paused), 'the status board shows paused')
 jobsToSend = [{ id: 'j2', kind: 'ping', input: {} }]
 await waitFor('the refused job', () => calls.some(c => c.path.endsWith('/j2/result')))

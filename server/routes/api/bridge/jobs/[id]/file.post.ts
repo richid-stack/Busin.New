@@ -13,7 +13,7 @@ export default defineHandler(async (event) => {
   enforceRateLimit(event, 'bridge-file', device.id, 30, 10 * 60_000)
   const { id } = await getValidatedRouterParams(event, z.object({ id: z.string().min(1).max(128) }).parse)
   try {
-    return await uploadJobFile(bridgeStore(), device, id, await readBody(event).catch(() => null), i => fileStore().save(i))
+    return await uploadJobFile(bridgeStore(), device, id, await readBody(event).catch(() => null), i => fileStore().save(i), (fid, uid) => fileStore().discard(fid, uid))
   } catch (err) {
     if (err instanceof ApiError) throw new HTTPError({ statusCode: err.status, statusMessage: err.message })
     throw err

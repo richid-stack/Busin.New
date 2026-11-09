@@ -10,6 +10,9 @@ withDefaults(defineProps<{ fill?: 'screen' | 'parent' }>(), { fill: 'parent' })
     role="status"
     aria-label="Loading"
   >
-    <UIcon name="i-lucide-loader-2" class="show-late size-6 animate-spin text-muted" />
+    <!-- The fade and the spin each need their own element: both set `animation`, and the later one wins. -->
+    <span class="show-late flex">
+      <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
+    </span>
   </div>
 </template>
