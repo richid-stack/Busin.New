@@ -48,6 +48,18 @@ Signed-in users can ask chat for finished files: Word or PDF (`create_document`)
 
 Files are stored in the Firestore collection `generated_files` (each at most 700 KB, readable only by the user who created it through `GET /api/files/:id`) and expire after 30 days. Expired files are refused and deleted when someone asks for them. To also clean them up automatically, add a free Firestore TTL policy on the `expiresAt` field of `generated_files` (Firebase console, Firestore, TTL).
 
+## Tasks
+
+A task (the **Tasks** page, `/api/tasks`) is a goal plus the ways you will know it worked. It runs on its own in the background, then every criterion is checked and the task ends as `done`, `partly done`, `not done` or `needs your review`: never `done` on the agent's say-so.
+
+- **Checks:** a file exists (exact), a page looks right (screenshot judged by a vision model, see Visual checks), an AI judges the result from the tool log and files (labelled "Judged by an AI model"), or you check it yourself. What cannot be checked is left for you, not marked as met.
+- **Retries:** if something is not met and attempts remain (default 2, at most 3), the next attempt is told exactly what the check found. Limits: attempts, steps (3-15), minutes (1-10), 3 tasks running or waiting per person, one credit per attempt (refunded if the model fails).
+- **Tools:** only those in `server/services/tasks/registry.ts` that may run without you watching (reading, searching, making files, looking at pages). Anything that acts in your accounts, workflows and MCP servers are left out for now. A test fails if a chat tool is missing from the registry.
+- **Durability:** tasks are claimed with a lease, so a worker that stops is replaced by the next timer call; Stop reaches the running model call; late writes from a replaced worker are refused.
+- **From chat:** the assistant can draft a task (`task_propose`) as a card with a Start button; nothing runs until you press it.
+- **Email:** a task that ran two minutes or more emails you when it ends (Settings, Notifications; off switch; once per task; never for cancelled ones).
+- Tasks and their logs are part of the account export and erase.
+
 ## Visual checks
 
 Chat has an `inspect_design` tool (agent tool group "Check designs and pages") and workflows have a **Visual Check** step. Both screenshot a web address with a real browser, or look at a picture the user attached, and a vision model reports defects against the requirements (blocker, major or minor, with where it is and how to fix it). Called again with the earlier defects, it says which are fixed, still there or unclear, so "build, look, fix, look again" is a loop an agent can run (see the `visual-qa` skill). It works for any page or screen, not only code an agent wrote, and the result is advice from a model: it cannot judge hover states, animation or other pages.

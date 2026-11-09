@@ -1,12 +1,12 @@
 import { getFirebaseAuth, getFirebaseDb } from '../../utils/firebaseAdmin'
-import { renewalReminderEmail, sendEmail, workflowFailedEmail } from '../email/email'
+import { renewalReminderEmail, sendEmail, taskFinishedEmail, workflowFailedEmail } from '../email/email'
 import type { EmailMessage } from '../email/email'
 
 const SETTINGS = 'user_settings'
 const LOG = 'notification_log'
 
-export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean }
-export const DEFAULT_NOTIFICATIONS: NotificationSettings = { emailRenewals: true, emailWorkflowFailures: true }
+export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean, emailTaskResults: boolean }
+export const DEFAULT_NOTIFICATIONS: NotificationSettings = { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true }
 
 export interface NotifyDeps {
   db: any
@@ -31,7 +31,7 @@ export const defaultNotifyDeps = (): NotifyDeps => ({
 export async function getNotificationSettings(db: any, userId: string): Promise<NotificationSettings> {
   const doc = await db.collection(SETTINGS).doc(userId).get()
   const d = doc.exists ? doc.data() : {}
-  return { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false }
+  return { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false, emailTaskResults: d.emailTaskResults !== false }
 }
 
 export async function setNotificationSettings(db: any, userId: string, patch: Partial<NotificationSettings>): Promise<NotificationSettings> {
@@ -40,7 +40,7 @@ export async function setNotificationSettings(db: any, userId: string, patch: Pa
   return await db.runTransaction(async (tx: any) => {
     const doc = await tx.get(ref)
     const d = doc.exists ? doc.data() : {}
-    const current = { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false }
+    const current = { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false, emailTaskResults: d.emailTaskResults !== false }
     const next = { ...current, ...patch }
     tx.set(ref, { ...d, userId, ...next, updatedAt: new Date().toISOString() })
     return next
@@ -114,5 +114,33 @@ export async function notifyWorkflowFailure(deps: NotifyDeps, info: FailureInfo)
   }).catch(() => ({ sent: false }))
   if (!result.sent) return false
   await logRef.set({ userId: info.userId, kind: 'workflow-failed', createdAt: deps.now().toISOString() })
+  return true
+}
+
+export interface FinishedTask { id: string, userId: string, goal: string, status: string, outcome: string, startedAt: string | null, finishedAt: string | null }
+
+/** A task that took this long is one the person has probably walked away from. Shorter ones they watched. */
+export const TASK_EMAIL_MIN_MS = 2 * 60_000
+
+/** One email when a task that ran for a while ends, unless the person switched these off. Cancelled tasks never send one. */
+export async function notifyTaskFinished(deps: NotifyDeps, task: FinishedTask): Promise<boolean> {
+  if (task.status === 'cancelled') return false
+  const took = task.startedAt && task.finishedAt ? new Date(task.finishedAt).getTime() - new Date(task.startedAt).getTime() : 0
+  if (took < TASK_EMAIL_MIN_MS) return false
+  const settings = await getNotificationSettings(deps.db, task.userId)
+  if (!settings.emailTaskResults) return false
+
+  const key = `task-finished__${task.id}`
+  const logRef = deps.db.collection(LOG).doc(key)
+  if ((await logRef.get()).exists) return false
+  const who = await deps.contact(task.userId)
+  if (!who?.email) return false
+  const result = await deps.send({
+    ...taskFinishedEmail({ name: who.name, goal: task.goal, outcome: task.outcome, status: task.status, appUrl: deps.appUrl, taskId: task.id }),
+    to: who.email,
+    idempotencyKey: key
+  }).catch(() => ({ sent: false }))
+  if (!result.sent) return false
+  await logRef.set({ userId: task.userId, kind: 'task-finished', createdAt: deps.now().toISOString() })
   return true
 }

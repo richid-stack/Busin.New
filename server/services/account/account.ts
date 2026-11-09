@@ -12,11 +12,11 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings'] as const
 /** Nested data that goes with its parent document. */
-const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflows: ['runs'] }
+const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflows: ['runs'], tasks: ['events'] }
 
 export const EXPORT_FORMAT = 1
 
@@ -112,6 +112,7 @@ export interface UserExport {
   usage: unknown[]
   chats: unknown[]
   workflows: unknown[]
+  tasks: unknown[]
   agents: unknown[]
   memory: { enabled: boolean, items: unknown[] }
   mcpServers: unknown[]
@@ -152,9 +153,10 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, ...data }
     })
 
-  const [chats, workflows, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
+  const [chats, workflows, tasks, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
     withNested('chats'),
     withNested('workflows').then(list => list.map(redactWorkflow)),
+    withNested('tasks').then(list => list.map((t: any) => { const rest = { ...t }; delete rest.leaseToken; delete rest.leaseUntil; return rest })),
     simple('agents'),
     simple('memories'),
     ownedDocs(db, 'mcp_servers', id).then(docs => docs.map((doc) => {
@@ -184,12 +186,13 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     usage,
     chats,
     workflows,
+    tasks,
     agents,
     memory: { enabled: memSettings.exists ? memSettings.data()?.enabled !== false : true, items: memories },
     mcpServers: servers,
     files,
     payments,
-    notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true },
+    notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true },
     connectedKeys: keyDocs,
     connectorActivity: connectorAudit,
     notificationLog: notifLog,

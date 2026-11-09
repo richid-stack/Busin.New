@@ -44,7 +44,7 @@ export function useBilling() {
     }
   }
 
-  async function saveNotifications(patch: Partial<Pick<NotificationSettings, 'emailRenewals' | 'emailWorkflowFailures'>>) {
+  async function saveNotifications(patch: Partial<Pick<NotificationSettings, 'emailRenewals' | 'emailWorkflowFailures' | 'emailTaskResults'>>) {
     const next = await $fetch<NotificationSettings>('/api/account/notifications', { method: 'PUT', headers: headers(), body: patch })
     notifications.value = { ...notifications.value, ...next }
   }

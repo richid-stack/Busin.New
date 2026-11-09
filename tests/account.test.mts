@@ -16,6 +16,8 @@ const seed = async (uid: string) => {
   await db.collection('workflows').doc(`w-${uid}`).set({ userId: uid, name: 'Flow' })
   await db.collection('workflows').doc(`w-${uid}`).collection('runs').doc('r1').set({ userId: uid, status: 'completed' })
   await db.collection('agents').doc(`a-${uid}`).set({ userId: uid, name: 'Agent' })
+  await db.collection('tasks').doc(`t-${uid}`).set({ userId: uid, goal: 'Do a thing', status: 'done', leaseToken: 'LEASE-SECRET', leaseUntil: null })
+  await db.collection('tasks').doc(`t-${uid}`).collection('events').doc('e1').set({ at: '2026-10-22T10:00:00Z', kind: 'note', text: 'hi' })
   await db.collection('memories').doc(`mem-${uid}`).set({ userId: uid, text: 'Likes tea' })
   await db.collection('memory_settings').doc(uid).set({ userId: uid, enabled: false })
   await db.collection('mcp_servers').doc(`s-${uid}`).set({ userId: uid, name: 'Linear', url: 'https://mcp.example.com/x', sealedToken: 'SEALED-SECRET', approved: { mcp_linear_search: { fingerprint: 'f' } } })
@@ -48,6 +50,7 @@ assert(out.account.email === 'a@x.com' && out.exportedAt === '2026-10-19T00:00:0
 assert(out.chats.length === 1 && (out.chats[0] as any).messages.length === 1 && (out.chats[0] as any).votes.length === 1, 'chats come with their messages and votes')
 assert((out.chats[0] as any).createdAt === '2026-01-02T03:04:05.000Z', 'chat dates are readable')
 assert((out.workflows[0] as any).runs.length === 1, 'workflows come with their runs')
+assert((out.tasks[0] as any).events.length === 1 && !JSON.stringify(out.tasks).includes('LEASE-SECRET'), 'tasks are exported with their logs, without lease details')
 assert(out.agents.length === 1 && out.memory.items.length === 1 && out.memory.enabled === false, 'agents and memory (including the on/off setting) are included')
 assert((out.plan as any).plan === 'pro' && out.usage.length === 1, 'plan and usage are included')
 assert(out.connectedApps.sort().join() === 'notion,slack', 'connected apps are listed by name')
@@ -70,11 +73,11 @@ assert(e instanceof AccountDeletionError && db.raw('agents').has('a-alice'), 'if
 // ---- Erasure ----
 const res = await eraseUserData(deps(), 'alice')
 assert(calls.includes('disconnect:conn1') && calls.includes('disconnect:conn2') && calls.includes('auth:alice'), 'apps are disconnected and the sign-in account removed')
-for (const c of ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit']) {
+for (const c of ['chats', 'workflows', 'tasks', 'agents', 'memories', 'mcp_servers', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit']) {
   assert([...db.raw(c).values()].every(d => d.userId !== 'alice'), `${c}: all of Alice's documents are gone`)
 }
 assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice'), 'usage, plan and memory settings are gone')
-assert(db.raw('chats/c-alice/messages').size === 0 && db.raw('chats/c-alice/votes').size === 0 && db.raw('workflows/w-alice/runs').size === 0, 'messages, votes and runs go with their parents')
+assert(db.raw('chats/c-alice/messages').size === 0 && db.raw('chats/c-alice/votes').size === 0 && db.raw('workflows/w-alice/runs').size === 0 && db.raw('tasks/t-alice/events').size === 0, 'messages, votes, runs and task logs go with their parents')
 assert(res.removed.chats === 1 && res.removed.agents === 1 && res.removed.connectedApps === 2, 'the result counts what was removed')
 
 // ---- Bob is untouched ----

@@ -86,6 +86,16 @@ gcloud scheduler jobs create http openlobs-cron --location $REGION --schedule="*
   --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=CRON_SECRET)"
 ```
 
+Tasks run in the background, started right when one is created and picked up again by this second timer if a server stops half way (this also takes over tasks whose worker disappeared):
+
+```bash
+gcloud scheduler jobs create http openlobs-cron-tasks --location $REGION --schedule="*/2 * * * *" \
+  --uri="$URL/api/cron/tasks" --http-method=POST \
+  --headers="Authorization=Bearer $(gcloud secrets versions access latest --secret=CRON_SECRET)"
+```
+
+For tasks to keep running after the page closes, the app's Cloud Run service should keep its CPU (`--no-cpu-throttling`) or you rely on this timer alone (tasks then start within two minutes). Not tested by the authors on a live deploy.
+
 ## 5b. Paid plans and email (when you are ready to charge)
 
 1. In the Paystack dashboard (Settings → API Keys & Webhooks) copy the **secret key** and set the **Webhook URL** to `https://YOUR-SERVICE-URL/api/webhooks/paystack`. Use the test key first and make a test payment end to end.

@@ -30,6 +30,7 @@ import { isMemoryEnabled, listMemories } from '../../../services/memory/store'
 import { memoryPrompt } from '../../../services/memory/memory'
 import { createForgetTool, createRememberTool } from '../../../utils/tools/memory'
 import { createProposeAgentTool } from '../../../utils/tools/proposeAgent'
+import { createProposeTaskTool } from '../../../utils/tools/proposeTask'
 import { UsageLimitError, chargeGuest, chargeUsage, recordTokens } from '../../../services/usage/usage'
 import { modelCost } from '../../../services/usage/plans'
 import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatusTool, createIntegrationExecuteTool } from '../../../utils/tools/workflow'
@@ -230,7 +231,7 @@ export default defineHandler(async (event) => {
   const allTools = {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
-    ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId) } : {}),
+    ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
     ...(readDocument ? { read_document: readDocument } : {}),
@@ -304,6 +305,10 @@ ${Object.keys(tools).some(n => n.startsWith('mcp_')) ? `**MCP TOOLS:**
 - If the user asks for an agent, or describes a job they will repeat and a saved agent would clearly help, call propose_agent with a draft. It shows them a card with a Save button and saves nothing itself.
 - Do not propose one for a one-off question, and do not propose more than one per conversation unless asked.
 - Never say an agent is created or saved until the user has done it.
+
+` : ''}${signedIn && !agent ? `**BACKGROUND TASKS:**
+- If the user asks for a bigger job that takes minutes and ends in checked results (research plus a finished file, several steps, a page that must be built and checked), call task_propose with a clear goal and criteria. It shows a card with a Start button and starts nothing itself.
+- Do not propose a task for a quick question or something you can answer here. Never say a task has started until the user has pressed Start.
 
 ` : ''}**RESPONSE QUALITY:**
 - Be concise yet comprehensive
