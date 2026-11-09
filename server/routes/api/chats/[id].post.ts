@@ -17,6 +17,8 @@ import { createWebFetchTool } from '../../../utils/tools/webFetch'
 import { createLoadSkillTool } from '../../../utils/tools/loadSkill'
 import { createReadDocumentTool } from '../../../utils/tools/readDocument'
 import { createInspectDesignTool } from '../../../utils/tools/inspectDesign'
+import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
+import { bridgeStore } from '../../../services/bridge/store'
 import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
 import { prepareMessagesForModel, supportsNativePdf } from '../../../services/documents/attachments'
 import { skills } from '../../../services/skills/registry'
@@ -223,6 +225,8 @@ export default defineHandler(async (event) => {
   const mcpTools = signedIn ? await listServers(userId).then(list => buildMcpTools(userId, list)).catch((err) => { console.warn('MCP tools unavailable:', err?.message); return {} }) : {}
   // What the person asked us to remember. An agent only sees memory when it has the memory group on, and
   // anyone can switch it off on the Memory page. A failure here must never stop a chat.
+  // Offered only when one of the person's computers has been allowed to do spreadsheet work, so the assistant is not told about a tool that cannot work.
+  const excelOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('workbook_apply'))).catch(() => false)
   const memoryOn = signedIn && (!agent || agent.tools.includes('memory')) && await isMemoryEnabled(userId).catch(() => false)
   const memories = memoryOn ? await listMemories(userId).catch(() => []) : []
   const userText = lastMessage?.role === 'user'
@@ -250,7 +254,8 @@ export default defineHandler(async (event) => {
           create_document: createDocumentTool(userId),
           create_spreadsheet: createSpreadsheetTool(userId),
           create_presentation: createPresentationTool(userId),
-          inspect_design: createInspectDesignTool(userId, messages)
+          inspect_design: createInspectDesignTool(userId, messages),
+          ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {})
         }
       : {})
   }

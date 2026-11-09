@@ -15,6 +15,7 @@ import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
 import ChatToolFile from '../tool/File.vue'
 import ChatToolInspection from '../tool/Inspection.vue'
+import ChatToolComputerExcel from '../tool/ComputerExcel.vue'
 import ChatToolTaskProposal from '../tool/TaskProposal.vue'
 import ChatToolWorkflowApproval from '../tool/WorkflowApproval.vue'
 import ChatToolIntegrationExecute from '../tool/IntegrationExecute.vue'
@@ -149,6 +150,10 @@ const emit = defineEmits<{
       />
       <ChatToolInspection
         v-else-if="getToolName(part) === 'inspect_design'"
+        :invocation="part"
+      />
+      <ChatToolComputerExcel
+        v-else-if="getToolName(part) === 'computer_excel'"
         :invocation="part"
       />
       <ChatToolWorkflowCreate

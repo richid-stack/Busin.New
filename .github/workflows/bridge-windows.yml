@@ -39,11 +39,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install LibreOffice (the spreadsheet program the tests use)
+        shell: pwsh
+        run: |
+          choco install libreoffice-fresh -y --no-progress
+          $so = "$env:ProgramFiles\LibreOffice\program\soffice.exe"
+          if (-not (Test-Path $so)) { throw "LibreOffice was not found" }
+          "OPENLOBS_SHEET_ENGINE=libreoffice" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Bridge tests on Windows (real Edge)
         run: |
           node scripts/ci-capture.mjs "bridge.test" npx tsx tests/bridge.test.mts
           node scripts/ci-capture.mjs "bridgeBrowser.test" npx tsx tests/bridgeBrowser.test.mts
           node scripts/ci-capture.mjs "bridgeProgram.test" npx tsx tests/bridgeProgram.test.mts
+          node scripts/ci-capture.mjs "bridgeSheets.test" npx tsx tests/bridgeSheets.test.mts
 
       - name: Build the app folder
         shell: pwsh
@@ -63,7 +72,7 @@ jobs:
       - name: Build the installer
         shell: pwsh
         run: |
-          $log = & $env:ISCC "/DAppVersion=0.2.0" "/DDefaultServer=${{ github.event.inputs.default_server }}" bridge\installer\openlobs-bridge.iss 2>&1 | Out-String
+          $log = & $env:ISCC "/DAppVersion=0.3.0" "/DDefaultServer=${{ github.event.inputs.default_server }}" bridge\installer\openlobs-bridge.iss 2>&1 | Out-String
           Write-Host $log
           if ($LASTEXITCODE -ne 0) { $t = $log.Substring([Math]::Max(0, $log.Length - 5000)).Replace('%','%25').Replace("`r",'').Replace("`n",'%0A'); Write-Host "::error title=Inno Setup build::$t"; throw "Installer build failed" }
           Get-Item dist\OpenLobs-Bridge-Setup.exe | Select-Object Name, Length

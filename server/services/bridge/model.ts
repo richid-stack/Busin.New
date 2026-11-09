@@ -1,9 +1,10 @@
 import { z } from 'zod'
+import { SHEET_LIMITS, workbookApplyInput, workbookApplyResult, workbookInspectInput, workbookInspectResult, workbookListInput, workbookListResult } from '../../../shared/sheetOps'
 
 /**
  * OpenLobs Bridge: a small program on a person's own computer that OpenLobs can ask to do approved things.
  * The server never sends a command to run. It sends a named job from a short, fixed list; the Bridge checks
- * that list itself and refuses anything else. Today the list has a harmless ping and a read-only browser look.
+ * that list itself and refuses anything else. Today the list has a harmless ping, a read-only browser look, and three spreadsheet jobs that work only inside a folder the person chose.
  */
 
 export const LIMITS = {
@@ -65,17 +66,17 @@ export type EventKind = 'paired' | 'job' | 'revoked' | 'note'
 export interface DeviceEvent { id: string, at: string, kind: EventKind, text: string }
 
 /** The jobs a Bridge may be asked for. Adding one means adding it here and in the Bridge, on purpose. */
-export const JOB_KINDS = ['ping', 'browser_look'] as const
+export const JOB_KINDS = ['ping', 'browser_look', 'workbook_list', 'workbook_inspect', 'workbook_apply'] as const
 export type JobKind = typeof JOB_KINDS[number]
 
 export const isJobKind = (k: unknown): k is JobKind => (JOB_KINDS as readonly string[]).includes(String(k))
 
 /** What a person can allow on a computer. A ping is always allowed: it reveals nothing and changes nothing. */
-export const PERMISSIONS = ['browser'] as const
+export const PERMISSIONS = ['browser', 'excel'] as const
 export type Permission = typeof PERMISSIONS[number]
 /** Which permission a job needs, if any. */
-export const JOB_PERMISSION: Partial<Record<JobKind, Permission>> = { browser_look: 'browser' }
-export const PERMISSION_LABEL: Record<Permission, string> = { browser: 'Look at web pages' }
+export const JOB_PERMISSION: Partial<Record<JobKind, Permission>> = { browser_look: 'browser', workbook_list: 'excel', workbook_inspect: 'excel', workbook_apply: 'excel' }
+export const PERMISSION_LABEL: Record<Permission, string> = { browser: 'Look at web pages', excel: 'Work on spreadsheets in one folder' }
 
 const short = (n: number) => z.string().trim().min(1).max(n)
 
@@ -128,10 +129,21 @@ export type BrowserLookResult = z.infer<typeof browserLookResultSchema>
 /** A job's input, checked and filled in. Throws a message fit to show a person. */
 export function parseJobInput(kind: JobKind, raw: unknown): Record<string, unknown> {
   if (kind === 'ping') return {}
-  const parsed = browserLookInputSchema.safeParse(raw ?? {})
+  const schema = kind === 'browser_look' ? browserLookInputSchema : kind === 'workbook_list' ? workbookListInput : kind === 'workbook_inspect' ? workbookInspectInput : workbookApplyInput
+  const parsed = schema.safeParse(raw ?? {})
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'That is not a valid request.')
-  return parsed.data
+  return parsed.data as Record<string, unknown>
 }
+
+/** What each kind of job may send back, and how much of it. */
+export const RESULT_SCHEMA: Record<JobKind, z.ZodType> = {
+  ping: pingResultSchema,
+  browser_look: browserLookResultSchema,
+  workbook_list: workbookListResult,
+  workbook_inspect: workbookInspectResult,
+  workbook_apply: workbookApplyResult
+}
+export const maxResultChars = (kind: JobKind) => kind.startsWith('workbook_') ? SHEET_LIMITS.maxResultChars : LIMITS.maxResultChars
 
 export const imageUploadSchema = z.object({
   mediaType: z.enum(['image/jpeg', 'image/png']),
