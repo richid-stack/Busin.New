@@ -79,7 +79,7 @@ const vite = await createVite({
   root: ROOT,
   configFile: false,
   appType: 'spa',
-  server: { middlewareMode: true, hmr: false, allowedHosts: true },
+  server: { middlewareMode: true, hmr: false, allowedHosts: ['localhost', '127.0.0.1'] },
   optimizeDeps: { holdUntilCrawlEnd: true },
   plugins: [
     sampleSignIn,
@@ -180,4 +180,5 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/api/')) { api(req, res, url).catch((e) => { res.statusCode = 500; res.end(String(e?.message)) }); return }
   vite.middlewares(req, res, () => { res.statusCode = 404; res.end() })
 })
-server.listen(PORT, () => console.log(`capture server on http://localhost:${PORT}`))
+// Loopback only: every request here is answered as the sample person, so nothing else on the network may reach it.
+server.listen(PORT, '127.0.0.1', () => console.log(`capture server on http://localhost:${PORT}`))

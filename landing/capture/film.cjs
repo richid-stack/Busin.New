@@ -282,6 +282,10 @@ const scenes = {
 ;(async () => {
   const want = process.argv.slice(2); const names = want.length ? want : Object.keys(scenes)
   const b = await chromium.launch()
-  for (const n of names) { console.log('filming', n); try { await scenes[n](b) } catch (e) { console.log('  FAILED', n, e.message) } }
-  await b.close()
+  const failed = []
+  try {
+    for (const n of names) { console.log('filming', n); try { await scenes[n](b) } catch (e) { failed.push(n); console.log('  FAILED', n, e.message) } }
+  } finally { await b.close() }
+  // A failed scene leaves a missing or stale clip, so say so to whoever ran this (a script, a person).
+  if (failed.length) { console.error('Failed scenes: ' + failed.join(', ')); process.exitCode = 1 }
 })()
