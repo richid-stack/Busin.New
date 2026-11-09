@@ -19,9 +19,10 @@ export interface McpToolListing {
   annotations: { readOnlyHint?: boolean, destructiveHint?: boolean } | null
   status: 'approved' | 'changed' | 'new'
   approved: boolean
+  runWithoutAsking: boolean
 }
 
-export interface McpApproval { name: string, fingerprint: string }
+export interface McpApproval { name: string, fingerprint: string, runWithoutAsking?: boolean }
 
 export interface McpLimits { servers: number, approvedTotal: number, approvedPerServer: number }
 

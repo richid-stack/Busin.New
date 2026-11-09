@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { useSession, type Session, getHeader } from 'nitro/h3'
 import type { H3Event } from 'nitro'
 import { HTTPError } from 'nitro'
@@ -26,6 +27,14 @@ function getSessionPassword() {
     })
   }
   return DEV_SESSION_SECRET
+}
+
+/**
+ * The key that signs "may this tool run?" requests, one per person. The server signs each request when it
+ * asks, and checks the signature when the Approve comes back, so a made-up Approve from the browser is refused.
+ */
+export function toolApprovalSecret(userId: string): string {
+  return createHmac('sha256', getSessionPassword()).update(`tool-approval:${userId}`).digest('hex')
 }
 
 type SessionUser = NonNullable<UserSession['user']>

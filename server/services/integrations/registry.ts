@@ -280,7 +280,7 @@ export async function executeIntegratedAction(
   provider: string,
   actionId: string,
   parameters: Record<string, any>,
-  opts: { abortSignal?: AbortSignal } = {}
+  opts: { abortSignal?: AbortSignal, readOnly?: boolean } = {}
 ): Promise<{
   success: boolean
   authRequired?: boolean
@@ -312,7 +312,7 @@ export async function executeIntegratedAction(
       const task = typeof said === 'string' ? said.trim() : ''
       if (!task) return { success: false, output: null, message: `Choose one of ${connector.name}'s actions, or write what to do. Data from a trigger on its own cannot start a ${connector.name} action.` }
       const text = [task, inputs && Object.keys(inputs).length ? untrustedBlock(inputs) : ''].filter(Boolean).join('\n')
-      const res = await runConnectorInstruction(userId, connector, text, { abortSignal: opts.abortSignal })
+      const res = await runConnectorInstruction(userId, connector, text, { abortSignal: opts.abortSignal, readOnly: opts.readOnly })
       return { success: res.success, authRequired: res.authRequired, authUrl: res.authUrl, output: res.output, message: res.message }
     } catch (err: any) {
       return { success: false, output: null, message: `${connector.name} action failed: ${err?.message || 'unknown error'}` }
@@ -340,7 +340,8 @@ export async function executeIntegratedAction(
       provider,
       providerName: definition.name,
       instruction: lines.join('\n'),
-      abortSignal: opts.abortSignal
+      abortSignal: opts.abortSignal,
+      readOnly: opts.readOnly
     })
     return {
       success: res.success,

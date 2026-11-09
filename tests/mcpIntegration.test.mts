@@ -64,7 +64,7 @@ assert((await listServers('alice')).length === 1 && (await listServers('bob')).l
 assert(!JSON.stringify(fake.raw('mcp_servers').get(created.id)).includes('official-token'), 'the stored document never holds the plain token')
 assert(endpointFor((await getServer(created.id))!).headers.Authorization === 'Bearer official-token', 'a stored token decrypts back for a call')
 
-const approvedStored = await setApprovals('alice', created.id, others => planApproval(tools, [{ name: 'lookup', fingerprint: fingerprintTool(tools.find(t => t.name === 'lookup')!) }], others))
+const approvedStored = await setApprovals('alice', created.id, others => planApproval(tools, [{ name: 'lookup', fingerprint: fingerprintTool(tools.find(t => t.name === 'lookup')!), runWithoutAsking: true }], others))
 assert(Object.keys(approvedStored.approved).join() === 'lookup', 'approvals are stored through the transaction')
 await updateServer(created.id, { driftNote: 'x' })
 const reloaded = (await getServer(created.id))!

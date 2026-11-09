@@ -222,16 +222,23 @@ export function resolveIntegrationDefinition(providerSlug: string) {
   return ALL_INTEGRATIONS_CATALOG.find(i => i.provider === slug || i.name.toLowerCase().replace(/ /g, '_') === slug) ?? null
 }
 
-export function createIntegrationExecuteTool(userId: string) {
+/**
+ * `gate: true` is for chat: a task that changes something waits for the person's Approve first. Workflows
+ * and tasks have their own approval steps and leave it off.
+ */
+export function createIntegrationExecuteTool(userId: string, opts: { gate?: boolean } = {}) {
   return tool({
     description: `Carry out a task in one of the user's connected apps (e.g. GitHub, Slack, Gmail, Notion, Linear, Google Drive, Jira).
 Use this when the user asks to create, read, send or update something in an external app.
-Provide the provider slug (e.g. 'github', 'slack', 'gmail') and a clear natural language instruction.`,
+Provide the provider slug (e.g. 'github', 'slack', 'gmail') and a clear natural language instruction.
+Say whether the task only reads ("read": looking things up, listing, searching) or changes anything ("change": creating, sending, updating, deleting, paying, uploading). A "read" task is only given read-only actions. A "change" task is shown to the person to approve before anything happens, so write the instruction so they can tell exactly what will be done.`,
     inputSchema: z.object({
       provider: z.string().describe('The service provider slug, e.g. "github", "slack", "gmail", "linear", "notion"'),
-      instruction: z.string().describe('What to do, in detail (e.g. "Create a high priority issue titled User Login Bug with description...")')
+      instruction: z.string().describe('What to do, in detail (e.g. "Create a high priority issue titled User Login Bug with description...")'),
+      access: z.enum(['read', 'change']).default('change').describe('"read" if the task only looks things up; "change" if it creates, sends, updates or deletes anything. When unsure, "change".')
     }),
-    execute: async ({ provider, instruction }, { abortSignal }) => {
+    needsApproval: opts.gate ? ({ access }: { access?: string }) => access !== 'read' : undefined,
+    execute: async ({ provider, instruction, access }, { abortSignal }) => {
       // Catalogued apps use their definition; any other slug is tried as a Composio toolkit.
       const norm = provider.toLowerCase().trim().replace(/[- ]/g, '_')
       const definition = resolveIntegrationDefinition(provider)
@@ -242,7 +249,7 @@ Provide the provider slug (e.g. 'github', 'slack', 'gmail') and a clear natural 
         return { success: false, provider, instruction, error: `Unknown integration "${provider}". Use the integration status tool to see what is available.` }
       }
 
-      const result = await executeIntegratedAction(userId, definition.provider, `${definition.provider}_action`, { instruction }, { abortSignal })
+      const result = await executeIntegratedAction(userId, definition.provider, `${definition.provider}_action`, { instruction }, { abortSignal, readOnly: access === 'read' })
       return {
         success: result.success,
         authRequired: result.authRequired ?? false,
@@ -252,6 +259,7 @@ Provide the provider slug (e.g. 'github', 'slack', 'gmail') and a clear natural 
         icon: definition.icon,
         category: definition.category,
         instruction,
+        access,
         output: result.output,
         message: result.message,
         ...(result.success ? {} : { error: result.message })
