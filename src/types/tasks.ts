@@ -29,6 +29,7 @@ export interface TaskItem {
   result: string
   outcome: string
   error: string
+  scheduleId?: string | null
   createdAt: string
   updatedAt: string
   startedAt: string | null
