@@ -27,7 +27,7 @@ import { approvalInstruction, controlsBefore, hostBefore } from '../../../utils/
 import ChatMessageEdit from './MessageEdit.vue'
 import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
-import { getDocumentRead, getFetchedPage, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
+import { getDocumentRead, getFetchedPage, getFileTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
@@ -153,6 +153,50 @@ const emit = defineEmits<{
         :streaming="isToolStreaming(part)"
         icon="i-lucide-file-text"
       />
+      <UChatTool
+        v-else-if="getToolName(part) === 'fetch_file'"
+        :text="isToolStreaming(part) ? 'Saving the file...' : getFileTrace(part).failed ? 'Could not save the file' : 'Saved the file'"
+        :suffix="[getFileTrace(part).name, getFileTrace(part).source].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-download"
+        :chevron="getFileTrace(part).isImage || getFileTrace(part).error ? 'leading' : undefined"
+      >
+        <img
+          v-if="getFileTrace(part).isImage && getFileTrace(part).fileId"
+          :src="`/api/files/${getFileTrace(part).fileId}`"
+          :alt="getFileTrace(part).name"
+          class="max-h-48 rounded-lg border border-default"
+          loading="lazy"
+        >
+        <p
+          v-else-if="getFileTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getFileTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'view_image'"
+        :text="isToolStreaming(part) ? 'Looking at the image...' : getFileTrace(part).failed ? 'Could not open the image' : 'Looked at the image'"
+        :suffix="[getFileTrace(part).name, getFileTrace(part).source].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-eye"
+        :chevron="getFileTrace(part).fileId || getFileTrace(part).error ? 'leading' : undefined"
+      >
+        <img
+          v-if="getFileTrace(part).fileId"
+          :src="`/api/files/${getFileTrace(part).fileId}`"
+          :alt="getFileTrace(part).name"
+          class="max-h-48 rounded-lg border border-default"
+          loading="lazy"
+        >
+        <p
+          v-else-if="getFileTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getFileTrace(part).error }}
+        </p>
+      </UChatTool>
       <UChatTool
         v-else-if="getToolName(part) === 'load_skill'"
         :text="isToolStreaming(part) ? 'Opening a skill...' : getSkillName(part) ? 'Used the skill' : 'Skill unavailable'"

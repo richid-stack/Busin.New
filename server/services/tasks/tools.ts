@@ -12,6 +12,7 @@ import type { TaskBrowser } from '../../utils/tools/browser'
 import type { BrowserService } from '../browser/service'
 import { holdStore, startWait } from '../browser/holds'
 import { browserKey } from '../browser/service'
+import { createFetchFileTool, createViewImageTool } from '../../utils/tools/fetchFile'
 import { allowedToolNames } from './registry'
 
 /** What a running task hands its tools: how to pause itself, and what the person approved before it paused. */
@@ -26,6 +27,8 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
   const all: Record<string, any> = {
     web_search: createWebSearchTool(userId),
     web_fetch: createWebFetchTool(userId),
+    fetch_file: createFetchFileTool(userId),
+    view_image: createViewImageTool(userId),
     create_document: createDocumentTool(userId),
     create_spreadsheet: createSpreadsheetTool(userId),
     create_presentation: createPresentationTool(userId),
