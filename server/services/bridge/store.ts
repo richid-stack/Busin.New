@@ -17,7 +17,7 @@ const clip = (s: unknown, n: number) => String(s ?? '').slice(0, n)
 function deviceFrom(id: string, d: Record<string, any>): Device & { tokenHash: string | null, lastSeenWrittenAt?: number } {
   return {
     id, userId: String(d.userId || ''), name: String(d.name || 'Computer'), platform: d.platform || 'other', bridgeVersion: String(d.bridgeVersion || ''),
-    capabilities: Array.isArray(d.capabilities) ? d.capabilities : [], pairedAt: String(d.pairedAt || ''), lastSeenAt: d.lastSeenAt ?? null, revokedAt: d.revokedAt ?? null,
+    capabilities: Array.isArray(d.capabilities) ? d.capabilities : [], paused: d.paused === true, pairedAt: String(d.pairedAt || ''), lastSeenAt: d.lastSeenAt ?? null, revokedAt: d.revokedAt ?? null,
     tokenHash: d.tokenHash ?? null
   }
 }
@@ -50,6 +50,15 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
   const random = opts.random ?? crypto.randomBytes
   const devRef = (id: string) => db.collection('devices').doc(id)
   const jobRef = (id: string) => db.collection('bridge_jobs').doc(id)
+  /** Marks a job expired only if, at that moment, it is still open and past its time: a result that arrived a moment ago is never turned back into "expired". */
+  const expireIfStillOpen = (id: string): Promise<Job> => db.runTransaction(async (tx: any) => {
+    const snap = await tx.get(jobRef(id))
+    const cur = jobFrom(snap.id, snap.data())
+    if (!snap.exists || !OPEN_JOB.includes(cur.status) || cur.expiresAt > now().toISOString()) return cur
+    const at = now().toISOString()
+    tx.update(jobRef(id), { status: 'expired', finishedAt: at })
+    return { ...cur, status: 'expired', finishedAt: at } as Job
+  })
   /** Wakes a device's waiting poll the moment a job for it is made on this server. */
   const waiters = new Map<string, () => void>()
   const authCache = new Map<string, { device: Device, at: number }>()
@@ -124,11 +133,14 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
     },
 
     /** Notes that the device just called in. Written at most every 30 seconds so waiting costs little. */
-    async touch(device: Device, patch: { version?: string, capabilities?: string[] } = {}): Promise<void> {
+    async touch(device: Device, patch: { version?: string, capabilities?: string[], paused?: boolean } = {}): Promise<void> {
       const last = device.lastSeenAt ? new Date(device.lastSeenAt).getTime() : 0
-      const changed = (patch.version && patch.version !== device.bridgeVersion) || (patch.capabilities && patch.capabilities.join() !== device.capabilities.join())
+      const changed = (patch.version && patch.version !== device.bridgeVersion) || (patch.capabilities && patch.capabilities.join() !== device.capabilities.join()) || (patch.paused !== undefined && patch.paused !== (device.paused === true))
       if (!changed && now().getTime() - last < LIMITS.lastSeenWriteMs) return
-      await devRef(device.id).update({ lastSeenAt: now().toISOString(), ...(patch.version ? { bridgeVersion: patch.version } : {}), ...(patch.capabilities ? { capabilities: patch.capabilities } : {}) }).catch(() => {})
+      await devRef(device.id).update({ lastSeenAt: now().toISOString(), ...(patch.version ? { bridgeVersion: patch.version } : {}), ...(patch.capabilities ? { capabilities: patch.capabilities } : {}), ...(patch.paused !== undefined ? { paused: patch.paused } : {}) }).catch(() => {})
+      // The copy kept for a few seconds learns what was just written, so the next call compares against the truth.
+      if (patch.capabilities) device.capabilities = patch.capabilities
+      if (patch.paused !== undefined) device.paused = patch.paused
     },
 
     async listDevices(userId: string): Promise<Device[]> {
@@ -155,6 +167,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       await assertNotDeleting(userId, db as any)
       const device = await ownedDevice(userId, deviceId)
       if (device.revokedAt) throw new BridgeError('This computer was disconnected.', 'conflict')
+      if (device.paused) throw new BridgeError('This computer is paused. Resume it from the Bridge icon in its system tray, or run: bridge resume', 'conflict')
       // The person decides on the computer itself what it may be asked to do. Asking for more than that is refused here, and again there.
       const needs = JOB_PERMISSION[kind]
       if (needs && !device.capabilities.includes(kind)) {
@@ -163,7 +176,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       try { input = parseJobInput(kind, input) } catch (err: any) { throw new BridgeError(err.message, 'invalid') }
       const mine = (await db.collection('bridge_jobs').where('deviceId', '==', deviceId).get()).docs.map((d: any) => jobFrom(d.id, d.data()))
       const stale = mine.filter((j: Job) => OPEN_JOB.includes(j.status) && j.expiresAt <= now().toISOString())
-      for (const j of stale) await jobRef(j.id).update({ status: 'expired', finishedAt: now().toISOString() })
+      for (const j of stale) await expireIfStillOpen(j.id)
       if (mine.filter((j: Job) => OPEN_JOB.includes(j.status) && !stale.some((s: Job) => s.id === j.id)).length >= LIMITS.maxOpenJobs) throw new BridgeError('This computer already has jobs waiting. Wait for them to finish.', 'limit')
       // Keep a short history: the oldest finished jobs make room.
       const finished = mine.filter((j: Job) => !OPEN_JOB.includes(j.status)).sort((a: Job, b: Job) => a.createdAt.localeCompare(b.createdAt))
@@ -171,18 +184,24 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       const at = now()
       const r = db.collection('bridge_jobs').doc()
       const doc = { userId, deviceId, kind, status: 'queued', input, result: null, error: '', fileId: null, cancelAcked: false, createdAt: at.toISOString(), sentAt: null, finishedAt: null, expiresAt: new Date(at.getTime() + jobTtlMs(kind)).toISOString() }
-      await r.set(doc)
+      // The computer is looked at again in the same step that saves the job, so a disconnect or pause that happens in between cannot leave a job waiting on a computer that refused it.
+      await db.runTransaction(async (tx: any) => {
+        const dev = await tx.get(devRef(deviceId))
+        if (!dev.exists || dev.data().revokedAt) throw new BridgeError('This computer was disconnected.', 'conflict')
+        if (dev.data().paused === true) throw new BridgeError('This computer is paused. Resume it from the Bridge icon in its system tray, or run: bridge resume', 'conflict')
+        tx.set(r, doc)
+      })
       await self.addEvent(deviceId, 'job', `Asked to run "${kind}".`)
       self.wake(deviceId)
       return jobFrom(r.id, doc)
     },
 
     /** Hands the device its waiting jobs (and any it must stop). Each job is handed out once. */
-    async claimJobs(deviceId: string): Promise<{ jobs: Job[], cancel: string[] }> {
+    async claimJobs(deviceId: string, opts: { cancelOnly?: boolean } = {}): Promise<{ jobs: Job[], cancel: string[] }> {
       const iso = now().toISOString()
       const all = (await db.collection('bridge_jobs').where('deviceId', '==', deviceId).get()).docs.map((d: any) => jobFrom(d.id, d.data()))
       const jobs: Job[] = []
-      for (const j of all.filter((x: Job) => x.status === 'queued').sort((a: Job, b: Job) => a.createdAt.localeCompare(b.createdAt))) {
+      for (const j of (opts.cancelOnly ? [] : all.filter((x: Job) => x.status === 'queued')).sort((a: Job, b: Job) => a.createdAt.localeCompare(b.createdAt))) {
         const got: Job | null = await db.runTransaction(async (tx: any) => {
           const snap = await tx.get(jobRef(j.id))
           if (!snap.exists || snap.data().status !== 'queued') return null
@@ -260,10 +279,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       const snap = await jobRef(jobId).get()
       const j = snap.exists ? jobFrom(snap.id, snap.data()) : null
       if (!j || j.userId !== userId) throw new BridgeError('Job not found.', 'not_found')
-      if (OPEN_JOB.includes(j.status) && j.expiresAt <= now().toISOString()) {
-        await jobRef(jobId).update({ status: 'expired', finishedAt: now().toISOString() })
-        return { ...j, status: 'expired', finishedAt: now().toISOString() }
-      }
+      if (OPEN_JOB.includes(j.status) && j.expiresAt <= now().toISOString()) return await expireIfStillOpen(jobId)
       return j
     },
 

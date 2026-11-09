@@ -1,7 +1,8 @@
 import crypto from 'node:crypto'
-import { assertNotDeleting } from '../account/tombstone'
+import { AccountDeletingError, DELETIONS, assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
 import { DEFAULT_CRITERION, FINAL_STATUSES, LIMITS, canTransition, isFinal } from './model'
+import { finalStatus } from './status'
 import type { Artifact, Criterion, EventKind, ResumeNote, Task, TaskEvent, TaskInput, TaskStatus, Waiting } from './model'
 
 const COLLECTION = 'tasks'
@@ -101,7 +102,19 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
         userId, goal: input.goal, status: 'queued', criteria, tools: input.tools, model: input.model, maxAttempts: input.maxAttempts, maxSteps: input.maxSteps, maxMinutes: input.maxMinutes,
         attempts: 0, artifacts: [], result: '', outcome: '', error: '', eventCount: 0, waiting: null, workedMs: 0, resume: null, scheduleId: opts.scheduleId ?? null, leaseUntil: null, leaseToken: null, createdAt: at, updatedAt: at, startedAt: null, finishedAt: null
       }
-      await r.set(doc)
+      // The deletion marker is read in the same step as the write, so a deletion that starts in between is not missed.
+      await db.runTransaction(async (tx: any) => {
+        const marker = await tx.get(db.collection(DELETIONS).doc(userId))
+        if (marker.exists) throw new AccountDeletingError()
+        tx.set(r, doc)
+      })
+      // Simultaneous requests can each see a free place. After writing, the places are counted again, and a task that ended up over the limit is taken back.
+      const after = (await db.collection(COLLECTION).where('userId', '==', userId).get()).docs.map((d: any) => fromDoc(d.id, d.data()))
+        .filter((t: Task) => !isFinal(t.status) && t.status !== 'needs_review').sort((a: Task, b: Task) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+      if (after.length > LIMITS.maxActive && !after.slice(0, LIMITS.maxActive).some((t: Task) => t.id === r.id)) {
+        await r.delete().catch(() => {})
+        throw new TaskError(`You can have ${LIMITS.maxActive} tasks running or waiting at once. Wait for one to finish or cancel it.`, 'limit')
+      }
       const task = fromDoc(r.id, doc)
       await this.addEvent(task.id, 'created', opts.scheduleId ? 'Started by its schedule and waiting for a free worker.' : 'Task created and waiting for a free worker.')
       return { ...task, eventCount: 1 }
@@ -144,9 +157,11 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
     async claimNext(): Promise<{ task: Task, lease: string } | null> {
       const t = now()
       const iso = t.toISOString()
+      // One field per query, so no composite index has to be created in the database: the few tasks running at any moment are filtered here.
       const queued = (await db.collection(COLLECTION).where('status', '==', 'queued').get()).docs
-      const running = (await db.collection(COLLECTION).where('status', '==', 'running').where('leaseUntil', '<=', iso).get()).docs
-      const verifying = (await db.collection(COLLECTION).where('status', '==', 'verifying').where('leaseUntil', '<=', iso).get()).docs
+      const expired = (d: any) => !d.data().leaseUntil || d.data().leaseUntil <= iso
+      const running = (await db.collection(COLLECTION).where('status', '==', 'running').get()).docs.filter(expired)
+      const verifying = (await db.collection(COLLECTION).where('status', '==', 'verifying').get()).docs.filter(expired)
       const candidates = [...queued, ...running, ...verifying].sort((a: any, b: any) => String(a.data().createdAt).localeCompare(String(b.data().createdAt)))
       for (const c of candidates) {
         const lease = crypto.randomUUID()
@@ -172,6 +187,8 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
         if (!snap.exists) throw new TaskError('Task not found.', 'not_found')
         const cur = fromDoc(snap.id, snap.data())
         if (cur.leaseToken !== lease) throw new TaskError('This task was taken over by another worker or cancelled.', 'conflict')
+        // The token is what matters: when a worker's lease runs out, nothing changes until another worker actually takes the task, which replaces the token.
+        // A worker that wakes up first may carry on (nobody else holds it); one that wakes up second fails the check above.
         if (patch.status && !canTransition(cur.status, patch.status)) throw new TaskError(`A task cannot go from ${cur.status} to ${patch.status}.`, 'conflict')
         const at = now().toISOString()
         const next: Record<string, unknown> = { ...patch, updatedAt: at, leaseUntil: new Date(now().getTime() + LEASE_MS).toISOString() }
@@ -248,10 +265,13 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
         const snap = await tx.get(ref(id))
         const cur = snap.exists ? fromDoc(snap.id, snap.data()) : null
         if (!cur || cur.userId !== userId) throw new TaskError('Task not found.', 'not_found')
-        if (cur.status !== 'needs_review') throw new TaskError('Only a task waiting for your review can be accepted.', 'conflict')
+        const open = (c: Criterion) => c.status === 'pending' || c.status === 'unsure'
+        // A task with a failed check and a manual one can still be reviewed: confirming the manual part does not hide the failed one.
+        if (!(cur.status === 'needs_review' || ((cur.status === 'partial' || cur.status === 'failed') && cur.criteria.some(open)))) throw new TaskError('Only a task waiting for your review can be accepted.', 'conflict')
         const at = now().toISOString()
-        const criteria = cur.criteria.map(c => (c.status === 'pending' || c.status === 'unsure') ? { ...c, status: 'met', evidence: `${c.evidence ? `${c.evidence} ` : ''}Confirmed by you.`.trim() } : c)
-        const next = { status: 'done', criteria, outcome: 'Done. You confirmed the parts that could not be checked automatically.', updatedAt: at }
+        const criteria = cur.criteria.map(c => open(c) ? { ...c, status: 'met' as const, evidence: `${c.evidence ? `${c.evidence} ` : ''}Confirmed by you.`.trim() } : c)
+        const end = finalStatus(criteria)
+        const next = { status: end.status, criteria, outcome: end.status === 'done' ? 'Done. You confirmed the parts that could not be checked automatically.' : `You confirmed the parts that could not be checked. ${end.outcome}`, updatedAt: at }
         tx.update(ref(id), next)
         return fromDoc(id, { ...snap.data(), ...next })
       })

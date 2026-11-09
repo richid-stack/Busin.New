@@ -25,6 +25,10 @@ export interface InspectInput {
   width?: number
   height?: number
   colorScheme?: 'light' | 'dark'
+  /** The model of the chat or task asking, used when it can look at pictures. */
+  preferredModel?: string | null
+  /** Stops the work (and the paid model call) when the caller no longer wants the answer. */
+  signal?: AbortSignal
 }
 
 export interface InspectDeps {
@@ -47,8 +51,10 @@ export interface InspectOutcome extends Inspection {
 }
 
 /** The picture is read by the model, so it must be one that takes images. The fast text-only provider is skipped. */
-export function pickVisionModel(): { id: string, model: LanguageModel } | null {
-  const id = availableModels().find(m => providerOf(m) !== 'groq')
+export function pickVisionModel(preferred?: string | null): { id: string, model: LanguageModel } | null {
+  const usable = availableModels().filter(m => providerOf(m) !== 'groq')
+  // The model the person is already using is kept when it can look at pictures, so a check is not billed to, or judged by, another provider.
+  const id = (preferred && usable.includes(preferred) ? preferred : null) ?? usable[0]
   return id ? { id, model: getLanguageModel(id) } : null
 }
 
@@ -58,7 +64,7 @@ export async function runInspection(input: InspectInput, deps: InspectDeps): Pro
   if (input.requirements.trim().length < 10) throw new InspectError('Say what the screen should look like or do, so there is something to check it against.')
   if (!input.url && !input.image) throw new InspectError('Give a web address to screenshot, or attach a picture.')
 
-  const chosen = deps.model === undefined ? pickVisionModel() : deps.model
+  const chosen = deps.model === undefined ? pickVisionModel(input.preferredModel) : deps.model
   if (!chosen) throw new InspectError('No AI model that can look at pictures is configured on this server.')
 
   // 1. The picture.
