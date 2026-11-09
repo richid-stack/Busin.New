@@ -2,6 +2,7 @@ import type { LanguageModel } from 'ai'
 import { judgeScreenshot, describeProgress } from './judge'
 import type { Inspection, PreviousDefect } from './judge'
 import { InspectError } from './browser'
+import type { Screenshot } from './browser'
 import type { ScreenshotProvider } from './screenshot'
 import { availableModels, getLanguageModel, providerOf } from '../../utils/models'
 import { modelCost } from '../usage/plans'
@@ -41,6 +42,8 @@ export interface InspectOutcome extends Inspection {
   source: string
   screenshotFileId: string | null
   model: string
+  /** What the browser saw besides the picture (page errors, failed loads), when it could tell. */
+  pageFacts?: Screenshot['facts'] | null
 }
 
 /** The picture is read by the model, so it must be one that takes images. The fast text-only provider is skipped. */
@@ -62,6 +65,7 @@ export async function runInspection(input: InspectInput, deps: InspectDeps): Pro
   let bytes: Uint8Array
   let mediaType: string
   let source: string
+  let pageFacts: Screenshot['facts'] | null = null
   if (input.image) {
     if (!IMAGE_TYPES.has(input.image.mediaType.toLowerCase())) throw new InspectError('Only PNG, JPEG, WebP or GIF pictures can be checked.')
     bytes = input.image.bytes
@@ -73,6 +77,7 @@ export async function runInspection(input: InspectInput, deps: InspectDeps): Pro
     bytes = shot.bytes
     mediaType = shot.mediaType
     source = shot.url
+    pageFacts = shot.facts ?? null
   }
 
   // 2. Credits, taken after the picture exists so a page that fails to load costs nothing, and given back if the look fails.
@@ -100,5 +105,5 @@ export async function runInspection(input: InspectInput, deps: InspectDeps): Pro
     const ext = mediaType.includes('png') ? 'png' : mediaType.includes('webp') ? 'webp' : mediaType.includes('gif') ? 'gif' : 'jpg'
     screenshotFileId = await deps.save({ userId: input.userId, name: safeFileName(`inspection ${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}`, ext), mime: mediaType, bytes }).then(r => r.id).catch(() => null)
   }
-  return { ...inspection, progressNote: describeProgress(inspection), source, screenshotFileId, model: chosen.id }
+  return { ...inspection, progressNote: describeProgress(inspection), source, screenshotFileId, model: chosen.id, pageFacts }
 }

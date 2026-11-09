@@ -4,7 +4,7 @@ import { markDeleting } from '../server/services/account/tombstone'
 import { LIMITS, PAIRING_ALPHABET, isJobKind, isOnline, pairInputSchema } from '../server/services/bridge/model'
 import { BridgeError, createBridgeStore, newPairingCode, publicDevice, publicJob } from '../server/services/bridge/store'
 import { ApiError, pairDevice, pollForJobs, reportJob } from '../server/services/bridge/api'
-import { BRIDGE_VERSION, HANDLERS, checkServer, disconnect, pair, pollOnce, run } from '../bridge/core'
+import { ALWAYS_ALLOWED, BRIDGE_VERSION, HANDLERS, activeKinds, checkServer, disconnect, pair, pollOnce, run } from '../bridge/core'
 import type { Config, Deps, Running } from '../bridge/core'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
@@ -197,7 +197,7 @@ assert(await pollOnce(cfg, deps, running) === true, 'a poll keeps going while co
 const after = await s5.getJob('hana', job.id)
 assert(after.status === 'done' && (after.result as any).platform === 'windows' && (after.result as any).bridgeVersion === BRIDGE_VERSION && (after.result as any).osVersion === 'Windows_NT 10.0.26100', 'the Bridge answers a ping with real details about this computer')
 assert(logs.some(l => /Running "ping"/.test(l)) && logs.some(l => /Finished "ping"/.test(l)), 'the Bridge says out loud what it is doing')
-assert((await s5.getDevice('hana', hanaId)).capabilities.join() === Object.keys(HANDLERS).join(), 'the server learns what this Bridge can do')
+assert((await s5.getDevice('hana', hanaId)).capabilities.join() === 'ping' && activeKinds({ allow: ['browser'] }).join() === 'ping,browser_look' && activeKinds({ allow: ['__proto__', 'nope'] }).join() === 'ping', 'the server learns only what has been allowed on this computer')
 
 // A job kind this Bridge does not know is refused here, whatever the server says.
 {
@@ -216,6 +216,7 @@ assert((await s5.getDevice('hana', hanaId)).capabilities.join() === Object.keys(
 // Stop reaches a running job
 {
   let aborted = false
+  ALWAYS_ALLOWED.push('slow')
   HANDLERS.slow = { label: 'A slow test job', run: async (_i, { signal }) => { await new Promise<void>(r => signal.addEventListener('abort', () => { aborted = true; r() })); throw new Error('aborted') } }
   const cancelDeps = wire()
   const state = new Map<string, Running>()
@@ -256,7 +257,11 @@ await disconnect(cfg, deps)
 assert((await s5.authenticate(cfg.token)) === null && calls.includes('POST /api/bridge/disconnect'), '"bridge disconnect" makes OpenLobs forget the computer')
 
 // ---- The Bridge opens no door ----
-for (const f of ['bridge/core.ts', 'bridge/cli.ts']) {
-  const src = fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')
-  assert(!/node:http|node:https|node:net|node:dgram|createServer|\.listen\(|child_process|\bexec(Sync)?\(|\bspawn(Sync)?\(/.test(src), `${f} opens no port and starts no programs`)
+// It listens for nothing and runs no command. The one program it ever starts is the browser, through bridge/browser.ts,
+// and only for a browser job the owner allowed.
+for (const f of ['bridge/core.ts', 'bridge/cli.ts', 'bridge/browser.ts']) {
+  let src = fs.readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')
+  // browser.ts uses node:net only to tell whether text is an IP address.
+  if (f.endsWith('browser.ts')) { assert(/net\.isIP/.test(src) && !/net\.(?!isIP)\w+\(/.test(src.replace(/^import .*$/gm, '')), 'bridge/browser.ts uses node:net only to recognise IP addresses'); src = src.replace(/import net from 'node:net'/, '') }
+  assert(!/node:http|node:https|node:net|node:dgram|createServer|\.listen\(|child_process|\bexec(Sync)?\(|\bspawn(Sync)?\(/.test(src), `${f} opens no port and runs no commands`)
 }

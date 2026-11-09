@@ -1,13 +1,14 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { BRIDGE_VERSION, defaultDeps, disconnect, pair, run } from './core'
+import { BRIDGE_VERSION, PERMISSIONS, defaultDeps, disconnect, pair, run } from './core'
 import type { Config } from './core'
 
 /**
  * OpenLobs Bridge, command line.
  *   bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]
  *   bridge run
+ *   bridge allow browser | bridge deny browser
  *   bridge status
  *   bridge disconnect
  */
@@ -46,12 +47,27 @@ try {
     const stop = new AbortController()
     process.on('SIGINT', () => stop.abort())
     process.on('SIGTERM', () => stop.abort())
-    const result = await run(config, deps, stop.signal)
+    const result = await run(config, deps, stop.signal, load)
     if (result === 'disconnected') { fs.rmSync(file, { force: true }); process.exitCode = 1 }
     else console.log('Stopped.')
   } else if (command === 'status') {
     const config = load()
     console.log(config ? `Bridge ${BRIDGE_VERSION}. Paired as "${config.name}" with ${config.server}.` : `Bridge ${BRIDGE_VERSION}. Not paired.`)
+    if (config) {
+      console.log('Allowed on this computer:')
+      console.log('  - Answer a test ping (always)')
+      for (const [name, p] of Object.entries(PERMISSIONS)) console.log(`  ${(config.allow ?? []).includes(name) ? '-' : 'x'} ${p.label}${(config.allow ?? []).includes(name) ? '' : `  (off; turn on with: bridge allow ${name})`}`)
+    }
+  } else if (command === 'allow' || command === 'deny') {
+    const config = load()
+    if (!config) throw new Error('Not paired yet. Run "bridge pair" first.')
+    const name = args[0]
+    if (!name || !Object.prototype.hasOwnProperty.call(PERMISSIONS, name)) throw new Error(`Usage: bridge ${command} <${Object.keys(PERMISSIONS).join('|')}>`)
+    const set = new Set(config.allow ?? [])
+    if (command === 'allow') set.add(name)
+    else set.delete(name)
+    save({ ...config, allow: [...set] })
+    console.log(command === 'allow' ? `Allowed: ${PERMISSIONS[name]!.label}. A running Bridge picks this up within a minute.` : `No longer allowed: ${PERMISSIONS[name]!.label}.`)
   } else if (command === 'disconnect') {
     const config = load()
     if (!config) throw new Error('Not paired.')
@@ -59,7 +75,7 @@ try {
     fs.rmSync(file, { force: true })
     console.log('Disconnected.')
   } else {
-    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge run\n  bridge status\n  bridge disconnect`)
+    console.log(`OpenLobs Bridge ${BRIDGE_VERSION}\n  bridge pair <CODE> --server https://your-openlobs [--name "My laptop"]\n  bridge run\n  bridge allow browser | deny browser\n  bridge status\n  bridge disconnect`)
   }
 } catch (err: any) {
   console.error(err.message)

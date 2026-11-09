@@ -62,15 +62,18 @@ A task (the **Tasks** page, `/api/tasks`) is a goal plus the ways you will know 
 
 ## Bridge (computers)
 
-The **Computers** page connects your own computer to OpenLobs through the Bridge (`bridge/`), a small program you run there. This is the base for working with desktop apps later (a real browser, Excel); today it does one harmless thing, answer a ping, so the connection can be proven before anything riskier is built on it.
+The **Computers** page connects your own computer to OpenLobs through the Bridge (`bridge/`), a small program you run there. It can answer a ping, and, if you allow it on that computer, **look at web pages with that computer's own Edge or Chrome** (Phase 3). Excel and other desktop apps come later on the same base.
 
 - **Pairing:** the page makes an 8-character code (valid 10 minutes, usable once, stored hashed, one open code per person). `npm run bridge -- pair CODE --server https://your-openlobs` trades it for a device token, which the server keeps only as a hash. Up to 3 computers per person.
-- **Only calls out:** the Bridge long-polls `POST /api/bridge/poll` with its token. It opens no port and starts no program on its own (a test scans its source for that).
-- **A fixed list:** the server only creates jobs from `JOB_KINDS` in `server/services/bridge/model.ts` (today `ping`), and the Bridge refuses anything not in its own `HANDLERS` list, so a hacked server still cannot make it run arbitrary commands. Results are checked with a strict schema. Jobs expire after 2 minutes, at most 5 are open per computer.
+- **Only calls out:** the Bridge long-polls `POST /api/bridge/poll` with its token. It opens no port and runs no commands (a test scans its source for that). The one program it ever starts is the browser, only for a browser job you allowed.
+- **A fixed list:** the server only creates jobs from `JOB_KINDS` in `server/services/bridge/model.ts` (today `ping` and `browser_look`), and the Bridge refuses anything not in its own `HANDLERS` list, so a hacked server still cannot make it run arbitrary commands. Results are checked with a strict schema. Jobs expire after 2 minutes, at most 5 are open per computer.
 - **Control:** Test connection, Stop, and Disconnect (the token stops working at once and open jobs are cancelled). The Bridge says what it is doing, backs off when the server is unreachable, and stops on its own if it is disconnected.
+- **You decide what a computer may do:** on that computer, `npm run bridge -- allow browser` (or `deny browser`; `status` lists what is on). The Bridge reports what is allowed, the server refuses to ask for more, and the Bridge refuses again if asked anyway.
+- **Browser looks (read-only):** a job opens one page in a fresh, empty browser (no logins, no cookies, nothing remembered), waits for it to load, takes a JPEG, and reports the title, status, console errors and failed loads. It never clicks or types. Only http(s) pages on this computer (`localhost`) or the public internet are opened; private-network addresses, local files and redirects or page requests to them are refused on the computer. The picture is uploaded to the file store under your account (JPEG/PNG checked by content, max 650 KB) and a report cannot point a job at any other file.
+- **Using it:** the **Computers** page has "Look at a page", and chat's `inspect_design` takes `onMyComputer` (a site running on your computer, e.g. `http://localhost:5173`, is judged like any page, and page errors come back with the verdict). Tasks can use it too when a computer is online and has allowed it.
 - Computers, their logs and jobs are part of the account export (never the token) and the erase.
 
-Not built yet: an installer or `.exe`, a tray icon, storing the token in the Windows credential store (it is a file only you can read, in `%APPDATA%\OpenLobsBridge`), and Mac or Linux testing. Windows with Node 22 is the target. See `bridge/README.md`.
+Not built yet: an installer or `.exe` (people who are not technical cannot use it yet), a tray icon, clicking or typing in pages, signed-in browsing, storing the token in the Windows credential store (it is a file only you can read, in `%APPDATA%\OpenLobsBridge`), and Mac or Linux testing. Windows with Node 22 is the target. See `bridge/README.md`.
 
 ## Visual checks
 

@@ -3,7 +3,7 @@ import { z } from 'zod'
 /**
  * OpenLobs Bridge: a small program on a person's own computer that OpenLobs can ask to do approved things.
  * The server never sends a command to run. It sends a named job from a short, fixed list; the Bridge checks
- * that list itself and refuses anything else. Today the list has one harmless job (a ping).
+ * that list itself and refuses anything else. Today the list has a harmless ping and a read-only browser look.
  */
 
 export const LIMITS = {
@@ -17,7 +17,7 @@ export const LIMITS = {
   jobTtlMs: 2 * 60_000,
   maxOpenJobs: 5,
   maxEvents: 100,
-  maxResultChars: 4000,
+  maxResultChars: 8000,
   lastSeenWriteMs: 30_000,
   keptJobs: 30
 }
@@ -51,6 +51,8 @@ export interface Job {
   input: Record<string, unknown>
   result: Record<string, unknown> | null
   error: string
+  /** A picture the computer sent for this job, kept in the file store. Set by the server, never by the computer's report. */
+  fileId: string | null
   /** Set once the device has seen that the job was cancelled. */
   cancelAcked: boolean
   createdAt: string
@@ -63,10 +65,17 @@ export type EventKind = 'paired' | 'job' | 'revoked' | 'note'
 export interface DeviceEvent { id: string, at: string, kind: EventKind, text: string }
 
 /** The jobs a Bridge may be asked for. Adding one means adding it here and in the Bridge, on purpose. */
-export const JOB_KINDS = ['ping'] as const
+export const JOB_KINDS = ['ping', 'browser_look'] as const
 export type JobKind = typeof JOB_KINDS[number]
 
 export const isJobKind = (k: unknown): k is JobKind => (JOB_KINDS as readonly string[]).includes(String(k))
+
+/** What a person can allow on a computer. A ping is always allowed: it reveals nothing and changes nothing. */
+export const PERMISSIONS = ['browser'] as const
+export type Permission = typeof PERMISSIONS[number]
+/** Which permission a job needs, if any. */
+export const JOB_PERMISSION: Partial<Record<JobKind, Permission>> = { browser_look: 'browser' }
+export const PERMISSION_LABEL: Record<Permission, string> = { browser: 'Look at web pages' }
 
 const short = (n: number) => z.string().trim().min(1).max(n)
 
@@ -85,6 +94,48 @@ export const pingResultSchema = z.object({
   osVersion: z.string().max(120).default(''),
   time: z.string().max(40),
   capabilities: z.array(short(40)).max(20).default([])
+}).strict()
+
+/** Where a browser look may go. Private-network addresses are refused on the computer itself, which can see its own network. */
+const webAddress = z.string().trim().min(1).max(2000).refine((raw) => {
+  try {
+    const u = new URL(raw)
+    return (u.protocol === 'http:' || u.protocol === 'https:') && !u.username && !u.password
+  } catch { return false }
+}, 'Use a web address that starts with http:// or https:// and has no user name or password.')
+
+export const browserLookInputSchema = z.object({
+  url: webAddress,
+  width: z.number().int().min(320).max(1920).default(1280),
+  height: z.number().int().min(320).max(1600).default(800),
+  fullPage: z.boolean().default(false),
+  colorScheme: z.enum(['light', 'dark']).default('light')
+}).strict()
+export type BrowserLookInput = z.infer<typeof browserLookInputSchema>
+
+/** What the server accepts back from a browser look. The picture travels separately, as a file. */
+export const browserLookResultSchema = z.object({
+  title: z.string().max(200).default(''),
+  finalUrl: z.string().max(2000),
+  status: z.number().int().min(0).max(999).nullable().default(null),
+  width: z.number().int().min(1).max(4000),
+  height: z.number().int().min(1).max(6000),
+  consoleErrors: z.array(z.string().max(200)).max(10).default([]),
+  failedRequests: z.array(z.string().max(300)).max(10).default([])
+}).strict()
+export type BrowserLookResult = z.infer<typeof browserLookResultSchema>
+
+/** A job's input, checked and filled in. Throws a message fit to show a person. */
+export function parseJobInput(kind: JobKind, raw: unknown): Record<string, unknown> {
+  if (kind === 'ping') return {}
+  const parsed = browserLookInputSchema.safeParse(raw ?? {})
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'That is not a valid request.')
+  return parsed.data
+}
+
+export const imageUploadSchema = z.object({
+  mediaType: z.enum(['image/jpeg', 'image/png']),
+  imageBase64: z.string().min(8).max(1_100_000)
 }).strict()
 
 export const resultInputSchema = z.object({

@@ -25,6 +25,8 @@ export interface Screenshot {
   height: number
   url: string
   title: string
+  /** How the page behaved, when the browser could tell (a computer's own browser does). */
+  facts?: { status: number | null, consoleErrors: string[], failedRequests: string[], computer: string }
 }
 
 export class InspectError extends Error {}

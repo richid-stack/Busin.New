@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
-import { LIMITS, OPEN_JOB, PAIRING_ALPHABET, TOKEN_PREFIX, isJobKind, pingResultSchema } from './model'
+import { JOB_PERMISSION, LIMITS, OPEN_JOB, PAIRING_ALPHABET, PERMISSION_LABEL, TOKEN_PREFIX, browserLookResultSchema, isJobKind, parseJobInput, pingResultSchema } from './model'
 import type { Device, DeviceEvent, EventKind, Job, JobKind, Platform } from './model'
 
 export class BridgeError extends Error {
@@ -28,7 +28,7 @@ export function publicDevice(d: Device): Device {
 }
 function jobFrom(id: string, d: Record<string, any>): Job {
   return {
-    id, userId: String(d.userId || ''), deviceId: String(d.deviceId || ''), kind: d.kind, status: d.status, input: d.input ?? {}, result: d.result ?? null, error: String(d.error || ''),
+    id, userId: String(d.userId || ''), deviceId: String(d.deviceId || ''), kind: d.kind, status: d.status, input: d.input ?? {}, result: d.result ?? null, error: String(d.error || ''), fileId: typeof d.fileId === 'string' ? d.fileId : null,
     cancelAcked: d.cancelAcked === true, createdAt: String(d.createdAt || ''), sentAt: d.sentAt ?? null, finishedAt: d.finishedAt ?? null, expiresAt: String(d.expiresAt || '')
   }
 }
@@ -144,6 +144,12 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       await assertNotDeleting(userId, db as any)
       const device = await ownedDevice(userId, deviceId)
       if (device.revokedAt) throw new BridgeError('This computer was disconnected.', 'conflict')
+      // The person decides on the computer itself what it may be asked to do. Asking for more than that is refused here, and again there.
+      const needs = JOB_PERMISSION[kind]
+      if (needs && !device.capabilities.includes(kind)) {
+        throw new BridgeError(`This computer has not been allowed to "${PERMISSION_LABEL[needs].toLowerCase()}". On that computer, run: npm run bridge -- allow ${needs}`, 'conflict')
+      }
+      try { input = parseJobInput(kind, input) } catch (err: any) { throw new BridgeError(err.message, 'invalid') }
       const mine = (await db.collection('bridge_jobs').where('deviceId', '==', deviceId).get()).docs.map((d: any) => jobFrom(d.id, d.data()))
       const stale = mine.filter((j: Job) => OPEN_JOB.includes(j.status) && j.expiresAt <= now().toISOString())
       for (const j of stale) await jobRef(j.id).update({ status: 'expired', finishedAt: now().toISOString() })
@@ -153,7 +159,7 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
       for (const j of finished.slice(0, Math.max(0, finished.length - LIMITS.keptJobs + 1))) await jobRef(j.id).delete()
       const at = now()
       const r = db.collection('bridge_jobs').doc()
-      const doc = { userId, deviceId, kind, status: 'queued', input, result: null, error: '', cancelAcked: false, createdAt: at.toISOString(), sentAt: null, finishedAt: null, expiresAt: new Date(at.getTime() + LIMITS.jobTtlMs).toISOString() }
+      const doc = { userId, deviceId, kind, status: 'queued', input, result: null, error: '', fileId: null, cancelAcked: false, createdAt: at.toISOString(), sentAt: null, finishedAt: null, expiresAt: new Date(at.getTime() + LIMITS.jobTtlMs).toISOString() }
       await r.set(doc)
       await self.addEvent(deviceId, 'job', `Asked to run "${kind}".`)
       self.wake(deviceId)
@@ -193,14 +199,38 @@ export function createBridgeStore(db: BridgeDb, opts: { now?: () => Date, random
         else if (!report.ok) patch = { status: 'failed', finishedAt: at, error: clip(report.error || 'The computer reported a failure.', 300) }
         else {
           // Whatever a computer sends back is checked against what that job is allowed to return, and is only ever shown as text.
-          const parsed = cur.kind === 'ping' ? pingResultSchema.safeParse(report.result ?? {}) : null
-          if (!parsed?.success) patch = { status: 'failed', finishedAt: at, error: 'The computer sent back something that was not in the expected form.' }
+          const parsed = cur.kind === 'ping' ? pingResultSchema.safeParse(report.result ?? {}) : browserLookResultSchema.safeParse(report.result ?? {})
+          if (!parsed.success) patch = { status: 'failed', finishedAt: at, error: 'The computer sent back something that was not in the expected form.' }
           else if (JSON.stringify(parsed.data).length > LIMITS.maxResultChars) patch = { status: 'failed', finishedAt: at, error: 'The result was too large.' }
-          else patch = { status: 'done', finishedAt: at, result: parsed.data }
+          else if (cur.kind === 'browser_look' && !cur.fileId) patch = { status: 'failed', finishedAt: at, error: 'The computer did not send a picture.' }
+          // The picture is the one this computer uploaded for this job, taken from the job itself and not from the report.
+          else patch = { status: 'done', finishedAt: at, result: cur.kind === 'browser_look' ? { ...parsed.data, fileId: cur.fileId } : parsed.data }
         }
         tx.update(jobRef(jobId), patch)
         return { ...cur, ...patch } as Job
       })
+    },
+
+    /** Notes the picture a computer uploaded for its job. One picture per job, and only while the job is running on that computer. */
+    async attachFile(deviceId: string, jobId: string, fileId: string): Promise<void> {
+      await db.runTransaction(async (tx: any) => {
+        const snap = await tx.get(jobRef(jobId))
+        const cur = snap.exists ? jobFrom(snap.id, snap.data()) : null
+        if (!cur || cur.deviceId !== deviceId || cur.kind !== 'browser_look') throw new BridgeError('Job not found.', 'not_found')
+        if (cur.status !== 'sent') throw new BridgeError('That job is not waiting for a result.', 'conflict')
+        if (cur.fileId) throw new BridgeError('That job already has its picture.', 'conflict')
+        tx.update(jobRef(jobId), { fileId })
+      })
+    },
+
+    /** The job a device is about to upload for, checked before any bytes are stored. */
+    async jobForUpload(deviceId: string, jobId: string): Promise<Job> {
+      const snap = await jobRef(jobId).get()
+      const cur = snap.exists ? jobFrom(snap.id, snap.data()) : null
+      if (!cur || cur.deviceId !== deviceId || cur.kind !== 'browser_look') throw new BridgeError('Job not found.', 'not_found')
+      if (cur.status !== 'sent') throw new BridgeError('That job is not waiting for a result.', 'conflict')
+      if (cur.fileId) throw new BridgeError('That job already has its picture.', 'conflict')
+      return cur
     },
 
     async cancelJob(userId: string, jobId: string): Promise<Job> {
