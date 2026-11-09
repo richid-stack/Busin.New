@@ -64,6 +64,13 @@ export const useTasks = createSharedComposable(() => {
     return task
   }
 
+  /** Answers a task that paused for you: approve or decline the step, or say you dealt with what the page needed. */
+  async function resumeTask(id: string, decision: 'approve' | 'decline' | 'continue'): Promise<TaskItem> {
+    const task = await $fetch<TaskItem>(`/api/tasks/${encodeURIComponent(id)}/resume`, { method: 'POST', headers: headers(), body: { decision } })
+    upsert(task)
+    return task
+  }
+
   async function removeTask(id: string) {
     await $fetch(`/api/tasks/${encodeURIComponent(id)}`, { method: 'DELETE', headers: headers() })
     tasks.value = tasks.value.filter(t => t.id !== id)
@@ -79,5 +86,5 @@ export const useTasks = createSharedComposable(() => {
     unauthorized.value = false
   })
 
-  return { tasks, loading, loaded, unauthorized, loadError, fetchTasks, createTask, getTask, cancelTask: (id: string) => act(id, 'cancel'), acceptTask: (id: string) => act(id, 'accept'), removeTask }
+  return { tasks, loading, loaded, unauthorized, loadError, fetchTasks, createTask, getTask, cancelTask: (id: string) => act(id, 'cancel'), acceptTask: (id: string) => act(id, 'accept'), resumeTask, removeTask }
 })

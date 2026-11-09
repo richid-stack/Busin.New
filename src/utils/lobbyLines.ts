@@ -9,6 +9,7 @@
  * Pure functions over the message parts, so they are tested on their own and the page only has to speak what comes out.
  */
 import { spokenText, takeSentences } from '../../shared/utils/spoken'
+import { hostOf } from '../../shared/utils/browserSteps'
 
 /** The most one piece of writing is read out. Long answers are for the screen; Lobby says so. */
 export const LINE_CAP = 400
@@ -56,6 +57,8 @@ export function phraseFor(part: Part): string {
   if (name === 'remember' || name === 'forget_memory') return 'Updating my notes about you.'
   if (name.startsWith('create_')) return `Making ${words(name.slice(7))}.`
   if (name === 'integration_execute') return `Working in ${provider(part.input)}.`
+  // A browsing job is many small steps: say where it goes, then stay quiet unless the assistant speaks.
+  if (name === 'browser') return part.input?.action === 'open' ? `Opening ${hostOf(String(part.input?.url ?? ''))}.` : ''
   if (name.startsWith('mcp_')) return `Using ${words(name.slice(4))}.`
   return `Working on ${words(name)}.`
 }
@@ -67,6 +70,7 @@ export function approvalQuestion(part: Part): string {
     const what = spokenText(String(part.input?.instruction || '')).slice(0, 160)
     return `I'm about to work in ${provider(part.input)}${what ? `: ${what.replace(/[.!?]+$/, '')}` : ''}. Shall I go ahead?`
   }
+  if (name === 'browser') return 'I need your OK for the next step in the browser. It may send, buy or change something. Shall I go ahead?'
   const label = name.startsWith('mcp_') ? name.slice(4) : name
   return `I'd like to run ${words(label)}. Shall I go ahead?`
 }
@@ -130,7 +134,7 @@ export function newLines(parts: LobbyPart[], state: FeedState, finished: boolean
       const mark = part.kind === 'approval' ? `${part.key}:ask` : part.key
       if (state.said[mark]) continue
       state.said[mark] = true
-      if (part.kind === 'approval' ? !part.askedBefore : !part.afterText) lines.push(part.phrase)
+      if ((part.kind === 'approval' ? !part.askedBefore : !part.afterText) && part.phrase) lines.push(part.phrase)
     }
   }
   return lines

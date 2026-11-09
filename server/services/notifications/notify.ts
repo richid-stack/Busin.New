@@ -1,12 +1,12 @@
 import { getFirebaseAuth, getFirebaseDb } from '../../utils/firebaseAdmin'
-import { renewalReminderEmail, sendEmail, taskFinishedEmail, workflowFailedEmail } from '../email/email'
+import { needsYouEmail, renewalReminderEmail, sendEmail, taskFinishedEmail, workflowFailedEmail } from '../email/email'
 import type { EmailMessage } from '../email/email'
 
 const SETTINGS = 'user_settings'
 const LOG = 'notification_log'
 
-export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean, emailTaskResults: boolean }
-export const DEFAULT_NOTIFICATIONS: NotificationSettings = { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true }
+export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean, emailTaskResults: boolean, emailNeedsYou: boolean }
+export const DEFAULT_NOTIFICATIONS: NotificationSettings = { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true, emailNeedsYou: true }
 
 export interface NotifyDeps {
   db: any
@@ -31,7 +31,7 @@ export const defaultNotifyDeps = (): NotifyDeps => ({
 export async function getNotificationSettings(db: any, userId: string): Promise<NotificationSettings> {
   const doc = await db.collection(SETTINGS).doc(userId).get()
   const d = doc.exists ? doc.data() : {}
-  return { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false, emailTaskResults: d.emailTaskResults !== false }
+  return { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false, emailTaskResults: d.emailTaskResults !== false, emailNeedsYou: d.emailNeedsYou !== false }
 }
 
 export async function setNotificationSettings(db: any, userId: string, patch: Partial<NotificationSettings>): Promise<NotificationSettings> {
@@ -40,7 +40,7 @@ export async function setNotificationSettings(db: any, userId: string, patch: Pa
   return await db.runTransaction(async (tx: any) => {
     const doc = await tx.get(ref)
     const d = doc.exists ? doc.data() : {}
-    const current = { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false, emailTaskResults: d.emailTaskResults !== false }
+    const current = { emailRenewals: d.emailRenewals !== false, emailWorkflowFailures: d.emailWorkflowFailures !== false, emailTaskResults: d.emailTaskResults !== false, emailNeedsYou: d.emailNeedsYou !== false }
     const next = { ...current, ...patch }
     tx.set(ref, { ...d, userId, ...next, updatedAt: new Date().toISOString() })
     return next
@@ -142,5 +142,27 @@ export async function notifyTaskFinished(deps: NotifyDeps, task: FinishedTask): 
   }).catch(() => ({ sent: false }))
   if (!result.sent) return false
   await logRef.set({ userId: task.userId, kind: 'task-finished', createdAt: deps.now().toISOString() })
+  return true
+}
+
+/** One email per wait when the assistant's browser is waiting for the person and they have not looked at it, unless they switched these off. */
+export async function notifyNeedsYou(deps: NotifyDeps, hold: { key: string, userId: string, kind: 'chat' | 'task', ref: string, label: string, createdAt: string, expiresAt: string }): Promise<boolean> {
+  const settings = await getNotificationSettings(deps.db, hold.userId)
+  if (!settings.emailNeedsYou) return false
+  // At most one email per page per ten minutes, even if the assistant keeps coming back to the same sign-in page.
+  const bucket = Math.floor(deps.now().getTime() / 600_000)
+  const key = `needs-you__${hold.key.replace(/[^A-Za-z0-9_-]/g, '_')}__${bucket}`.slice(0, 200)
+  const logRef = deps.db.collection(LOG).doc(key)
+  if ((await logRef.get()).exists) return false
+  const who = await deps.contact(hold.userId)
+  if (!who?.email) return false
+  const minutesLeft = Math.max(1, Math.round((new Date(hold.expiresAt).getTime() - deps.now().getTime()) / 60_000))
+  const result = await deps.send({
+    ...needsYouEmail({ name: who.name, what: hold.label, kind: hold.kind, minutesLeft, appUrl: deps.appUrl, ref: hold.ref }),
+    to: who.email,
+    idempotencyKey: key
+  }).catch(() => ({ sent: false }))
+  if (!result.sent) return false
+  await logRef.set({ userId: hold.userId, kind: 'needs-you', createdAt: deps.now().toISOString() })
   return true
 }

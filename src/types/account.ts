@@ -13,5 +13,5 @@ export interface UsageSnapshot {
 export interface BillingOption { period: 'month' | 'year', months: number, label: string, price: number }
 export interface PaymentSummary { reference: string, amount: number, currency: string, months: number, paidAt: string }
 export interface BillingInfo { enabled: boolean, currency: string, options: BillingOption[], payments: PaymentSummary[] }
-export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean, emailTaskResults: boolean, emailAvailable?: boolean, email?: string | null }
+export interface NotificationSettings { emailRenewals: boolean, emailWorkflowFailures: boolean, emailTaskResults: boolean, emailNeedsYou: boolean, emailAvailable?: boolean, email?: string | null }
 export type VerifyResult = { status: 'applied' | 'already', endsAt: string } | { status: 'pending' | 'failed' | 'refund_needed' }

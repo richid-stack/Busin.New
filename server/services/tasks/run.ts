@@ -14,6 +14,8 @@ import type { Task } from './model'
 import { taskStore } from './store'
 import type { TaskStore } from './store'
 import { buildTaskTools } from './tools'
+import { browserServiceFor } from '../browser/where'
+import { endTaskBrowser } from './taskBrowser'
 import { modelJudge, verifyCriteria } from './verify'
 
 /** The real parts a task runs with. Tests swap them for fakes through `runTask` directly. */
@@ -26,7 +28,7 @@ export function liveDeps(store: TaskStore = taskStore()): RunDeps {
   }
   return {
     store,
-    tools: task => buildTaskTools(task.userId, task.tools),
+    tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null),
     model: task => pick(task.model, task.userId),
     costOf: id => (parseMyModelId(id) ? 0 : modelCost(id)),
     charge: chargeUsage,
@@ -64,6 +66,9 @@ export async function processQueue(opts: { budgetMs?: number, maxTasks?: number,
     await runTask(claimed.task, claimed.lease, deps)
       .then(async (task) => {
         summary.finished++
+        // Paused for the person: the page stays open and the "needs you" email goes out from the timer. Nothing has finished.
+        if (task.status === 'needs_you') return
+        await endTaskBrowser(task.userId, task.id).catch(() => {})
         // An email is a courtesy: it never changes how the task ended.
         await (opts.onFinished ?? emailWhenFinished)(task).catch(err => console.warn('[task] result email not sent:', err?.message))
       }).catch(err => console.error('[task] worker error:', err?.message))

@@ -24,7 +24,7 @@ assert(ok({ ...base, skills: ['a', 'a', 'b'] }).success && (ok({ ...base, skills
 assert(!ok({ ...base, userId: 'someone-else' } as any).success === false && !('userId' in ((ok({ ...base, userId: 'someone-else' } as any) as any).data)), 'an owner id in the request is ignored')
 
 // ---- Tool groups ----
-const everyTool = ['chart', 'plan', 'weather', 'calculator', 'web_search', 'web_fetch', 'read_document', 'create_document', 'create_spreadsheet', 'create_presentation', 'inspect_design', 'computer_excel', 'integration_status', 'integration_execute', 'workflow_create', 'workflow_run', 'remember', 'forget_memory']
+const everyTool = ['chart', 'plan', 'weather', 'calculator', 'web_search', 'web_fetch', 'read_document', 'create_document', 'create_spreadsheet', 'create_presentation', 'inspect_design', 'computer_excel', 'integration_status', 'integration_execute', 'workflow_create', 'workflow_run', 'remember', 'forget_memory', 'browser']
 assert(new Set(TOOL_GROUPS.flatMap(g => g.tools)).size === everyTool.length && everyTool.every(n => TOOL_GROUPS.some(g => g.tools.includes(n))), 'every chat tool belongs to exactly one group')
 const all = Object.fromEntries([...everyTool, 'load_skill'].map(n => [n, { name: n }]))
 const readOnly = filterTools(all, { tools: ['web'] })

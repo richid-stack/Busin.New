@@ -66,3 +66,5 @@ msgs = [user('u1', 'x'), asst('a1', [{ type: 'reasoning', text: 'secret thoughts
 assert(newLines(lobbyParts(msgs), state, true).join('|') === 'Here you go.|Done.', 'reasoning and code stay silent')
 assert(phraseFor(tool('integration_execute', 'input-available', { input: { provider: 'google_calendar' } })) === 'Working in Google Calendar.', 'apps are named properly')
 console.log(process.exitCode ? 'Lobby line tests FAILED' : 'Lobby line tests OK')
+assert(phraseFor(tool('browser', 'input-available', { input: { action: 'open', url: 'https://www.example.com/x' } })) === 'Opening example.com.' && phraseFor(tool('browser', 'input-available', { input: { action: 'click', ref: 3 } })) === '', 'a browsing job names where it goes and is otherwise quiet')
+assert(/OK for the next step in the browser/.test(approvalQuestion(tool('browser', 'approval-requested', { input: { action: 'click', ref: 3 } }))), 'the browser approval is asked in words')

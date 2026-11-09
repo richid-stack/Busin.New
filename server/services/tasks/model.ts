@@ -7,7 +7,7 @@ import { parseMyModelId } from '../../../shared/modelProviders'
  * it runs on its own, may take minutes, and ends with an honest verdict for every criterion.
  */
 
-export const TASK_STATUSES = ['queued', 'running', 'verifying', 'needs_review', 'done', 'partial', 'failed', 'cancelled'] as const
+export const TASK_STATUSES = ['queued', 'running', 'needs_you', 'verifying', 'needs_review', 'done', 'partial', 'failed', 'cancelled'] as const
 export type TaskStatus = typeof TASK_STATUSES[number]
 
 export const FINAL_STATUSES: TaskStatus[] = ['done', 'partial', 'failed', 'cancelled']
@@ -15,7 +15,9 @@ export const FINAL_STATUSES: TaskStatus[] = ['done', 'partial', 'failed', 'cance
 /** Who may move a task from one status to the next. Anything else is a bug or a stale writer and is refused. */
 const NEXT: Record<TaskStatus, TaskStatus[]> = {
   queued: ['running', 'cancelled'],
-  running: ['verifying', 'failed', 'cancelled', 'queued'],
+  running: ['verifying', 'failed', 'cancelled', 'queued', 'needs_you'],
+  // Waiting for the person (a sign-in, a code or an OK in the browser): they answer and it goes back in the queue, or the wait runs out.
+  needs_you: ['queued', 'failed', 'cancelled'],
   verifying: ['running', 'done', 'partial', 'needs_review', 'failed', 'cancelled'],
   needs_review: ['done', 'cancelled'],
   done: [],
@@ -45,7 +47,7 @@ export const LIMITS = {
 }
 
 /** Tool groups a task may use. Groups that act in a person's accounts or reach outside servers are not offered yet. */
-export const TASK_TOOL_GROUPS = ['web', 'read_files', 'create_files', 'inspect', 'utilities'] as const
+export const TASK_TOOL_GROUPS = ['web', 'read_files', 'create_files', 'inspect', 'utilities', 'browser'] as const
 export const DEFAULT_TASK_GROUPS: string[] = ['web', 'create_files', 'inspect', 'utilities']
 
 const text = (min: number, max: number, what: string) => z.string().transform(s => s.replace(/\r\n/g, '\n').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim())
@@ -90,6 +92,23 @@ export interface Criterion {
 
 export interface Artifact { fileId: string, name: string, format?: string, sizeKb?: number }
 
+/** What a paused task is waiting for. The browser page stays open for up to half an hour. */
+export interface Waiting {
+  reason: 'approval' | 'person'
+  /** In plain words: "Click “Place order” on shop.example.com", "Sign in on shop.example.com". */
+  label: string
+  since: string
+  /** When the wait runs out and the task stops. */
+  until: string
+}
+
+/** What the person decided, handed to the next run of a paused task. */
+export interface ResumeNote {
+  note: string
+  /** The one step the person approved, as the browser words it. Allowed once, nothing else. */
+  approvedLabel: string | null
+}
+
 export interface Task {
   id: string
   userId: string
@@ -109,6 +128,10 @@ export interface Task {
   outcome: string
   error: string
   eventCount: number
+  waiting: Waiting | null
+  /** Time spent working so far, over all runs: a wait for the person does not use up the task's time. */
+  workedMs: number
+  resume: ResumeNote | null
   /** The schedule that started this task, when it was not started by hand. */
   scheduleId: string | null
   leaseUntil: string | null

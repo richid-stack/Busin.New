@@ -70,6 +70,12 @@ async function start() {
     <p class="mt-1 text-sm font-medium text-highlighted">
       {{ draft.goal }}
     </p>
+    <p
+      v-if="draft.tools?.includes('browser')"
+      class="mt-1.5 text-xs text-muted"
+    >
+      Uses a browser. It stops and asks you before it sends, buys or deletes anything, and when a page needs you to sign in.
+    </p>
     <ul
       v-if="draft.criteria.length"
       class="mt-2 space-y-1"

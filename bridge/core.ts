@@ -4,6 +4,8 @@ import type { LookDeps } from './browser'
 import { workbookApply, workbookInspect, workbookList } from './sheets/jobs'
 import type { SheetDeps } from './sheets/jobs'
 import type { Control } from './control'
+import { BROWSER_USE_CAPABILITY, BROWSER_USE_PERMISSION, isLiveOp } from '../shared/bridgeLive'
+import type { LiveReply, LiveRequest } from '../shared/bridgeLive'
 
 /**
  * The OpenLobs Bridge, without the command line around it, so it can be tested.
@@ -14,7 +16,15 @@ import type { Control } from './control'
  *  3. A job can be stopped, and the Bridge says out loud what it is doing.
  */
 
-export const BRIDGE_VERSION = '0.4.0'
+export const BRIDGE_VERSION = '0.5.0'
+
+/** The browser OpenLobs uses on this computer (see deviceBrowser.ts). Replaceable in tests. */
+export interface LiveBrowserHost {
+  /** Does one live step. Never throws: a failure is the answer. */
+  run(req: LiveRequest, signal: AbortSignal): Promise<LiveReply>
+  /** Closes the page and, when asked, the browser itself. The sign-ins in the profile stay. */
+  stop(): Promise<void>
+}
 
 /** `allow` lists what the person has allowed on this computer (see PERMISSIONS). A ping is always allowed. */
 export interface Config { server: string, deviceId: string, token: string, name: string, allow?: string[], /** The one folder spreadsheet jobs may use. Chosen on this computer. */ workspace?: string }
@@ -30,6 +40,8 @@ export interface Deps {
   browser?: LookDeps
   /** Replaceable in tests: which spreadsheet program is used. */
   sheets?: SheetDeps
+  /** The browser OpenLobs may use here. Absent when this Bridge has none (then browser use is never offered). */
+  liveBrowser?: LiveBrowserHost
   /** The pause switch and status board shared with the tray icon. Absent in tests that do not need it. */
   control?: Control
 }
@@ -61,6 +73,7 @@ export type Handler = (input: Record<string, unknown>, ctx: HandlerContext) => P
 /** What the person can switch on for this computer. Each one unlocks specific jobs and nothing else. */
 export const PERMISSIONS: Record<string, { label: string, kinds: string[] }> = {
   browser: { label: 'Look at web pages in Edge or Chrome (read-only, in an empty browser with no logins)', kinds: ['browser_look'] },
+  [BROWSER_USE_PERMISSION]: { label: 'Let OpenLobs use a browser on this computer, in a browser profile of its own (you sign in to sites there once; OpenLobs asks you before anything that sends, pays or deletes, and never types your passwords)', kinds: [BROWSER_USE_CAPABILITY] },
   excel: { label: 'Read spreadsheets in one folder and save changed copies there (the original is never changed)', kinds: ['workbook_list', 'workbook_inspect', 'workbook_apply'] }
 }
 export const ALWAYS_ALLOWED = ['ping']
@@ -159,6 +172,33 @@ export async function pair(serverRaw: string, code: string, name: string, deps: 
 
 export interface Running { controller: AbortController, kind: string }
 
+/** Starts one live browser step without waiting for it. Whatever happens, OpenLobs gets an answer. */
+function startLive(config: Config, deps: Deps, running: Map<string, Running>, raw: any, active: string[]) {
+  const id = String(raw?.id ?? '')
+  if (!id) return
+  const answer = (body: LiveReply) => call(config, deps, `/api/bridge/live/${encodeURIComponent(id)}`, body).catch(err => deps.log(`Could not answer a browser step: ${err.message}`))
+  const op = raw?.op
+  if (!isLiveOp(op) || typeof raw?.key !== 'string' || !deps.liveBrowser) { void answer({ ok: false, error: 'This Bridge does not do that.' }); return }
+  // Their word, on this computer, beats the server's: no permission, no browser. A pause beats everything.
+  if (deps.control?.paused()) { void answer({ ok: false, error: 'This computer is paused. Resume it from the tray icon.' }); return }
+  if (!active.includes(BROWSER_USE_CAPABILITY)) { void answer({ ok: false, error: 'This computer has not been allowed to do that. On it, run: bridge allow browser_use' }); return }
+  const controller = new AbortController()
+  const slot = `live:${id}`
+  // Only real work shows as "busy" on the tray icon; looking at the page many times a second does not.
+  running.set(slot, { controller, kind: op === 'act' ? 'browser_act' : 'browser_view' })
+  const req: LiveRequest = { id, op, key: raw.key, payload: typeof raw.payload === 'object' && raw.payload ? raw.payload : {} }
+  void (async () => {
+    try {
+      const reply = await deps.liveBrowser!.run(req, controller.signal)
+      await answer(controller.signal.aborted ? { ok: false, error: 'Stopped.', cancelled: true } : reply)
+    } catch (err: any) {
+      await answer({ ok: false, error: String(err?.message ?? 'The browser could not do that.').slice(0, 300) })
+    } finally {
+      running.delete(slot)
+    }
+  })()
+}
+
 /**
  * One round: ask for work, start it, report what happened. Returns false when OpenLobs says this computer was
  * disconnected, so the caller stops for good.
@@ -167,10 +207,16 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
   // A pause beats everything: while paused this computer says it can do nothing, and refuses whatever still arrives.
   const pausedAtStart = deps.control?.paused() ?? false
   if (pausedAtStart) for (const r of running.values()) r.controller.abort()
-  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: pausedAtStart ? [] : activeKinds(config) }, signal)
+  const answer = await call(config, deps, '/api/bridge/poll', { version: BRIDGE_VERSION, capabilities: pausedAtStart ? [] : activeKinds(config).filter(k => k !== BROWSER_USE_CAPABILITY || Boolean(deps.liveBrowser)) }, signal)
   if (answer?.revoked) return false
   // What is allowed is judged when the jobs arrive, not when the request began: the person may have paused or resumed while it waited.
   const active = deps.control?.paused() ? [] : activeKinds(config)
+  // Without a browser to use here, browser use is not offered, whatever was allowed.
+  if (!deps.liveBrowser) active.splice(0, active.length, ...active.filter(k => k !== BROWSER_USE_CAPABILITY))
+
+  // Live browser steps run alongside everything else, so a long click never holds up the picture of the page.
+  for (const id of Array.isArray(answer?.liveStop) ? answer.liveStop : []) running.get(`live:${String(id)}`)?.controller.abort()
+  for (const raw of Array.isArray(answer?.live) ? answer.live : []) startLive(config, deps, running, raw, active)
 
   for (const id of Array.isArray(answer?.cancel) ? answer.cancel : []) {
     const r = running.get(String(id))
@@ -241,7 +287,7 @@ export async function run(config: Config, deps: Deps, signal: AbortSignal, reloa
   let current: Config = config
   const publish = () => deps.control?.publish({
     version: BRIDGE_VERSION, name: current.name, server: current.server, connected, paused: wasPaused,
-    busy: [...running.values()].map(r => HANDLERS[r.kind]?.label ?? r.kind)[0] ?? null, at: deps.now().toISOString()
+    busy: [...running.values()].filter(r => r.kind !== 'browser_view').map(r => r.kind === 'browser_act' ? 'Using the browser' : (HANDLERS[r.kind]?.label ?? r.kind))[0] ?? null, at: deps.now().toISOString()
   })
   const watch = setInterval(() => {
     const paused = deps.control?.paused() ?? false
@@ -249,6 +295,7 @@ export async function run(config: Config, deps: Deps, signal: AbortSignal, reloa
       deps.log('Paused from the tray icon: stopping everything.')
       // Running work stops now. The waiting request is left alone: ending it mid-wait could lose a job the server had just handed over.
       for (const r of running.values()) r.controller.abort()
+      void deps.liveBrowser?.stop()
     } else if (!paused && wasPaused) {
       deps.log('Resumed.')
     }
@@ -280,8 +327,9 @@ export async function run(config: Config, deps: Deps, signal: AbortSignal, reloa
   } finally {
     clearInterval(watch)
   }
-  // Stopping the Bridge stops whatever it was doing.
+  // Stopping the Bridge stops whatever it was doing, and closes the browser it was using.
   for (const r of running.values()) r.controller.abort()
+  await deps.liveBrowser?.stop().catch(() => {})
   connected = false
   publish()
   return 'stopped'

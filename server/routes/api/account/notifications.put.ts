@@ -10,7 +10,8 @@ export default defineHandler(async (event) => {
   const patch = await readValidatedBody(event, z.object({
     emailRenewals: z.boolean().optional(),
     emailWorkflowFailures: z.boolean().optional(),
-    emailTaskResults: z.boolean().optional()
+    emailTaskResults: z.boolean().optional(),
+    emailNeedsYou: z.boolean().optional()
   }).strict().parse).catch(() => {
     throw new HTTPError({ statusCode: 400, statusMessage: 'Invalid settings.' })
   })
