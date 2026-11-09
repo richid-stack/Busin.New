@@ -104,7 +104,7 @@ export const SUPPORTED_THIRD_PARTY_TOOLKITS: SupportedThirdPartyToolkit[] = [
   {
     slug: 'github',
     name: 'GitHub',
-    icon: 'i-logos-github-icon',
+    icon: 'i-brand-github',
     description: 'Manage repositories, create issues, pull requests, and trigger CI workflows.',
     category: 'developer',
     popularActions: [
