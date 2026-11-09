@@ -1,14 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs'
-import { createFakeFirestore } from './fakeFirestore'
-import { markDeleting } from '../server/services/account/tombstone'
 import { TOOL_GROUPS, agentInputSchema } from '../server/services/agents/profile'
 import type { Agent } from '../server/services/agents/profile'
 import { scanText } from '../server/services/reef/scan'
-import { SHARE_LIMITS, ShareError, agentFromShare, createShareStore, needsOf, payloadOf, publicShare } from '../server/services/reef/share'
-import type { InstallDeps } from '../server/services/reef/share'
+import { agentFromShare, needsOf, payloadOf } from '../server/services/reef/agentShare'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
-const rejects = async (fn: () => Promise<unknown>) => { try { await fn() } catch (e) { return e as Error } return null }
 const kinds = (fields: Record<string, string>) => scanText(fields).findings.map(f => f.kind).sort().join()
 
 // ---- The scan: what it stops ----
@@ -59,58 +55,4 @@ const some = agentFromShare(payload, ['apps'], known)
 assert(some.input.tools.join() === 'web,create_files,apps' && some.withheld.map(n => n.id).join() === 'workflows', 'the installer can allow some of them')
 assert(agentFromShare(payload, ['not_a_group', 'mcp'], known).input.tools.join() === 'web,create_files', 'an allow list cannot add groups the share did not ask for')
 assert(agentInputSchema.safeParse(none.input).success, 'what is installed passes the normal agent rules')
-
-// ---- Store ----
-const clock = new Date('2026-10-26T09:00:00Z')
-const db = createFakeFirestore()
-const store = createShareStore(db as any, { now: () => clock })
-const made: Array<{ userId: string, source: any, input: any }> = []
-let count = 0
-const deps = (over: Partial<InstallDeps> = {}): InstallDeps => ({
-  skills: known, agentCount: async () => count, maxAgents: 10,
-  createAgent: async (userId, input, source) => { made.push({ userId, source, input }); return { ...input, id: `new${made.length}`, userId, createdAt: '', updatedAt: '' } as any },
-  ...over
-})
-
-const s1 = await store.publish('ama', 'Ama Boateng', agent())
-assert(s1.version === 1 && s1.id.length >= 16 && !s1.hidden && s1.installs === 0 && s1.scan.verdict === 'ok', 'publishing makes a link with an unguessable id')
-assert(!('userId' in publicShare(s1)) && !('agentId' in publicShare(s1)) && publicShare(s1).authorName === 'Ama Boateng', 'a stranger sees the author name but not the owner or agent id')
-const again = await store.publish('ama', 'Ama Boateng', agent({ instructions: 'Make a clear invoice with a due date. Ask before sending.' }))
-assert(again.id === s1.id && again.version === 2 && (await store.listMine('ama')).length === 1, 'sharing the same agent again publishes a new version at the same link')
-
-const blocked = await rejects(() => store.publish('ama', 'Ama', agent({ id: 'a2', instructions: `Use key ${secretKey}` })))
-assert(blocked instanceof ShareError && blocked.code === 'blocked' && blocked.scan?.findings.length === 1 && (await store.listMine('ama')).length === 1, 'something with a key in it is refused, with the reason, and nothing is stored')
-const reviewed = await store.publish('ama', 'Ama', agent({ id: 'a3', name: 'Link helper', instructions: 'Check https://bit.ly/x for the form.' }))
-assert(reviewed.scan.verdict === 'review' && reviewed.scan.findings[0]!.kind === 'link', 'a borderline one can be shared, and everyone who opens it sees the flag')
-
-const seen = await store.get(s1.id, null)
-assert(seen.payload.instructions.includes('due date') && seen.needs.length === 4, 'anyone with the link can read it in full, with what it needs')
-assert(await rejects(() => store.get('nope-nope-nope-nope', null)) instanceof ShareError, 'a wrong link is "not found"')
-
-// Install
-const inst = await store.install('kofi', s1.id, [], deps())
-assert(inst.agent.tools.join() === 'web,create_files' && inst.withheld.length === 2 && made[0]!.source.shareId === s1.id && made[0]!.source.version === 2 && made[0]!.source.author === 'Ama Boateng', 'installing makes a copy that remembers where it came from, with account-reaching groups off')
-assert((await store.get(s1.id, 'kofi')).installs === 1, 'installs are counted')
-count = 10
-assert((await rejects(() => store.install('kofi', s1.id, [], deps())) as ShareError)?.code === 'limit', 'a person at their agent limit cannot install another')
-count = 0
-await markDeleting(db, 'gone')
-assert(await rejects(() => store.install('gone', s1.id, [], deps())) !== null && await rejects(() => store.publish('gone', 'G', agent({ id: 'a9' }))) !== null, 'nothing happens for an account being deleted')
-
-// Reports
-assert((await rejects(() => store.report('ama', s1.id, 'spam', '')) as ShareError)?.code === 'conflict', 'you cannot report your own share')
-await store.report('kofi', s1.id, 'secret', 'has my key')
-await store.report('kofi', s1.id, 'secret', 'again')
-assert(!(await store.get(s1.id, 'x')).hidden, 'the same person reporting twice counts once')
-await store.report('esi', s1.id, 'spam', '')
-const last = await store.report('yaw', s1.id, 'harmful', '')
-assert(last.hidden && (await rejects(() => store.get(s1.id, 'stranger')) as ShareError)?.code === 'not_found' && (await store.get(s1.id, 'ama')).hidden, `${SHARE_LIMITS.reportsToHide} different people reporting hides it from everyone but its owner`)
-assert((await rejects(() => store.install('kofi', s1.id, [], deps())) as ShareError)?.code === 'not_found', 'and it cannot be installed while hidden')
-
-// Limits and removal
-for (let i = 0; i < SHARE_LIMITS.maxPerUser - 2; i++) await store.publish('ama', 'Ama', agent({ id: `x${i}`, name: `Agent ${i}` }))
-assert((await rejects(() => store.publish('ama', 'Ama', agent({ id: 'overflow' }))) as ShareError)?.code === 'limit', `at most ${SHARE_LIMITS.maxPerUser} links per person`)
-assert((await rejects(() => store.remove('kofi', s1.id)) as ShareError)?.code === 'not_found', 'only the owner can remove a link')
-await store.remove('ama', reviewed.id)
-assert(await rejects(() => store.get(reviewed.id, 'ama')) instanceof ShareError, 'removing a link kills it')
 assert(TOOL_GROUPS.filter(g => g.sensitive).length >= 4, 'there are groups that stay off by default')

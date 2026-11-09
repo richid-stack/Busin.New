@@ -137,6 +137,10 @@ defineShortcuts({
             label: 'Models',
             to: '/models',
             icon: 'i-lucide-cpu'
+          }, {
+            label: 'The Reef',
+            to: '/reef',
+            icon: 'i-lucide-waves'
           }]"
           :collapsed="collapsed"
           orientation="vertical"

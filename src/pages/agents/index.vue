@@ -6,7 +6,8 @@ import { useModelProviders } from '../../composables/useModelProviders'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
 import AgentEditor from '../../components/agents/AgentEditor.vue'
-import ShareDialog from '../../components/reef/ShareDialog.vue'
+import ProfileSetupDialog from '../../components/reef/ProfileSetupDialog.vue'
+import PublishDialog from '../../components/reef/PublishDialog.vue'
 import { MODELS } from '../../../shared/utils/models'
 import type { AgentInput, AgentProfile } from '../../types/agents'
 
@@ -169,7 +170,8 @@ const isEmpty = computed(() => loaded.value && !loading.value && !unauthorized.v
           <p class="text-[11px] text-dimmed mt-3">{{ modelLabel(agent.model) }} · up to {{ agent.maxSteps }} steps</p>
           <p v-if="agent.source" class="text-[11px] text-dimmed mt-1 flex items-center gap-1 min-w-0">
             <UIcon name="i-lucide-waves" class="size-3 shrink-0" />
-            <span class="truncate">From The Reef<template v-if="agent.source.author"> · by {{ agent.source.author }}</template></span>
+            <RouterLink v-if="agent.source.project" :to="`/reef/${agent.source.project}`" class="truncate hover:text-default hover:underline">From The Reef · {{ agent.source.project }}</RouterLink>
+            <span v-else class="truncate">From The Reef<template v-if="agent.source.author"> · by {{ agent.source.author }}</template></span>
           </p>
           <div class="flex items-center gap-2 mt-4 pt-4 border-t border-default">
             <UButton label="Chat" icon="i-lucide-message-circle" size="sm" color="neutral" @click="startChat(agent)" />
@@ -181,7 +183,8 @@ const isEmpty = computed(() => loaded.value && !loading.value && !unauthorized.v
       <p v-if="atLimit" class="text-xs text-muted mt-4">You have reached the limit of {{ options?.limits.maxAgents }} agents. Delete one to make another.</p>
     </div>
 
-    <ShareDialog v-model:open="shareOpen" :agent="sharing" />
+    <PublishDialog v-model:open="shareOpen" :agent="sharing" />
+    <ProfileSetupDialog />
 
     <AgentEditor
       v-model:open="editorOpen"

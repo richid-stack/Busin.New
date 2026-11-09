@@ -1,6 +1,31 @@
-> **Status: plan agreed (26 Oct 2026). Slice 9.1 (share an agent by link) is built; the rest is not.** Phase 9 of the big score. It reuses what OpenLobs already has (agents, skills, workflows, MCP approvals, the account export and delete) and is written so each slice can be tried on its own.
+> **Status (27 Oct 2026): the community is built on real data and tested against an in-memory database; it has not yet run against real Firestore.** Agents are the one kind of project so far (workflows, tasks and packs come later). Phase 9 of the big score. It reuses what OpenLobs already has (agents, skills, workflows, MCP approvals, the account export and delete) and is written so each slice can be tried on its own.
 
 # Phase 9: The Reef (the OpenLobs community)
+
+## What is built
+
+People: a profile with a handle (claimed once, kept), a bio and a place; follow and unfollow; hand-given **verified** and **official** badges (admin only).
+Projects: share one of your agents as a project (README, tags, licence, numbered versions with a note each); star, **fork** (not for "all rights reserved"), **add to OpenLobs** (the installer chooses which tool groups that reach into accounts stay on; they start off), report, remove. The page shows the files, versions, forks, questions, what it needs, and a "made of" bar worked out from real file sizes.
+Talk: short posts with an optional project attached, likes, replies; **questions** with answers, "this worked" marks the accepted answer, and questions tied to a project; alerts for follows, stars, likes, replies, answers, forks and accepted answers.
+Finding things: home feed (For you / Following / Questions), project list with search, tag and sort, people search, and a right column (trending, who to follow, open questions).
+Safety: every project and post goes through the publish scan (secrets, hidden characters, look-alike links, "hide this from the user" phrases): blocked ones are refused with the reason, borderline ones are flagged. Three different people reporting something hides it until the review queue (`/reef/review`, people listed in `REEF_ADMINS`) puts it back or takes it down. READMEs are drawn by our own short allowlist of tags, so a stranger's README cannot run anything.
+Privacy: everything a person made in The Reef is in their account export and is removed when they delete their account (counts on other people's things are corrected).
+
+The 9.1 link-sharing page and its `/api/shares` routes are gone: sharing is now publishing a project. Anything already in `shared_items` is still included in export and delete.
+
+### Indexes
+
+Firestore needs the composite indexes in `firestore.indexes.json` before the lists work. `firebase.json` points at them and at the named database:
+
+```
+firebase deploy --only firestore:indexes --project $PROJECT
+```
+
+They take a few minutes to build. Until they finish, the feed, project list and thread pages return an error that names the missing index.
+
+### Approximate cost of keeping projects
+
+A project is text: a README, the instructions and settings, and a small record per version, usually a few kilobytes. Firestore's free quota is about 1 GiB stored, 50,000 reads and 20,000 writes a day; beyond that the price is roughly US$0.18 per GiB-month stored, US$0.06 per 100,000 reads and US$0.18 per 100,000 writes (approximate; check Google's current pricing). Reads are what grow, because every page view reads a handful of documents.
 
 ## The idea
 
@@ -78,7 +103,7 @@ Community skill registries are a known target. OpenClaw's ClawHub had [malicious
 
 | Slice | What you can do after it |
 | --- | --- |
-| 9.1 Share by link | Publish an agent or skill as unlisted; send the link; the other person previews it and installs a copy. No browsing yet. |
+| 9.1 Share by link (replaced by projects) | Publish an agent or skill as unlisted; send the link; the other person previews it and installs a copy. No browsing yet. |
 | 9.2 Hub, profiles, stars | Public listing, search, tags, profiles, stars, "works with" filters, the publish scan, reports. |
 | 9.3 Forks and versions | Fork with lineage, numbered versions, update prompts with permission changes. |
 | 9.4 Questions, discussions and pull requests | Ask and answer questions (with accepted answers and search), per-repo discussion, issues, and suggested changes with a readable diff. |

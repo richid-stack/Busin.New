@@ -1,6 +1,7 @@
 import { getFirebaseAuth, getFirebaseDb } from '../../utils/firebaseAdmin'
 import { forgetVerifiedUser } from '../../utils/session'
 import { clearDeleting, markDeleting } from './tombstone'
+import { createReef } from '../reef/reef'
 import { deleteComposioConnection, isComposioConfigured, listComposioUserConnections } from '../composio/client'
 
 /**
@@ -12,7 +13,7 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings'] as const
 /** Nested data that goes with its parent document. */
@@ -115,6 +116,8 @@ export interface UserExport {
   tasks: unknown[]
   taskSchedules: unknown[]
   sharedItems: unknown[]
+  /** What the person published and wrote in The Reef. */
+  reef: { profile: unknown[], projects: unknown[], posts: unknown[], stars: unknown[], likes: unknown[], follows: unknown[] }
   computers: unknown[]
   computerJobs: unknown[]
   agents: unknown[]
@@ -158,12 +161,18 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, ...data }
     })
 
-  const [chats, workflows, tasks, taskSchedules, sharedItems, devices, bridgeJobs, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
+  const [chats, workflows, tasks, taskSchedules, sharedItems, reefProfile, reefProjects, reefPosts, reefStars, reefLikes, reefFollows, devices, bridgeJobs, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
     withNested('chats'),
     withNested('workflows').then(list => list.map(redactWorkflow)),
     withNested('tasks').then(list => list.map((t: any) => { const rest = { ...t }; delete rest.leaseToken; delete rest.leaseUntil; return rest })),
     simple('task_schedules'),
     simple('shared_items'),
+    simple('reef_profiles'),
+    simple('reef_projects'),
+    simple('reef_posts'),
+    simple('reef_stars'),
+    simple('reef_likes'),
+    simple('reef_follows'),
     withNested('devices').then(list => list.map((d: any) => { const rest = { ...d }; delete rest.tokenHash; return rest })),
     simple('bridge_jobs'),
     simple('agents'),
@@ -204,6 +213,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     tasks,
     taskSchedules,
     sharedItems,
+    reef: { profile: reefProfile, projects: reefProjects, posts: reefPosts, stars: reefStars, likes: reefLikes, follows: reefFollows },
     computers: devices,
     computerJobs: bridgeJobs,
     agents,
@@ -258,6 +268,9 @@ export async function eraseUserData(deps: AccountDeps, userId: string): Promise<
     return await stopClean(`Could not disconnect ${results.filter(r => !r).length} of your connected apps. Nothing was deleted; please try again.`)
   }
   removed.connectedApps = connections.length
+
+  // Take back what the person did in The Reef first, so counts on other people's projects and posts stay right.
+  await createReef(db).forgetUser(userId).catch((err: any) => console.warn('[account] could not fully take back The Reef activity:', err?.message))
 
   const sweep = async () => {
     for (const collection of OWNED) {

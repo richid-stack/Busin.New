@@ -51,6 +51,14 @@ export function getFirebaseDb() {
   return getFirestore(getAdminApp(), config.firestoreDatabaseId || '(default)')
 }
 
+let authOverride: ReturnType<typeof getAuth> | null = null
+
+/** Tests hand in a stand-in that "verifies" sign-in tokens, so a route can be called as a signed-in person. Pass null to undo. */
+export function useFirebaseAuthForTests(auth: unknown) {
+  authOverride = auth as ReturnType<typeof getAuth> | null
+}
+
 export function getFirebaseAuth() {
+  if (authOverride) return authOverride
   return getAuth(getAdminApp())
 }
