@@ -23,6 +23,10 @@ export function createFakeFirestore() {
     path: `${path}/${id}`,
     get: async () => snap(path, id, col(path).get(id)),
     set: async (d: Doc) => { col(path).set(id, structuredClone(d)) },
+    create: async (d: Doc) => {
+      if (col(path).has(id)) throw new Error('ALREADY_EXISTS: the document exists')
+      col(path).set(id, structuredClone(d))
+    },
     update: async (patch: Doc) => {
       const cur = col(path).get(id)
       if (!cur) throw new Error('NOT_FOUND: no document to update')
