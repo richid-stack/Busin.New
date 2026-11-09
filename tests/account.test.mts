@@ -25,6 +25,7 @@ const seed = async (uid: string) => {
   await db.collection('memories').doc(`mem-${uid}`).set({ userId: uid, text: 'Likes tea' })
   await db.collection('memory_settings').doc(uid).set({ userId: uid, enabled: false })
   await db.collection('mcp_servers').doc(`s-${uid}`).set({ userId: uid, name: 'Linear', url: 'https://mcp.example.com/x', sealedToken: 'SEALED-SECRET', approved: { mcp_linear_search: { fingerprint: 'f' } } })
+  await db.collection('model_connections').doc(`${uid}__groq`).set({ userId: uid, providerId: 'groq', baseUrl: '', sealedKey: 'v1.MODEL-KEY-SECRET.x.y', models: [{ id: 'm1', label: 'M1' }], enabled: ['m1'], manual: [], fetchedAt: '2026-10-20T00:00:00.000Z', createdAt: '2026-10-20T00:00:00.000Z' })
   await db.collection('usage').doc(`${uid}__2026-10`).set({ userId: uid, total: 4, days: { '2026-10-19': 4 } })
   await db.collection('user_plans').doc(uid).set({ userId: uid, plan: 'pro', endsAt: '2099-01-01T00:00:00.000Z' })
   await db.collection('generated_files').doc(`f-${uid}`).set({ userId: uid, name: 'report.xlsx', mime: 'x', size: 3, data: Buffer.from('abc') })
@@ -57,6 +58,7 @@ assert((out.workflows[0] as any).runs.length === 1, 'workflows come with their r
 assert((out.tasks[0] as any).events.length === 1 && !JSON.stringify(out.tasks).includes('LEASE-SECRET'), 'tasks are exported with their logs, without lease details')
 assert((out.computers[0] as any).name === 'Desk' && (out.computers[0] as any).events.length === 1 && out.computerJobs.length === 1, 'computers are exported with their logs, plus their jobs')
 assert(!JSON.stringify(out).includes('TOKEN-HASH-SECRET') && !JSON.stringify(out).includes('CODE-HASH-SECRET'), 'computer tokens and pairing codes never leave in an export')
+assert(out.modelProviders.length === 1 && (out.modelProviders[0] as any).provider === 'groq' && !JSON.stringify(out).includes('MODEL-KEY-SECRET'), 'connected model providers are exported without their keys')
 assert(out.agents.length === 1 && out.memory.items.length === 1 && out.memory.enabled === false, 'agents and memory (including the on/off setting) are included')
 assert((out.plan as any).plan === 'pro' && out.usage.length === 1, 'plan and usage are included')
 assert(out.connectedApps.sort().join() === 'notion,slack', 'connected apps are listed by name')
@@ -79,7 +81,7 @@ assert(e instanceof AccountDeletionError && db.raw('agents').has('a-alice'), 'if
 // ---- Erasure ----
 const res = await eraseUserData(deps(), 'alice')
 assert(calls.includes('disconnect:conn1') && calls.includes('disconnect:conn2') && calls.includes('auth:alice'), 'apps are disconnected and the sign-in account removed')
-for (const c of ['chats', 'workflows', 'tasks', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit']) {
+for (const c of ['chats', 'workflows', 'tasks', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit']) {
   assert([...db.raw(c).values()].every(d => d.userId !== 'alice'), `${c}: all of Alice's documents are gone`)
 }
 assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice'), 'usage, plan and memory settings are gone')

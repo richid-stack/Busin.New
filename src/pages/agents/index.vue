@@ -2,6 +2,7 @@
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAgents } from '../../composables/useAgents'
+import { useModelProviders } from '../../composables/useModelProviders'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
 import AgentEditor from '../../components/agents/AgentEditor.vue'
@@ -73,7 +74,9 @@ async function remove(agent: AgentProfile) {
 }
 
 const startChat = (agent: AgentProfile) => router.push({ path: '/', query: { agent: agent.id } })
-const modelLabel = (id: string | null) => (id ? MODELS.find(m => m.value === id)?.label ?? id : 'Your chat model')
+const { myModels, myLoaded, fetchMyModels } = useModelProviders()
+onMounted(() => { if (!myLoaded.value) void fetchMyModels() })
+const modelLabel = (id: string | null) => (id ? MODELS.find(m => m.value === id)?.label ?? myModels.value.find(m => m.value === id)?.label ?? id.replace(/^my:[^/]*\//, '') : 'Your chat model')
 const groupLabel = (id: string) => options.value?.toolGroups.find(g => g.id === id)?.label ?? id
 
 function menuItems(agent: AgentProfile) {

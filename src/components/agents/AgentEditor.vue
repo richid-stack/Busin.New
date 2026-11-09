@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useModelProviders } from '../../composables/useModelProviders'
 import { MODELS } from '../../../shared/utils/models'
 import { AGENT_PRESETS } from '../../utils/agentPresets'
 import type { AgentInput, AgentOptions, AgentProfile } from '../../types/agents'
@@ -40,7 +41,9 @@ function toggle(list: 'tools' | 'skills', value: string, on: boolean) {
   form.value[list] = [...current]
 }
 
-const MODEL_ITEMS = [{ label: 'Use the model I pick in the chat', value: '__chat__' }, ...MODELS.map(m => ({ label: m.label, value: m.value }))]
+const { myModels, myLoaded, fetchMyModels } = useModelProviders()
+onMounted(() => { if (!myLoaded.value) void fetchMyModels() })
+const MODEL_ITEMS = computed(() => [{ label: 'Use the model I pick in the chat', value: '__chat__' }, ...MODELS.map(m => ({ label: m.label, value: m.value })), ...myModels.value.map(m => ({ label: `${m.label} (${m.provider})`, value: m.value }))])
 const modelValue = computed({
   get: () => form.value.model ?? '__chat__',
   set: (v: string) => { form.value.model = v === '__chat__' ? null : v }

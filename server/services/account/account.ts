@@ -12,7 +12,7 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings'] as const
 /** Nested data that goes with its parent document. */
@@ -118,6 +118,7 @@ export interface UserExport {
   agents: unknown[]
   memory: { enabled: boolean, items: unknown[] }
   mcpServers: unknown[]
+  modelProviders: unknown[]
   files: unknown[]
   payments: unknown[]
   notifications: unknown
@@ -182,6 +183,12 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     simple('integrations', LEGACY_SECRETS)
   ])
 
+  // Which providers have a key saved and which models are switched on. The key itself is never exported.
+  const modelProviders = (await ownedDocs(db, 'model_connections', id)).map((doc) => {
+    const d = doc.data()
+    return { id: doc.id, provider: d.providerId, baseUrl: d.baseUrl || null, modelsAvailable: Array.isArray(d.models) ? d.models.length : 0, enabled: d.enabled ?? [], manual: d.manual ?? [], createdAt: plain(d.createdAt) }
+  })
+
   return {
     format: EXPORT_FORMAT,
     exportedAt: now.toISOString(),
@@ -196,6 +203,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     agents,
     memory: { enabled: memSettings.exists ? memSettings.data()?.enabled !== false : true, items: memories },
     mcpServers: servers,
+    modelProviders,
     files,
     payments,
     notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true },

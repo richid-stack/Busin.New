@@ -14,7 +14,7 @@ import type { ToolNote, VerifyContext } from './verify'
 export interface RunDeps {
   store: TaskStore
   tools: (task: Task) => Record<string, any>
-  model: (task: Task) => { id: string, model: LanguageModel } | null
+  model: (task: Task) => { id: string, model: LanguageModel } | null | Promise<{ id: string, model: LanguageModel } | null>
   verify: (criteria: Criterion[], ctx: VerifyContext, task: Task) => Promise<Criterion[]>
   charge: (userId: string, cost: number) => Promise<{ refund: () => Promise<void> }>
   costOf: (modelId: string) => number
@@ -76,10 +76,16 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
   const toolLog: ToolNote[] = []
   const artifacts: Artifact[] = [...task.artifacts]
 
-  const chosen = deps.model(task)
   const fail = async (error: string) => {
     await store.addEvent(task.id, 'error', error)
     return await store.update(task.id, lease, { status: 'failed', error, outcome: `Stopped: ${error}` }).catch(() => task)
+  }
+  // A model of the person's own can be unavailable (provider removed, key unreadable): say so rather than guess another.
+  let chosen: Awaited<ReturnType<RunDeps['model']>>
+  try {
+    chosen = await deps.model(task)
+  } catch (err) {
+    return await fail((err as Error)?.message || 'The chosen model is not available.')
   }
   if (!chosen) return await fail('No AI model is configured on this server.')
 
