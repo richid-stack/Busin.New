@@ -64,6 +64,18 @@ try {
   assert(/Paired as/.test(status.out) && /Look at web pages/.test(status.out), 'the Start menu "status" command works')
   assert(fs.existsSync(path.join(dataDir, 'bridge.log')) && /Running "ping"/.test(fs.readFileSync(path.join(dataDir, 'bridge.log'), 'utf8')), 'it keeps an activity log')
 
+  // The emergency stop: paused means refused, resumed means working again.
+  const paused = await runCmd(path.join(appDir, 'bridge.cmd'), ['pause'])
+  assert(/Paused/.test(paused.out), 'the pause command works')
+  const pingPaused = await server.store.enqueue('winuser', dev.id, 'ping')
+  await waitFor('the paused ping to be answered', async () => ['done', 'failed'].includes((await server.store.getJob('winuser', pingPaused.id)).status), 60_000)
+  const pj = await server.store.getJob('winuser', pingPaused.id)
+  assert(pj.status === 'failed' && /paused/.test(pj.error), 'while paused, the installed Bridge refuses everything')
+  await runCmd(path.join(appDir, 'bridge.cmd'), ['resume'])
+  const pingBack = await server.store.enqueue('winuser', dev.id, 'ping')
+  await waitFor('the resumed ping', async () => ['done', 'failed'].includes((await server.store.getJob('winuser', pingBack.id)).status), 60_000)
+  assert((await server.store.getJob('winuser', pingBack.id)).status === 'done', 'after resuming, it answers again')
+
   // Spreadsheets: choose a folder, then ask the installed Bridge to change a workbook with a real spreadsheet program.
   const sheetDir = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || process.env.TEMP || '.', 'olb-sheets-'))
   const wb = new ExcelJS.Workbook()

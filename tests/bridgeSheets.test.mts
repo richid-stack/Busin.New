@@ -209,6 +209,6 @@ assert(spawners.map(f => f.replace(/\\/g, '/')).sort().join() === 'bridge/proces
 assert(!bridgeFiles.some(f => /\beval\(|new Function\(|\bshell:\s*true/.test(src(f))), 'no eval and no shell in the Bridge')
 const engineSrc = src('bridge/sheets/engine.ts')
 assert(!/\$\{[^}]*(job|c\.|input)/.test(engineSrc.slice(engineSrc.indexOf('EXCEL_SCRIPT'), engineSrc.indexOf('Finding and running'))), 'the fixed scripts have nothing from a job placed inside them')
-assert(!bridgeFiles.some(f => /fs\.(rm|rmdir|unlink)Sync/.test(src(f)) && !/(sheets\/(jobs|selftest|engine)|cli)\.ts$/.test(f.replace(/\\/g, '/'))), 'files are removed only by the few places that clean up after themselves')
+assert(!bridgeFiles.some(f => /fs\.(rm|rmdir|unlink)Sync/.test(src(f)) && !/(sheets\/(jobs|selftest|engine)|cli|control)\.ts$/.test(f.replace(/\\/g, '/'))), 'files are removed only by the few places that clean up after themselves')
 
 fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(outside, { recursive: true, force: true }); fs.rmSync(work, { recursive: true, force: true })
