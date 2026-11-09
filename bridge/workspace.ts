@@ -18,8 +18,8 @@ export function isInside(root: string, target: string): boolean {
 }
 
 /** The folder itself, checked: it must exist and be a real directory. Returns its real path. */
-export function openWorkspace(folder: string | null | undefined): string {
-  if (!folder) throw new WorkspaceError('No folder has been chosen on this computer. Run: bridge allow excel --folder "C:\\path\\to\\folder"')
+export function openWorkspace(folder: string | null | undefined, permission = 'excel'): string {
+  if (!folder) throw new WorkspaceError(`No folder has been chosen on this computer. Run: bridge allow ${permission} --folder "C:\\path\\to\\folder"`)
   let real: string
   try { real = fs.realpathSync(folder) } catch { throw new WorkspaceError('The folder chosen on this computer does not exist any more.') }
   if (!fs.statSync(real).isDirectory()) throw new WorkspaceError('The chosen folder is not a folder.')
@@ -114,7 +114,7 @@ export function listSpreadsheets(root: string, sub?: string, stopped: () => bool
   return { files: out.slice(0, SHEET_LIMITS.maxListed), truncated: out.length > SHEET_LIMITS.maxListed }
 }
 
-function resolveDir(root: string, rel: string): string {
+export function resolveDir(root: string, rel: string): string {
   const candidate = path.resolve(root, ...rel.split(/[\\/]/))
   let real: string
   try { real = fs.realpathSync(candidate) } catch { throw new WorkspaceError(`There is no folder "${rel}" in the chosen folder.`) }

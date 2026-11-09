@@ -32,6 +32,7 @@ import { createBrowserTool } from '../../../utils/tools/browser'
 import { browserKey } from '../../../services/browser/service'
 import { browserServiceFor } from '../../../services/browser/where'
 import { holdStore, startWait } from '../../../services/browser/holds'
+import { createLookInFolderTool, createRunOnComputerTool } from '../../../utils/tools/runOnComputer'
 import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
 import { bridgeStore } from '../../../services/bridge/store'
 import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
@@ -253,6 +254,7 @@ export default defineHandler(async (event) => {
   // anyone can switch it off on the Memory page. A failure here must never stop a chat.
   // Offered only when one of the person's computers has been allowed to do spreadsheet work, so the assistant is not told about a tool that cannot work.
   const excelOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('workbook_apply'))).catch(() => false)
+  const runOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('run_command'))).catch(() => false)
   const memoryOn = signedIn && (!agent || agent.tools.includes('memory')) && await isMemoryEnabled(userId).catch(() => false)
   const memories = memoryOn ? await listMemories(userId).catch(() => []) : []
   const userText = lastMessage?.role === 'user'
@@ -298,7 +300,9 @@ export default defineHandler(async (event) => {
           inspect_design: createInspectDesignTool(userId, messages, modelId),
           // Only offered where a browser is set up, so the assistant is never told about a tool that cannot work.
           ...(browserService ? { browser: createBrowserTool(userId, id, browserService, waitHooks) } : {}),
-          ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {})
+          ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {}),
+          // Same reason: only offered when a computer has been allowed to run commands in a folder.
+          ...(runOn ? { run_on_computer: createRunOnComputerTool(userId), look_in_folder: createLookInFolderTool(userId) } : {})
         }
       : {})
   }
