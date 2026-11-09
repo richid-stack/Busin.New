@@ -57,6 +57,14 @@ export function createFileStore(db: FileDb, now: () => Date = () => new Date()) 
       return { id, expiresAt }
     },
 
+    /** Removes a file its owner made and nothing ended up using. Anyone else's file, or a missing one, is left alone. */
+    async discard(id: string, userId: string): Promise<void> {
+      if (!/^[0-9a-f-]{36}$/.test(id)) return
+      const ref = db.collection(FILE_COLLECTION).doc(id)
+      const snap = await ref.get()
+      if (snap.exists && snap.data()?.userId === userId) await ref.delete()
+    },
+
     /** The file, only when `userId` created it and it has not expired. Anything else looks like "not found". */
     async get(id: string, userId: string): Promise<StoredFile | null> {
       if (!/^[0-9a-f-]{36}$/.test(id)) return null

@@ -54,5 +54,8 @@ export function killTree(child: ChildProcess): void {
 
 /** Starts a fixed program that keeps running next to the Bridge (the tray icon). The caller stops it when the Bridge stops. */
 export function startBackground(exe: string, args: string[]): ChildProcess {
-  return spawn(exe, args, { windowsHide: true, stdio: 'ignore' })
+  const child = spawn(exe, args, { windowsHide: true, stdio: 'ignore' })
+  // If the program cannot start (PowerShell missing, say) that must not take the Bridge down with it.
+  child.on('error', () => { /* the caller learns of it through "exit" or by the icon never appearing */ })
+  return child
 }

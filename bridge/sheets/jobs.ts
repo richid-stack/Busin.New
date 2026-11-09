@@ -22,18 +22,25 @@ const parse = <T>(schema: { safeParse: (x: unknown) => any }, input: unknown): T
   return r.data as T
 }
 
-export async function workbookList(workspace: string | null, input: unknown) {
+const stopIf = (signal?: AbortSignal) => { if (signal?.aborted) throw new Error('Stopped.') }
+
+export async function workbookList(workspace: string | null, input: unknown, signal?: AbortSignal) {
+  stopIf(signal)
   const root = openWorkspace(workspace)
   const { folder } = parse<{ folder?: string }>(workbookListInput, input)
-  const { files, truncated } = listSpreadsheets(root, folder)
+  const { files, truncated } = listSpreadsheets(root, folder, () => !!signal?.aborted)
+  stopIf(signal)
   return { folder: path.basename(root).slice(0, 200), files, truncated }
 }
 
-export async function workbookInspect(workspace: string | null, input: unknown) {
+export async function workbookInspect(workspace: string | null, input: unknown, signal?: AbortSignal) {
+  stopIf(signal)
   const root = openWorkspace(workspace)
   const { file } = parse<{ file: string }>(workbookInspectInput, input)
   const full = resolveExisting(root, file)
-  return await inspectWorkbook(full, path.relative(root, full).split(path.sep).join('/'))
+  const out = await inspectWorkbook(full, path.relative(root, full).split(path.sep).join('/'))
+  stopIf(signal)
+  return out
 }
 
 const sha = (file: string) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')
