@@ -61,18 +61,13 @@ import { resolveModel } from '../../../services/models/resolve'
 import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
+import { modelErrorMessage } from '../../../utils/modelError'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
-const RATE_LIMIT_PATTERN = /quota|RESOURCE_EXHAUSTED|429|rate[ -]?limit|\bI?O?TPM\b/i
-
-// Turns provider errors into a short, honest message; details stay in the server log.
+// Provider errors become a short, honest message; details stay in the server log.
 function describeModelError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error)
-  console.error('[chat] model error:', message)
-  if (RATE_LIMIT_PATTERN.test(message)) {
-    return 'This model has reached its rate limit. Wait a moment and try again, or pick another model from the dropdown.'
-  }
-  return 'Something went wrong while generating the response. Please try again.'
+  console.error('[chat] model error:', error instanceof Error ? error.message : String(error))
+  return modelErrorMessage(error)
 }
 
 const WORKFLOW_PROMPT = `**WORKFLOWS & SERVICE AUTOMATIONS (CRITICAL):**
