@@ -38,7 +38,9 @@ import { createRunInCloudTool } from '../../../utils/tools/runInCloud'
 import { defaultCloudBox } from '../../../services/cloudbox/provider'
 import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
 import { bridgeStore } from '../../../services/bridge/store'
-import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
+import { artifactSink, createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
+import { createEditFileTool } from '../../../utils/tools/editFile'
+import { openFileNote } from '../../../services/artifacts/context'
 import { prepareMessagesForModel, supportsNativePdf } from '../../../services/documents/attachments'
 import { skills } from '../../../services/skills/registry'
 import { describeCatalog } from '../../../services/skills/parse'
@@ -102,13 +104,18 @@ export default defineHandler(async (event) => {
     id: z.string()
   }).parse)
 
-  const { model, messages, voice } = await readValidatedBody(event, z.object({
+  const { model, messages, voice, workPane } = await readValidatedBody(event, z.object({
     model: z.string().refine(value => MODELS.some(m => m.value === value) || parseMyModelId(value) !== null, {
       message: 'Invalid model'
     }),
     messages: z.array(z.custom<UIMessage>()),
     /** The person is talking to Lobby: narrate the work in short spoken sentences. */
-    voice: z.boolean().optional()
+    voice: z.boolean().optional(),
+    /** A file the person has open beside the chat, and the part they picked in it. */
+    workPane: z.object({
+      artifactId: z.string().length(36),
+      selection: z.object({ sheet: z.number().int().min(1).max(8).optional(), from: z.number().int().min(1).max(5000), to: z.number().int().min(1).max(5000), col: z.number().int().min(1).max(30).optional() }).optional()
+    }).optional()
   }).parse)
 
   assertMessageSizes(messages)
@@ -258,6 +265,7 @@ export default defineHandler(async (event) => {
   // Offered only when one of the person's computers has been allowed to do spreadsheet work, so the assistant is not told about a tool that cannot work.
   const excelOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('workbook_apply'))).catch(() => false)
   const runOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('run_command'))).catch(() => false)
+  const paneNote = signedIn && workPane ? await openFileNote(userId, workPane).catch(() => '') : ''
   const memoryOn = signedIn && (!agent || agent.tools.includes('memory')) && await isMemoryEnabled(userId).catch(() => false)
   const memories = memoryOn ? await listMemories(userId).catch(() => []) : []
   const userText = lastMessage?.role === 'user'
@@ -297,9 +305,10 @@ export default defineHandler(async (event) => {
           workflow_run: createWorkflowRunTool(userId),
           integration_status: createIntegrationStatusTool(userId),
           integration_execute: createIntegrationExecuteTool(userId, { gate: true }),
-          create_document: createDocumentTool(userId),
-          create_spreadsheet: createSpreadsheetTool(userId),
-          create_presentation: createPresentationTool(userId),
+          create_document: createDocumentTool(userId, undefined, { chatId: id, artifacts: artifactSink }),
+          create_spreadsheet: createSpreadsheetTool(userId, undefined, { chatId: id, artifacts: artifactSink }),
+          create_presentation: createPresentationTool(userId, undefined, { chatId: id, artifacts: artifactSink }),
+          edit_file: createEditFileTool(userId),
           inspect_design: createInspectDesignTool(userId, messages, modelId),
           add_tool_server: createAddToolServerTool(userId),
           // Only offered where a browser is set up, so the assistant is never told about a tool that cannot work.
@@ -351,6 +360,7 @@ export default defineHandler(async (event) => {
 - Write the real content first, then call the tool once. The user downloads the file from a card in the chat, so never paste a link.
 - Use create_document with format pdf only when the user wants a final copy; otherwise Word, because it can be edited.
 - Never put made-up facts, prices or dates in a file. Use what the user gave you or what you found, and leave clearly marked blanks otherwise.
+- The user can open a file beside the chat and ask for a change. To change one, call edit_file with only the parts that change (never write the whole file again), then say in one sentence what changed. Each change is a new version they can undo.
 
 ${fetchGuidance(Object.keys(tools))}${'browser' in tools ? `**BROWSER:**
 - The browser tool operates real websites in a private, signed-out browser. A card in the chat shows the page live, and the user can take over at any time.
@@ -381,7 +391,7 @@ ${fetchGuidance(Object.keys(tools))}${'browser' in tools ? `**BROWSER:**
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`,
+${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}${paneNote && 'edit_file' in tools ? `\n\n${paneNote}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`,
           messages: await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })),
           tools,
           providerOptions: ownKey ? undefined : {

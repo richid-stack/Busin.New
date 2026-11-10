@@ -13,7 +13,7 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'artifacts', 'artifact_versions', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings', 'voice_settings'] as const
 /** Nested data that goes with its parent document. */
@@ -161,6 +161,8 @@ export interface UserExport {
   modelProviders: unknown[]
   voice: unknown
   files: unknown[]
+  /** Files OpenLobs made that can be opened and changed: what they are and what they say now (older versions are not exported). */
+  madeFiles: unknown[]
   payments: unknown[]
   notifications: unknown
   notificationLog: unknown[]
@@ -201,7 +203,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
       return { id: doc.id, ...data }
     })
 
-  const [chats, workflows, tasks, taskSchedules, sharedItems, reefProfile, reefProjects, reefPosts, reefStars, reefLikes, reefFollows, devices, bridgeJobs, agents, memories, servers, usage, files, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
+  const [chats, workflows, tasks, taskSchedules, sharedItems, reefProfile, reefProjects, reefPosts, reefStars, reefLikes, reefFollows, devices, bridgeJobs, agents, memories, servers, usage, files, madeFiles, payments, planDoc, memSettings, notifDoc, connections, keyDocs, connectorAudit, notifLog, legacy] = await Promise.all([
     withNested('chats'),
     withNested('workflows').then(list => list.map(redactWorkflow)),
     withNested('tasks').then(list => list.map((t: any) => { const rest = { ...t }; delete rest.leaseToken; delete rest.leaseUntil; return scrubUrlSecrets(rest) })),
@@ -223,6 +225,11 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     })),
     simple('usage'),
     listedFiles(db, id),
+    ownedDocs(db, 'artifacts', id).then(docs => Promise.all(docs.map(async (doc) => {
+      const d = plain(doc.data())
+      const version = await db.collection('artifact_versions').doc(`${doc.id}__${d.head}`).get()
+      return { id: doc.id, ...d, content: version.exists ? plain(version.data()).spec : null }
+    }))),
     simple('payments'),
     db.collection('user_plans').doc(id).get(),
     db.collection('memory_settings').doc(id).get(),
@@ -269,6 +276,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     modelProviders,
     voice: { settings: voiceSettings.exists ? plain(voiceSettings.data()) : null, keys: voiceKeys },
     files,
+    madeFiles,
     payments,
     notifications: notifDoc.exists ? plain(notifDoc.data()) : { emailRenewals: true, emailWorkflowFailures: true, emailTaskResults: true, emailNeedsYou: true },
     connectedKeys: keyDocs,

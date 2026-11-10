@@ -171,7 +171,11 @@ Files OpenLobs creates are kept for 30 days (`expiresAt`). The app hides expired
 
 ```bash
 gcloud firestore fields ttls update expiresAt --collection-group=generated_files --database=$DB --enable-ttl
+gcloud firestore fields ttls update expiresAt --collection-group=artifacts --database=$DB --enable-ttl
+gcloud firestore fields ttls update expiresAt --collection-group=artifact_versions --database=$DB --enable-ttl
 ```
+
+The last two cover the files you can open beside the chat and their saved versions (also 30 days, renewed each time the file is changed).
 
 ## 7. Backups
 
