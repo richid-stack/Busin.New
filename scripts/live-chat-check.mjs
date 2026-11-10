@@ -70,6 +70,7 @@ async function turn(token, model, text) {
 }
 
 try {
+  check(!!process.env.GEMINI_API_KEY, 'the GEMINI_API_KEY secret is set', process.env.GEMINI_API_KEY ? '' : 'add it under Settings, Secrets and variables, Actions')
   check(await waitForApp(), 'the app starts')
   const token = await signIn()
   check(true, 'sign-in works with a real token')
@@ -80,7 +81,7 @@ try {
   for (const m of MODELS) {
     hello = await turn(token, m, 'Reply with the single word: pong')
     if (hello.status === 200 && /pong/i.test(hello.text)) { model = m; break }
-    console.log(`  ${m}: status ${hello.status}`, hello.errors[0] || hello.text.slice(0, 120))
+    console.log(`  ${m}: status ${hello.status}`, (hello.errors[0] || hello.text || hello.raw).slice(0, 160).replace(/\s+/g, ' '))
   }
   writeFileSync(`${OUT}/plain.txt`, hello?.text || hello?.raw?.slice(0, 2000) || '')
   check(!!model, 'a plain chat gets a real answer', model || (hello?.errors[0] || `status ${hello?.status}`))
