@@ -127,7 +127,16 @@ try {
 } catch (err) {
   check(false, 'the run finished', String(err?.message || err))
 } finally {
-  if (results.some(r => !r.ok)) show('server log (end)', serverLog.slice(-4000), 4000)
+  if (results.some(r => !r.ok)) {
+    let at = 0
+    for (let n = 0; n < 2; n++) {
+      const i = serverLog.indexOf('generativelanguage', at)
+      if (i < 0) break
+      show(`server log, Gemini error ${n + 1}`, serverLog.slice(Math.max(0, i - 600), i + 2600), 3200)
+      at = i + 3000
+    }
+    show('server log (end)', serverLog.slice(-2500), 2500)
+  }
   writeFileSync(`${OUT}/server-log.txt`, serverLog.replace(/AIza[0-9A-Za-z_-]{20,}/g, '[key]').replace(/gsk_[0-9A-Za-z]{20,}/g, '[key]').slice(-60_000))
   writeFileSync(`${OUT}/summary.json`, JSON.stringify(results, null, 1))
   stop()
