@@ -58,9 +58,10 @@ import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatu
 import { MODELS } from '../../../../shared/utils/models'
 import { parseMyModelId } from '../../../../shared/modelProviders'
 import { resolveModel } from '../../../services/models/resolve'
-import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
+import { DEFAULT_MODEL, availableModels, getLanguageModel, providerOf } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
+import { focusTools } from '../../../services/models/focus'
 import { modelErrorMessage } from '../../../utils/modelError'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
@@ -307,7 +308,8 @@ export default defineHandler(async (event) => {
       : {})
   }
   const setup = resolveChatSetup({ agent, tools: allTools, model: modelId, defaultSteps: 10 })
-  const tools = setup.tools
+  // Free plans with a small minute-by-minute allowance get only the tools this message is about.
+  const tools = focusTools(setup.tools, { provider: providerOf(modelId), text: userText })
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
