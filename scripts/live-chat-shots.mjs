@@ -48,7 +48,20 @@ async function waitForAnswer(maxMs = 150_000) {
   return false
 }
 
+/** Picks a Groq model in the model menu (the app opens on Gemini, which this run has no key for). */
+async function pickGroq() {
+  try {
+    await page.getByRole('button', { name: /gemini|flash|gpt|qwen|model/i }).last().click({ timeout: 8000 })
+    await sleep(800)
+    await shot(`menu-${Date.now() % 100000}`)
+    await page.getByText(/GPT OSS 120B/i).first().click({ timeout: 8000 })
+    await sleep(600)
+    note('picked GPT OSS 120B (Groq)')
+  } catch (e) { note(`could not pick the Groq model: ${redact(e.message).slice(0, 160)}`) }
+}
+
 async function send(text) {
+  await pickGroq()
   const box = page.locator('textarea').first()
   await box.click()
   await box.fill(text)
@@ -62,6 +75,8 @@ try {
   const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true, displayName: 'Ama' }) })
   if (!(await r.json()).idToken) throw new Error('The sign-in emulator gave no token')
 
+  // Warm the chat page so the first open does not fail while the dev server compiles it.
+  for (const u of ['/src/pages/chat/%5Bid%5D.vue', '/src/pages/index.vue']) { try { await fetch(`${BASE}${u}`) } catch {} }
   browser = await chromium.launch()
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 860 }, deviceScaleFactor: 2, colorScheme: 'dark' })
   page = await ctx.newPage()
