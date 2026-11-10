@@ -5,6 +5,7 @@ const short = (text: string, n: number) => (text.length > n ? `${text.slice(0, n
 /** A short plain name for the part the person picked, used at the start of the line they send: "Timeline: make it eight weeks". */
 export function partLabel(file: ArtifactView, sel: PartSelection): string {
   if (file.kind === 'presentation') return `Slide ${sel.from}`
+  if (file.kind === 'page') return 'The page'
   if (file.kind === 'workbook') return sel.from === sel.to ? `Row ${sel.from}` : `Rows ${sel.from} to ${sel.to}`
   const block = (file.spec as DocumentContent).blocks[sel.from - 1]
   if (!block) return 'This part'

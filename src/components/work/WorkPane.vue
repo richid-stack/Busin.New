@@ -2,10 +2,11 @@
 import { computed, watch } from 'vue'
 import { useWorkPane } from '../../composables/useWorkPane'
 import { changeMessage, partLabel } from '../../utils/workLabel'
-import type { DocumentContent, PresentationContent, WorkbookContent } from '../../types/artifacts'
+import type { DocumentContent, PageContent, PresentationContent, WorkbookContent } from '../../types/artifacts'
 import DocumentView from './DocumentView.vue'
 import SheetView from './SheetView.vue'
 import SlidesView from './SlidesView.vue'
+import PageView from './PageView.vue'
 
 const props = defineProps<{ busy: boolean }>()
 /** The pane asks the chat to make the change, so it shows up as a normal message and the assistant uses its edit tool. */
@@ -14,12 +15,12 @@ const emit = defineEmits<{ send: [text: string] }>()
 const pane = useWorkPane()
 const { file, loading, error, selection, sheet } = pane
 
-const ICON = { document: 'i-lucide-file-text', workbook: 'i-lucide-file-spreadsheet', presentation: 'i-lucide-presentation' } as const
-const NAME = { document: 'Word document', workbook: 'Excel spreadsheet', presentation: 'PowerPoint presentation' } as const
+const ICON = { document: 'i-lucide-file-text', workbook: 'i-lucide-file-spreadsheet', presentation: 'i-lucide-presentation', page: 'i-lucide-globe' } as const
+const NAME = { document: 'Word document', workbook: 'Excel spreadsheet', presentation: 'PowerPoint presentation', page: 'Web page' } as const
 
-// A slide deck always has a current slide, so the Change box always means a slide.
+// A slide deck always has a current slide and a web page is one whole part, so the Change box always means something.
 watch([file, selection], () => {
-  if (file.value?.kind === 'presentation' && !selection.value) pane.select({ from: 1, to: 1 })
+  if ((file.value?.kind === 'presentation' || file.value?.kind === 'page') && !selection.value) pane.select({ from: 1, to: 1 })
 }, { immediate: true })
 
 const label = computed(() => (file.value && selection.value ? partLabel(file.value, selection.value) : ''))
@@ -60,6 +61,7 @@ function pickSheet(n: number) { sheet.value = n; pane.select(null) }
         <p class="sr-only">{{ NAME[file.kind] }}</p>
         <DocumentView v-if="file.kind === 'document'" :spec="(file.spec as DocumentContent)" :selection="selection" :busy="stuck" :label="label" @select="select" @change="change" />
         <SheetView v-else-if="file.kind === 'workbook'" :spec="(file.spec as WorkbookContent)" :sheet="sheet" :selection="selection" :busy="stuck" :label="label" @select="select" @sheet="pickSheet" @change="change" />
+        <PageView v-else-if="file.kind === 'page'" :spec="(file.spec as PageContent)" :busy="stuck" :label="label" @change="change" />
         <SlidesView v-else :spec="(file.spec as PresentationContent)" :selection="selection" :busy="stuck" :label="label" @select="select" @change="change" />
       </template>
     </div>

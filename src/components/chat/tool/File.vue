@@ -22,7 +22,8 @@ const kind = computed(() => ({
   docx: { icon: 'i-lucide-file-type', label: 'Word document' },
   pdf: { icon: 'i-lucide-file-text', label: 'PDF document' },
   xlsx: { icon: 'i-lucide-file-spreadsheet', label: 'Excel spreadsheet' },
-  pptx: { icon: 'i-lucide-presentation', label: 'PowerPoint presentation' }
+  pptx: { icon: 'i-lucide-presentation', label: 'PowerPoint presentation' },
+  html: { icon: 'i-lucide-globe', label: 'Web page' }
 }[output.value?.format ?? ''] ?? { icon: 'i-lucide-file', label: 'File' }))
 </script>
 

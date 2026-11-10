@@ -31,7 +31,15 @@ export const changeSchema = z.discriminatedUnion('op', [
   // Presentations
   z.object({ op: z.literal('replace_slide'), at: n('Slide number to replace'), slide: slideSchema }),
   z.object({ op: z.literal('insert_slide'), at: n('The new slide goes in this position; later slides move down'), slide: slideSchema }),
-  z.object({ op: z.literal('delete_slide'), at: n('Slide number to remove') })
+  z.object({ op: z.literal('delete_slide'), at: n('Slide number to remove') }),
+  // Web pages
+  z.object({
+    op: z.literal('replace_text'),
+    find: z.string().min(1).max(2000).describe('Exact text on the page to change, copied as it is written. It must be found once, so include enough around it'),
+    replace: z.string().max(20_000).describe('What it becomes. Leave empty to remove it'),
+    all: z.boolean().optional().describe('Set true to change every place it appears')
+  }),
+  z.object({ op: z.literal('replace_html'), html: z.string().min(1).max(200_000).describe('The whole page again. Only for a redesign; for small changes use replace_text') })
 ])
 export type Change = z.infer<typeof changeSchema>
 
@@ -40,8 +48,9 @@ export class EditError extends Error {}
 const DOCUMENT_OPS = new Set(['set_title', 'replace_block', 'insert_block', 'delete_block'])
 const WORKBOOK_OPS = new Set(['set_title', 'set_cells', 'add_rows', 'delete_rows', 'replace_sheet', 'add_sheet', 'delete_sheet'])
 const PRESENTATION_OPS = new Set(['set_title', 'replace_slide', 'insert_slide', 'delete_slide'])
-const OPS: Record<ArtifactKind, Set<string>> = { document: DOCUMENT_OPS, workbook: WORKBOOK_OPS, presentation: PRESENTATION_OPS }
-const WHAT: Record<ArtifactKind, string> = { document: 'a document', workbook: 'a spreadsheet', presentation: 'a presentation' }
+const PAGE_OPS = new Set(['set_title', 'replace_text', 'replace_html'])
+const OPS: Record<ArtifactKind, Set<string>> = { document: DOCUMENT_OPS, workbook: WORKBOOK_OPS, presentation: PRESENTATION_OPS, page: PAGE_OPS }
+const WHAT: Record<ArtifactKind, string> = { document: 'a document', workbook: 'a spreadsheet', presentation: 'a presentation', page: 'a web page' }
 
 function within(list: unknown[], at: number, what: string, allowEnd = false) {
   const max = list.length + (allowEnd ? 1 : 0)
@@ -62,6 +71,15 @@ export function applyChanges(kind: ArtifactKind, current: ArtifactSpec, changes:
     if (!OPS[kind].has(change.op)) throw new EditError(`"${change.op}" does not work on ${WHAT[kind]}.`)
     switch (change.op) {
       case 'set_title': spec.title = change.title; break
+      case 'replace_html': spec.html = change.html; break
+      case 'replace_text': {
+        const parts: string[] = String(spec.html).split(change.find)
+        const found = parts.length - 1
+        if (found === 0) throw new EditError(`That text is not on the page: "${change.find.slice(0, 60)}". Copy it exactly as it is written.`)
+        if (found > 1 && !change.all) throw new EditError(`That text appears ${found} times. Include more of the text around it, or set all to true to change every one.`)
+        spec.html = parts.join(change.replace)
+        break
+      }
       case 'replace_block': within(spec.blocks, change.at, 'block'); spec.blocks[change.at - 1] = change.block; break
       case 'insert_block': within(spec.blocks, change.at, 'position', true); spec.blocks.splice(change.at - 1, 0, change.block); break
       case 'delete_block': within(spec.blocks, change.at, 'block'); spec.blocks.splice(change.at - 1, 1); break
