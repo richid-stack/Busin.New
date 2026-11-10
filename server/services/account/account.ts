@@ -3,6 +3,7 @@ import { forgetVerifiedUser } from '../../utils/session'
 import { clearDeleting, markDeleting } from './tombstone'
 import { createReef } from '../reef/reef'
 import { deleteComposioConnection, isComposioConfigured, listComposioUserConnections } from '../composio/client'
+import { readSpec } from '../artifacts/store'
 
 /**
  * Everything OpenLobs holds about one person: what leaves in an export and what an account deletion
@@ -228,7 +229,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     ownedDocs(db, 'artifacts', id).then(docs => Promise.all(docs.map(async (doc) => {
       const d = plain(doc.data())
       const version = await db.collection('artifact_versions').doc(`${doc.id}__${d.head}`).get()
-      return { id: doc.id, ...d, content: version.exists ? plain(version.data()).spec : null }
+      return { id: doc.id, ...d, content: version.exists ? readSpec(version.data()) : null }
     }))),
     simple('payments'),
     db.collection('user_plans').doc(id).get(),
