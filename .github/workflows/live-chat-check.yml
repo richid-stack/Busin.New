@@ -36,7 +36,10 @@ jobs:
           java-version: 21
       - run: npm ci
       - name: Point the app at the emulators (this file is not committed back)
-        run: echo '{ "projectId": "demo-openlobs", "apiKey": "demo", "authDomain": "demo-openlobs.firebaseapp.com", "firestoreDatabaseId": "(default)", "appId": "demo" }' > firebase-applet-config.json
+        run: |
+          cat > firebase-applet-config.json <<'JSON'
+          { "projectId": "demo-openlobs", "apiKey": "demo", "authDomain": "demo-openlobs.firebaseapp.com", "firestoreDatabaseId": "(default)", "appId": "demo" }
+          JSON
       - name: Live chats
         run: npx --yes firebase-tools@15 emulators:exec --only auth,firestore --project demo-openlobs --config firebase.emulator.json "node scripts/live-chat-check.mjs"
       - name: Keep what the chats made
