@@ -51,6 +51,8 @@ async function signIn() {
 const api = (token, path, init = {}) => fetch(`${BASE}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json', ...(init.headers || {}) } })
 
 /** One chat turn. Returns what the assistant said and every tool it used, read from the live stream. */
+const redact = t => String(t).replace(/AIza[0-9A-Za-z_-]{20,}/g, '[key]').replace(/gsk_[0-9A-Za-z]{20,}/g, '[key]')
+const show = (label, t, n = 1500) => console.log(`  --- ${label}\n${redact(t).slice(0, n).replace(/^/gm, '  | ')}`)
 async function turn(token, model, text) {
   const created = await api(token, '/api/chats', { method: 'POST', body: JSON.stringify({ input: text }) })
   if (!created.ok) throw new Error(`could not start a chat (${created.status})`)
@@ -87,6 +89,8 @@ try {
     for (const m of MODELS.filter(m => m.startsWith(`${provider}/`))) {
       hello = await turn(token, m, 'Reply with the single word: pong')
       if (hello.status === 200 && /pong/i.test(hello.text)) { model = m; break }
+      show(`${m} stream`, hello.raw, 1200)
+      await sleep(15000)
       console.log(`  ${m}: status ${hello.status}`, (hello.errors[0] || hello.text || hello.raw).slice(0, 160).replace(/\s+/g, ' '))
     }
     writeFileSync(`${OUT}/${tag}-plain.txt`, hello?.text || hello?.raw?.slice(0, 2000) || '')
@@ -96,6 +100,7 @@ try {
     // 2. A Word file made and then changed.
     const made = await turn(token, model, 'Make a short Word proposal for Akosua Ltd: rebuild their website in 6 weeks for GHS 24,000, with a heading called Timeline. Then change the timeline to 8 weeks.')
     writeFileSync(`${OUT}/${tag}-file-turn.json`, JSON.stringify({ text: made.text, tools: made.tools.map(t => ({ name: t.name, ok: t.output?.status, version: t.output?.version, error: t.output?.error })) }, null, 1))
+    if (!made.tools.length) { show(`${tag} file turn: what the assistant said`, made.text || '(nothing)'); show(`${tag} file turn: stream`, made.raw, 2500) }
     const create = made.tools.find(t => t.name === 'create_document')
     const edit = made.tools.find(t => t.name === 'edit_file')
     check(create?.output?.status === 'ok' && create.output.artifactId, `[${tag}] the assistant makes a Word file that can be opened`, create ? `status ${create.output?.status}` : 'no file made')
@@ -111,6 +116,7 @@ try {
     // 3. A web page.
     const page = await turn(token, model, 'Create a one-page landing page for a kente weaving studio in Bonwire with a hero, three product cards and an order button.')
     const made3 = page.tools.find(t => t.name === 'create_page')
+    if (!made3) { show(`${tag} page turn: what the assistant said`, page.text || '(nothing)'); show(`${tag} page turn: stream`, page.raw, 2500) }
     check(made3?.output?.status === 'ok' && made3.output.artifactId, `[${tag}] the assistant makes a web page`, made3 ? `status ${made3.output?.status} ${made3.output?.error || ''}` : 'no page made')
     if (made3?.output?.artifactId) {
       const view = await (await api(token, `/api/artifacts/${made3.output.artifactId}`)).json()
@@ -121,6 +127,7 @@ try {
 } catch (err) {
   check(false, 'the run finished', String(err?.message || err))
 } finally {
+  if (results.some(r => !r.ok)) show('server log (end)', serverLog.slice(-4000), 4000)
   writeFileSync(`${OUT}/server-log.txt`, serverLog.replace(/AIza[0-9A-Za-z_-]{20,}/g, '[key]').replace(/gsk_[0-9A-Za-z]{20,}/g, '[key]').slice(-60_000))
   writeFileSync(`${OUT}/summary.json`, JSON.stringify(results, null, 1))
   stop()
