@@ -53,7 +53,12 @@ export const useSkills = createSharedComposable(() => {
   }
 
   async function removeSkill(name: string) {
-    await $fetch(`/api/skills/${encodeURIComponent(name)}`, { method: 'DELETE', headers: headers() })
+    try {
+      await $fetch(`/api/skills/${encodeURIComponent(name)}`, { method: 'DELETE', headers: headers() })
+    } catch (err: any) {
+      // Already gone (removed in another tab): the list should drop it too, not keep failing on every try.
+      if ((err?.statusCode ?? err?.status) !== 404) throw err
+    }
     skills.value = skills.value.filter(s => s.name !== name)
   }
 

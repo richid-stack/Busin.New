@@ -68,8 +68,12 @@ export async function removeInstalledSkill(userId: string, name: string): Promis
 
 /**
  * What the model is told about a kept skill: a skill's description is written by a stranger and goes into the prompt,
- * so it is flattened to one short line and marked with where it came from.
+ * so it is flattened to one short line and marked with the project it came from.
  */
 export function installedAsSkill(s: InstalledSkill): Skill {
-  return { name: s.name, description: `${s.description.replace(/\s+/g, ' ').slice(0, 160)} (kept by the user, from ${s.source})`, body: s.body }
+  // Only the owner and project name go in, as GitHub itself limits them to letters, digits, dots, dashes and underscores.
+  // The folder inside the project is chosen by whoever wrote the skill, so it never reaches the prompt.
+  const project = s.source.split('/').slice(0, 2).join('/')
+  const from = /^[\w.-]{1,100}\/[\w.-]{1,100}$/.test(project) ? `, from ${project}` : ''
+  return { name: s.name, description: `${s.description.replace(/\s+/g, ' ').slice(0, 160)} (kept by the user${from})`, body: s.body }
 }
