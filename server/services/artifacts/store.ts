@@ -45,6 +45,12 @@ function metaFrom(id: string, d: Record<string, any>): ArtifactMeta {
   }
 }
 
+/**
+ * The content of a version is kept as one JSON string. Firestore refuses an array inside an array, and spreadsheet rows
+ * and table rows are exactly that. A string also keeps every value (a blank cell, a formula) exactly as it was written.
+ */
+export const readSpec = (version: Record<string, any>): ArtifactSpec => JSON.parse(String(version.specJson)) as ArtifactSpec
+
 const expired = (d: Record<string, any>) => {
   const at = d.expiresAt?.toDate ? d.expiresAt.toDate() : d.expiresAt ? new Date(d.expiresAt) : null
   return !!at && at.getTime() <= Date.now()
@@ -64,14 +70,14 @@ export function createArtifactStore(db: ArtifactDb) {
     const meta = { userId, kind: input.kind, format: input.format, title: input.title, chatId: input.chatId ?? null, head: 1, latest: 1, oldest: 1, createdAt: now, updatedAt: now, expiresAt }
     const batch = db.batch()
     batch.set(db.collection(META).doc(id), sanitizeForFirestore(meta))
-    batch.set(db.collection(VERSIONS).doc(versionId(id, 1)), sanitizeForFirestore({ userId, artifactId: id, n: 1, note: 'Created', spec: input.spec, createdAt: now, expiresAt }))
+    batch.set(db.collection(VERSIONS).doc(versionId(id, 1)), sanitizeForFirestore({ userId, artifactId: id, n: 1, note: 'Created', specJson: JSON.stringify(input.spec), createdAt: now, expiresAt }))
     await batch.commit()
     return metaFrom(id, meta)
   }
 
   const readVersion = async (id: string, n: number): Promise<ArtifactSpec | null> => {
     const snap = await db.collection(VERSIONS).doc(versionId(id, n)).get()
-    return snap.exists ? (snap.data()!.spec as ArtifactSpec) : null
+    return snap.exists ? readSpec(snap.data()!) : null
   }
 
   /** The file as it is at the moment (the version the person has stepped to), only for its owner. Anything else is "not found". */
@@ -108,7 +114,7 @@ export function createArtifactStore(db: ArtifactDb) {
       const oldest = Math.max(meta.oldest, next - ARTIFACT_LIMITS.versions + 1)
       for (let n = meta.oldest; n < oldest; n++) tx.delete(db.collection(VERSIONS).doc(versionId(id, n)))
       const expiresAt = retention()
-      tx.set(db.collection(VERSIONS).doc(versionId(id, next)), sanitizeForFirestore({ userId, artifactId: id, n: next, note: input.note.slice(0, 200), spec: input.spec, createdAt: now, expiresAt }))
+      tx.set(db.collection(VERSIONS).doc(versionId(id, next)), sanitizeForFirestore({ userId, artifactId: id, n: next, note: input.note.slice(0, 200), specJson: JSON.stringify(input.spec), createdAt: now, expiresAt }))
       const title = input.title ?? meta.title
       tx.update(metaRef, sanitizeForFirestore({ head: next, latest: next, oldest, title, updatedAt: now, expiresAt }))
       return { ...meta, head: next, latest: next, oldest, title, updatedAt: now }

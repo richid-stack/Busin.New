@@ -40,7 +40,8 @@ export function createFakeFirestore(): ReturnType<typeof createInMemoryFirestore
 /** Real Firestore refuses a field whose value is undefined, so the stand-in does too (it used to let them through). */
 function refuseUndefined(value: unknown, where = ''): void {
   if (value === undefined) throw new Error(`Cannot use "undefined" as a Firestore value (found in field "${where}"). If you want to ignore undefined values, enable \`ignoreUndefinedProperties\`.`)
-  if (Array.isArray(value)) value.forEach((v, i) => refuseUndefined(v, `${where}[${i}]`))
+  // Nor does it take an array directly inside an array (spreadsheet rows, say): store that as a JSON string.
+  if (Array.isArray(value)) value.forEach((v, i) => { if (Array.isArray(v)) throw new Error(`Property ${where} contains an invalid nested entity (an array inside an array).`); refuseUndefined(v, `${where}[${i}]`) })
   else if (value && typeof value === 'object' && !(value instanceof Date)) for (const [k, v] of Object.entries(value)) refuseUndefined(v, where ? `${where}.${k}` : k)
 }
 
