@@ -24,7 +24,7 @@ const hostOf = (raw: string) => { try { return new URL(raw).hostname } catch { r
  * Shows the assistant a real web page: a screenshot taken by a real browser, kept for the user and handed to the model.
  * Unlike inspect_design it does not judge the page; the assistant looks at it itself and says what it sees.
  */
-export function createLookAtPageTool(userId: string, deps: LookDeps = defaultDeps(), computerDeps?: { computer?: string }) {
+export function createLookAtPageTool(userId: string, deps: LookDeps = defaultDeps(), computerDeps?: { computer?: string, allowComputer?: boolean }) {
   let looks = 0
   return tool({
     description: 'Look at a live web page as a person would see it: a real browser takes a screenshot and you see the picture. Use it to study a site the user likes, check how a competitor presents itself, judge what is premium and what is not, or see your own page before and after a change. Say what you actually see: layout, type, colour, spacing, imagery. For the exact colours and fonts a page uses, also call design_tokens. Use width 390 for a phone view. Set onMyComputer to open a page only the user\'s connected computer can reach, like http://localhost:5173.',
@@ -40,6 +40,7 @@ export function createLookAtPageTool(userId: string, deps: LookDeps = defaultDep
       { name: 'look_at_page', userId, perMinute: 8, timeoutMs: 60_000, maxResultChars: 3_000 },
       async (input, signal) => {
         if (++looks > 6) return { status: 'failed' as const, url: input.url, error: 'Only 6 pages can be looked at in one reply. Say which matter most, or continue in the next message.' }
+        if (input.onMyComputer && computerDeps?.allowComputer === false) return { status: 'failed' as const, url: input.url, error: 'A background job cannot look at pages on the user\'s computer, because nobody is there to watch. Use a public address, or do this in a chat.' }
         const provider = input.onMyComputer
           ? bridgeProvider({ store: bridgeStore(), files: fileStore(), userId, computer: input.computer ?? computerDeps?.computer })
           : deps.provider()
@@ -51,7 +52,9 @@ export function createLookAtPageTool(userId: string, deps: LookDeps = defaultDep
           if (shot.bytes.length > MAX_FILE_BYTES && input.fullPage) shot = await provider.capture({ ...req, fullPage: false }, signal)
           if (shot.bytes.length > MAX_FILE_BYTES) return { status: 'failed' as const, url: input.url, error: 'The screenshot was too large to keep. Try a narrower width such as 820.' }
           const host = hostOf(shot.url) || hostOf(input.url)
-          const saved = await deps.store.save({ userId, name: safeFileName(`${host || 'page'} ${input.width ?? 1280}px`, 'jpg'), mime: 'image/jpeg', bytes: shot.bytes })
+          // The label must match the bytes: a computer's browser may send a PNG.
+          const png = shot.mediaType === 'image/png'
+          const saved = await deps.store.save({ userId, name: safeFileName(`${host || 'page'} ${input.width ?? 1280}px`, png ? 'png' : 'jpg'), mime: png ? 'image/png' : 'image/jpeg', bytes: shot.bytes })
           return {
             status: 'ok' as const,
             fileId: saved.id,

@@ -50,6 +50,7 @@ export function createRunnerServer(opts: RunnerOptions): Server {
       if (!same(bearer, opts.secret)) return send(res, 401, { error: 'Unauthorized' })
       if (busy) return send(res, 429, { error: 'Busy, try again in a moment.' })
       busy = true
+      let spent = false
       const abort = new AbortController()
       // If the app gives up and hangs up, stop the programs too.
       res.on('close', () => { if (!res.writableEnded) abort.abort() })
@@ -58,14 +59,19 @@ export function createRunnerServer(opts: RunnerOptions): Server {
         if (text === null) return send(res, 413, { error: 'The plan is too large.' })
         let body: unknown
         try { body = JSON.parse(text) } catch { return send(res, 400, { error: 'That request could not be read.' }) }
+        spent = true // from here on the box has been used
         const result = await runBoxPlan(body, abort.signal, opts.box)
         send(res, 200, result)
       } finally {
-        // The box is used once. Whatever happened, ask for a clean instance before the next plan.
-        let asked = false
-        const clean = () => { if (!asked) { asked = true; opts.afterPlan?.() } }
-        if (res.writableFinished) clean(); else res.once('finish', clean)
-        busy = false
+        // The box is used once. After a plan, ask for a clean instance before the next one. A request that never reached a plan
+        // (too large, unreadable) leaves the box clean, so it neither restarts the worker nor blocks it.
+        if (spent) {
+          let asked = false
+          const clean = () => { if (!asked) { asked = true; opts.afterPlan?.() } }
+          if (res.writableFinished) clean(); else res.once('finish', clean)
+        }
+        // With a restart on the way this instance never takes another plan, so a second request cannot start in a process that is about to exit.
+        if (!(spent && opts.afterPlan)) busy = false
       }
     } catch (err: any) {
       console.error('[runner] failed:', err?.message)
