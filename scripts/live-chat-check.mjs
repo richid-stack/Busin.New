@@ -14,7 +14,10 @@ const PORT = Number(process.env.LIVE_PORT || 3100)
 const BASE = `http://127.0.0.1:${PORT}`
 const AUTH = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'}`
 const OUT = process.env.LIVE_OUT || 'live-chat-output'
-const MODELS = (process.env.LIVE_MODELS || 'google/gemini-3.8-flash,google/gemini-3.5-flash,google/gemini-3.1-flash-lite').split(',')
+const MODELS = (process.env.LIVE_MODELS || 'google/gemini-3.8-flash,google/gemini-3.5-flash,google/gemini-3.1-flash-lite,groq/gpt-oss-120b,groq/gpt-oss-20b,groq/qwen3.8-27b').split(',')
+const KEYS = { google: 'GEMINI_API_KEY', groq: 'GROQ_API_KEY' }
+// Only providers whose key is set are tried. For each one, the first model that answers runs the whole set of chats.
+const providers = [...new Set(MODELS.map(m => m.split('/')[0]))].filter(p => process.env[KEYS[p]])
 mkdirSync(OUT, { recursive: true })
 
 const results = []
@@ -70,51 +73,55 @@ async function turn(token, model, text) {
 }
 
 try {
-  check(!!process.env.GEMINI_API_KEY, 'the GEMINI_API_KEY secret is set', process.env.GEMINI_API_KEY ? '' : 'add it under Settings, Secrets and variables, Actions')
+  for (const [p, name] of Object.entries(KEYS)) check(!!process.env[name], `the ${name} secret is set`, process.env[name] ? '' : p === 'google' ? 'add it under Settings, Secrets and variables, Actions' : 'optional, skipped')
   check(await waitForApp(), 'the app starts')
   const token = await signIn()
   check(true, 'sign-in works with a real token')
+  if (!providers.length) throw new Error('No model key is set, so there is nothing to chat with.')
 
-  // 1. Find a model that answers.
-  let model = null
-  let hello
-  for (const m of MODELS) {
-    hello = await turn(token, m, 'Reply with the single word: pong')
-    if (hello.status === 200 && /pong/i.test(hello.text)) { model = m; break }
-    console.log(`  ${m}: status ${hello.status}`, (hello.errors[0] || hello.text || hello.raw).slice(0, 160).replace(/\s+/g, ' '))
-  }
-  writeFileSync(`${OUT}/plain.txt`, hello?.text || hello?.raw?.slice(0, 2000) || '')
-  check(!!model, 'a plain chat gets a real answer', model || (hello?.errors[0] || `status ${hello?.status}`))
-  if (!model) throw new Error('No model answered, so the rest is skipped.')
+  for (const provider of providers) {
+    const tag = provider
+    // 1. Find a model of this provider that answers.
+    let model = null
+    let hello
+    for (const m of MODELS.filter(m => m.startsWith(`${provider}/`))) {
+      hello = await turn(token, m, 'Reply with the single word: pong')
+      if (hello.status === 200 && /pong/i.test(hello.text)) { model = m; break }
+      console.log(`  ${m}: status ${hello.status}`, (hello.errors[0] || hello.text || hello.raw).slice(0, 160).replace(/\s+/g, ' '))
+    }
+    writeFileSync(`${OUT}/${tag}-plain.txt`, hello?.text || hello?.raw?.slice(0, 2000) || '')
+    check(!!model, `[${tag}] a plain chat gets a real answer`, model || (hello?.errors[0] || `status ${hello?.status}`))
+    if (!model) continue
 
-  // 2. A Word file made and then changed.
-  const made = await turn(token, model, 'Make a short Word proposal for Akosua Ltd: rebuild their website in 6 weeks for GHS 24,000, with a heading called Timeline. Then change the timeline to 8 weeks.')
-  writeFileSync(`${OUT}/file-turn.json`, JSON.stringify({ text: made.text, tools: made.tools.map(t => ({ name: t.name, ok: t.output?.status, version: t.output?.version })) }, null, 1))
-  const create = made.tools.find(t => t.name === 'create_document')
-  const edit = made.tools.find(t => t.name === 'edit_file')
-  check(create?.output?.status === 'ok' && create.output.artifactId, 'the assistant makes a Word file that can be opened', create ? `status ${create.output?.status}` : 'no file made')
-  check(edit?.output?.status === 'ok' && edit.output.version >= 2, 'the assistant changes one part of it', edit ? `status ${edit.output?.status} ${edit.output?.error || ''}` : 'no change made')
-  if (create?.output?.artifactId) {
-    const view = await (await api(token, `/api/artifacts/${create.output.artifactId}`)).json()
-    check(view?.kind === 'document' && view.head >= 1, 'the file opens through the pane route', `version ${view?.head}`)
-    writeFileSync(`${OUT}/file-view.json`, JSON.stringify(view, null, 1))
-    const dl = await api(token, `/api/artifacts/${create.output.artifactId}/download`)
-    check(dl.status === 200 && (await dl.arrayBuffer()).byteLength > 1000, 'the file downloads')
-  }
+    // 2. A Word file made and then changed.
+    const made = await turn(token, model, 'Make a short Word proposal for Akosua Ltd: rebuild their website in 6 weeks for GHS 24,000, with a heading called Timeline. Then change the timeline to 8 weeks.')
+    writeFileSync(`${OUT}/${tag}-file-turn.json`, JSON.stringify({ text: made.text, tools: made.tools.map(t => ({ name: t.name, ok: t.output?.status, version: t.output?.version, error: t.output?.error })) }, null, 1))
+    const create = made.tools.find(t => t.name === 'create_document')
+    const edit = made.tools.find(t => t.name === 'edit_file')
+    check(create?.output?.status === 'ok' && create.output.artifactId, `[${tag}] the assistant makes a Word file that can be opened`, create ? `status ${create.output?.status}` : 'no file made')
+    check(edit?.output?.status === 'ok' && edit.output.version >= 2, `[${tag}] the assistant changes one part of it`, edit ? `status ${edit.output?.status} ${edit.output?.error || ''}` : 'no change made')
+    if (create?.output?.artifactId) {
+      const view = await (await api(token, `/api/artifacts/${create.output.artifactId}`)).json()
+      check(view?.kind === 'document' && view.head >= 1, `[${tag}] the file opens through the pane route`, `version ${view?.head}`)
+      writeFileSync(`${OUT}/${tag}-file-view.json`, JSON.stringify(view, null, 1))
+      const dl = await api(token, `/api/artifacts/${create.output.artifactId}/download`)
+      check(dl.status === 200 && (await dl.arrayBuffer()).byteLength > 1000, `[${tag}] the file downloads`)
+    }
 
-  // 3. A web page.
-  const page = await turn(token, model, 'Create a one-page landing page for a kente weaving studio in Bonwire with a hero, three product cards and an order button.')
-  const made3 = page.tools.find(t => t.name === 'create_page')
-  check(made3?.output?.status === 'ok' && made3.output.artifactId, 'the assistant makes a web page', made3 ? `status ${made3.output?.status} ${made3.output?.error || ''}` : 'no page made')
-  if (made3?.output?.artifactId) {
-    const view = await (await api(token, `/api/artifacts/${made3.output.artifactId}`)).json()
-    writeFileSync(`${OUT}/page.html`, view?.spec?.html || '')
-    check(view?.kind === 'page' && String(view.spec?.html).length > 500, 'the page opens and has content', `${String(view?.spec?.html).length} characters`)
+    // 3. A web page.
+    const page = await turn(token, model, 'Create a one-page landing page for a kente weaving studio in Bonwire with a hero, three product cards and an order button.')
+    const made3 = page.tools.find(t => t.name === 'create_page')
+    check(made3?.output?.status === 'ok' && made3.output.artifactId, `[${tag}] the assistant makes a web page`, made3 ? `status ${made3.output?.status} ${made3.output?.error || ''}` : 'no page made')
+    if (made3?.output?.artifactId) {
+      const view = await (await api(token, `/api/artifacts/${made3.output.artifactId}`)).json()
+      writeFileSync(`${OUT}/${tag}-page.html`, view?.spec?.html || '')
+      check(view?.kind === 'page' && String(view.spec?.html).length > 500, `[${tag}] the page opens and has content`, `${String(view?.spec?.html).length} characters`)
+    }
   }
 } catch (err) {
   check(false, 'the run finished', String(err?.message || err))
 } finally {
-  writeFileSync(`${OUT}/server-log.txt`, serverLog.replace(/AIza[0-9A-Za-z_-]{20,}/g, '[key]').slice(-60_000))
+  writeFileSync(`${OUT}/server-log.txt`, serverLog.replace(/AIza[0-9A-Za-z_-]{20,}/g, '[key]').replace(/gsk_[0-9A-Za-z]{20,}/g, '[key]').slice(-60_000))
   writeFileSync(`${OUT}/summary.json`, JSON.stringify(results, null, 1))
   stop()
 }
