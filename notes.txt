@@ -1,0 +1,55 @@
+shot 01-home
+shot 02-sign-in
+shot 03-signed-in
+shot menu-39416
+picked GPT OSS 120B (Groq)
+shot 04-simple-chat
+simple chat finished: true
+Groq model already selected
+shot 05-workflow-collapsed
+shot 06-workflow-expanded
+shot 07-workflow-after-reload
+after reload, rows: Completed integration status
+workflow chat finished: true
+page text:
+OpenLobs
+New chat
+CTRL
+O
+Search
+CTRL
+K
+Agents
+Memory
+Tasks
+Computers
+Workflow Studio
+Integrations
+Models
+The Reef
+Today
+Email Attachment Automation
+Kente cloth is a brightly patterned,
+Ama
+Email Attachment Automation
+
+Automate this: every time a client emails me, save their attachment to Google Drive and tell me on Slack.
+
+4:50 AM
+Thought
+Completed integration status
+Thought
+
+What’s needed first – To move an email attachment from Gmail into Google Drive and then ping you on Slack, the three services must be linked to your account.
+
+Here are the connection links you’ll need to open:
+
+Gmail – connect at /integrations/gmail
+Google Drive – connect at /integrations/google_drive
+Slack – connect at /integrations/slack
+
+Please click each link (or visit them from your Integrations page) and follow the prompts to grant access.
+
+Once those three are connected, let me know any details you’d like to add – for example, a specific Drive folder to store the files or the Slack channel where you want the notifications. Then I’ll set up the automation for you.
+
+GPT OSS 120B (Groq)

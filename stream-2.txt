@@ -1,0 +1,583 @@
+data: {"type":"data-chat-title","data":{"id":"dcce8d4b-10bd-46ca-a828-9d1835f3c9bb","title":"Automate this: every time a client e"}}
+
+data: {"type":"start","messageId":"mdfdv5pVJlsuzWz4"}
+
+data: {"type":"start-step"}
+
+data: {"type":"reasoning-start","id":"reasoning-0"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"We "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"need "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"automate: "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"when "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"an "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"email "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"is "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"received "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"from "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"a "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"client, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"save "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"attachment "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Google "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Drive "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"and "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"notify "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"on "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Slack. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"This "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"requires "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"checking "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"integration "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"status "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"first "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"(Gmail, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Google "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Drive, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Slack). "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"create "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"a "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"workflow "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"with "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"trigger "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Gmail "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"new "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"email, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"filter "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"for "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"client "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"emails "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"(maybe "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"based "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"on "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"sender "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"domain "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"or "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"label). "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"action: "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"save "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"attachment "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Drive, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"send "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Slack "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"message. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Need "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"outline "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"steps. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Must "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"call "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"integration_status "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"first. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"after "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"confirming "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"connections, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"call "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"workflow_create.\n\n"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"We "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"must "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"follow "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"\"Keep "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"the "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"person "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"updated\" "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"- "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"one "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"short "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"sentence "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"before "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"each "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"tool "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"call. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"So "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"first "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"say "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"we "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"will "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"check "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"connected "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"services. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"call "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"integration_status. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"after "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"response, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"we "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"decide. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"we "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"will "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"create "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"workflow. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Provide "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"steps "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"description. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"call "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"workflow_create "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"with "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"steps.\n\n"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"We "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"must "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"not "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"use "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"markdown "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"headings; "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"use "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"bold "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"for "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"labels. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Use "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"plain "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"sentences. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Provide "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"link "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"workflow "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"studio. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Let's "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"proceed."}
+
+data: {"type":"reasoning-end","id":"reasoning-0"}
+
+data: {"type":"tool-input-start","toolCallId":"fc_1fae47ec-f4cc-4b1f-bfa9-eb165e4a80f8","toolName":"integration_status","dynamic":false}
+
+data: {"type":"tool-input-delta","toolCallId":"fc_1fae47ec-f4cc-4b1f-bfa9-eb165e4a80f8","inputTextDelta":"{}"}
+
+data: {"type":"tool-input-available","toolCallId":"fc_1fae47ec-f4cc-4b1f-bfa9-eb165e4a80f8","toolName":"integration_status","input":{}}
+
+data: {"type":"tool-output-available","toolCallId":"fc_1fae47ec-f4cc-4b1f-bfa9-eb165e4a80f8","output":{"connectedServices":[{"provider":"gmail","name":"Gmail","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/gmail","capabilities":["read_emails","send_email","draft_reply","watch_inbox","search_messages"]},{"provider":"google_drive","name":"Google Drive","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/google_drive","capabilities":["upload_file","create_folder","export_pdf","search_files","share_document"]},{"provider":"google_calendar","name":"Google Calendar","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/google_calendar","capabilities":["create_event","find_free_slots","list_events","send_invites"]},{"provider":"google_docs","name":"Google Docs","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/google_docs","capabilities":["create_document","append_text","export_to_pdf"]},{"provider":"google_sheets","name":"Google Sheets","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/google_sheets","capabilities":["append_row","read_sheet","update_cells","create_spreadsheet"]},{"provider":"google_slides","name":"Google Slides","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/google_slides","capabilities":["create_presentation","add_slide","edit_slide_text"]},{"provider":"google_meet","name":"Google Meet","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/google_meet","capabilities":["create_meeting","get_meeting","list_conference_records"]},{"provider":"google_tasks","name":"Google Tasks","category":"google","status":"disconnected","account":"Not connected","connectPath":"/integrations/google_tasks","capabilities":["create_task","complete_task","list_tasks"]},{"provider":"slack","name":"Slack","category":"communication","status":"disconnected","account":"Not connected","connectPath":"/integrations/slack","capabilities":["slack_send_message","slack_create_channel","slack_add_reaction"]},{"provider":"discord","name":"Discord","category":"communication","status":"disconnected","account":"Not connected","connectPath":"/integrations/discord","capabilities":["discord_send_message","discord_create_guild_channel"]},{"provider":"notion","name":"Notion","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/notion","capabilities":["notion_create_page","notion_query_database","notion_update_database_item"]},{"provider":"linear","name":"Linear","category":"project_management","status":"disconnected","account":"Not connected","connectPath":"/integrations/linear","capabilities":["linear_create_issue","linear_update_issue","linear_list_issues"]},{"provider":"jira","name":"Jira","category":"project_management","status":"disconnected","account":"Not connected","connectPath":"/integrations/jira","capabilities":["jira_create_issue","jira_add_comment"]},{"provider":"github","name":"GitHub","category":"developer","status":"disconnected","account":"Not connected","connectPath":"/integrations/github","capabilities":["github_create_issue","github_create_pull_request","github_dispatch_workflow"]},{"provider":"gitlab","name":"GitLab","category":"developer","status":"disconnected","account":"Not connected","connectPath":"/integrations/gitlab","capabilities":["gitlab_create_issue","gitlab_create_merge_request"]},{"provider":"trello","name":"Trello","category":"project_management","status":"disconnected","account":"Not connected","connectPath":"/integrations/trello","capabilities":["trello_create_card","trello_add_comment"]},{"provider":"asana","name":"Asana","category":"project_management","status":"disconnected","account":"Not connected","connectPath":"/integrations/asana","capabilities":["asana_create_task","asana_update_task"]},{"provider":"clickup","name":"ClickUp","category":"project_management","status":"disconnected","account":"Not connected","connectPath":"/integrations/clickup","capabilities":["clickup_create_task"]},{"provider":"hubspot","name":"HubSpot","category":"crm","status":"disconnected","account":"Not connected","connectPath":"/integrations/hubspot","capabilities":["hubspot_create_contact","hubspot_create_deal"]},{"provider":"salesforce","name":"Salesforce","category":"crm","status":"disconnected","account":"Not connected","connectPath":"/integrations/salesforce","capabilities":["salesforce_create_lead"]},{"provider":"airtable","name":"Airtable","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/airtable","capabilities":["airtable_create_record","airtable_list_records"]},{"provider":"canva","name":"Canva","category":"design","status":"disconnected","account":"Not connected","connectPath":"/integrations/canva","capabilities":["CANVA_ACCESS_USER_SPECIFIC_BRAND_TEMPLATES_LIST","CANVA_CREATE_URL_ASSET_UPLOAD_JOB"]},{"provider":"figma","name":"Figma","category":"design","status":"disconnected","account":"Not connected","connectPath":"/integrations/figma","capabilities":["FIGMA_ADD_A_COMMENT_TO_A_FILE"]},{"provider":"microsoft_teams","name":"Microsoft Teams","category":"communication","status":"disconnected","account":"Not connected","connectPath":"/integrations/microsoft_teams","capabilities":["MICROSOFT_TEAMS_SEND_MESSAGE","MICROSOFT_TEAMS_SEND_ADAPTIVE_CARD","MICROSOFT_TEAMS_CREATE_MEETING"]},{"provider":"outlook","name":"Microsoft Outlook & Calendar","category":"communication","status":"disconnected","account":"Not connected","connectPath":"/integrations/outlook","capabilities":["OUTLOOK_SEND_EMAIL","OUTLOOK_CREATE_EVENT","OUTLOOK_ADD_MAIL_ATTACHMENT"]},{"provider":"one_drive","name":"Microsoft OneDrive","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/one_drive","capabilities":["ONE_DRIVE_UPLOAD_FILE","ONE_DRIVE_CREATE_LINK","ONE_DRIVE_DOWNLOAD_FILE"]},{"provider":"excel","name":"Microsoft Excel","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/excel","capabilities":["EXCEL_ADD_ROW","EXCEL_GET_WORKSHEET","EXCEL_CREATE_WORKBOOK"]},{"provider":"word","name":"Microsoft Word","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/word","capabilities":["WORD_CREATE_DOCUMENT","WORD_APPEND_TEXT"]},{"provider":"powerpoint","name":"Microsoft PowerPoint","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/powerpoint","capabilities":["POWERPOINT_CREATE_PRESENTATION","POWERPOINT_ADD_SLIDE"]},{"provider":"powerbi","name":"Microsoft PowerBI","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/powerbi","capabilities":["POWERBI_REFRESH_DATASET","POWERBI_EXPORT_REPORT"]},{"provider":"share_point","name":"Microsoft SharePoint","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/share_point","capabilities":["SHARE_POINT_SEARCH_SITE","SHARE_POINT_CREATE_FOLDER","SHARE_POINT_UPLOAD_FILE"]},{"provider":"onenote","name":"Microsoft OneNote","category":"productivity","status":"disconnected","account":"Not connected","connectPath":"/integrations/onenote","capabilities":["ONENOTE_CREATE_PAGE","ONENOTE_LIST_NOTEBOOKS"]},{"provider":"zendesk","name":"Zendesk","category":"crm","status":"disconnected","account":"Not connected","connectPath":"/integrations/zendesk","capabilities":["zendesk_create_ticket","zendesk_add_comment"]},{"provider":"stripe","name":"Stripe","category":"crm","status":"disconnected","account":"Not connected","connectPath":"/integrations/stripe","capabilities":["stripe_list_charges","stripe_create_customer"]},{"provider":"paystack","name":"Paystack","category":"ghana","status":"disconnected","account":"Not connected","connectPath":"/integrations/paystack","capabilities":["paystack_get_balance","paystack_list_transactions","paystack_verify_transaction","paystack_list_customers","paystack_create_payment_link"]},{"provider":"arkesel","name":"Arkesel SMS","category":"ghana","status":"disconnected","account":"Not connected","connectPath":"/integrations/arkesel","capabilities":["arkesel_send_sms"]}],"readyForAutomation":false,"integrationsAvailable":false,"keyConnectorsAvailable":true},"dynamic":false}
+
+data: {"type":"finish-step"}
+
+data: {"type":"start-step"}
+
+data: {"type":"reasoning-start","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc"}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"We "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"see "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Gmail, "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Google "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Drive, "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Slack "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"are "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"disconnected. "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Must "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"ask "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"user "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"connect "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"them. "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Provide "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"links. "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Then "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"after "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"they "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"connect, "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"we "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"can "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"create "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"workflow. "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"So "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"we "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"need "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"tell "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"user "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"connect "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"those "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"integrations "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"via "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"provided "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"paths.\n\n"}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"We "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"should "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"not "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"create "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"workflow "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"until "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"they're "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"connected. "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"So "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"respond: "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"need "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"connect "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Gmail, "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Drive, "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Slack. "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Provide "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"instructions "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"and "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"links.\n\n"}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"We "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"can "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"propose "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"to "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"create "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"workflow "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"after "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"they "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"connect. "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Also "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"ask "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"if "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"they "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"have "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"specific "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"folder "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"on "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Drive, "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"channel "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"on "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Slack, "}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"etc.\n\n"}
+
+data: {"type":"reasoning-delta","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc","delta":"Proceed."}
+
+data: {"type":"reasoning-end","id":"aitxt-I15YTiIg1WG0pMBLpbpHsmmc"}
+
+data: {"type":"text-start","id":"txt-0"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"**Whatâ€™s "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"needed "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"first** "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"â€“ "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"To "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"move "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"an "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"email "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"attachment "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"from "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Gmail "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"into "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Google "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Drive "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"and "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"then "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"ping "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"you "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"on "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Slack, "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"three "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"services "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"must "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"be "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"linked "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"to "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"your "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"account.\n\n"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Here "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"are "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"connection "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"links "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"youâ€™ll "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"need "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"to "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"open:\n\n"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"- "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"**Gmail** "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"â€“ "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"connect "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"at "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"**/integrations/gmail**  \n"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"- "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"**Google "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Drive** "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"â€“ "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"connect "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"at "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"**/integrations/google_drive**  \n"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"- "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"**Slack** "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"â€“ "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"connect "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"at "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"**/integrations/slack**\n\n"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Please "}
+
+data: {"type":"text-delta","id":

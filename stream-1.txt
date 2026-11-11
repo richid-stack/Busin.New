@@ -1,0 +1,158 @@
+data: {"type":"data-chat-title","data":{"id":"3eb0cf0a-863c-4d30-8e09-8ab3c7c30c15","title":"In two short sentences, what is kent"}}
+
+data: {"type":"start","messageId":"nEVS0ZRnJ0SnuWkK"}
+
+data: {"type":"start-step"}
+
+data: {"type":"reasoning-start","id":"reasoning-0"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"The "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"user "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"asks: "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"\"In "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"two "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"short "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"sentences, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"what "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"is "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"kente "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"cloth "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"and "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"where "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"does "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"it "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"come "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"from?\" "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Provide "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"answer "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"in "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"two "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"short "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"sentences, "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"no "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"markdown "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"headings. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Use "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"bold "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"for "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"emphasis "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"maybe "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"but "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"not "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"required. "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Just "}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"answer.\n\n"}
+
+data: {"type":"reasoning-end","id":"reasoning-0"}
+
+data: {"type":"text-start","id":"txt-0"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Kente "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"cloth "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"is "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"a "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"handâ€‘woven, "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"brightly "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"colored "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"fabric "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"featuring "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"intricate "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"geometric "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"patterns "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"traditionally "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"used "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"for "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"ceremonial "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"and "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"everyday "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"attire. "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"It "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"originates "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"from "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Akan "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"peoples "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"of "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Ghana, "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"particularly "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Ashanti "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"and "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Fante "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"regions."}
+
+data: {"type":"text-end","id":"txt-0"}
+
+data: {"type":"finish-step"}
+
+data: {"type":"finish","finishReason":"stop"}
+
+data: [DONE]
+
