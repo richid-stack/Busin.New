@@ -29,6 +29,7 @@ import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
 import { getDocumentRead, getFetchedPage, getFileTrace, getRowsTrace, getLookupTrace, getPageTrace, getRunTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
+import { withoutSourceMarks } from '../../../../shared/modelText'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
 import type { CalculatorUIToolInvocation } from '../../../../server/utils/tools/calculator'
@@ -596,7 +597,7 @@ const emit = defineEmits<{
     <template v-else-if="isTextUIPart(part)">
       <ChatComark
         v-if="message.role === 'assistant'"
-        :value="part.text"
+        :value="withoutSourceMarks(part.text)"
         :streaming="isPartStreaming(part)"
       />
       <template v-else-if="message.role === 'user'">

@@ -51,7 +51,10 @@ async function waitForAnswer(maxMs = 150_000) {
 /** Picks a Groq model in the model menu (the app opens on Gemini, which this run has no key for). */
 async function pickGroq() {
   try {
-    if (!(await page.getByText(/^Gemini 3\.\d Flash( Lite)?$/).count())) { note('Groq model already selected'); return }
+    // Read what the picker next to the message box says right now (the menu is closed, so only the label is on screen).
+    const label = await page.evaluate(() => [...document.querySelectorAll('button, div, span')].filter(e => e.children.length === 0 && e.getBoundingClientRect().y > 600 && /^(Gemini|GPT OSS|Qwen|Claude|GPT)/.test((e.textContent || '').trim())).map(e => (e.textContent || '').trim())[0] || '')
+    if (/GPT OSS/i.test(label)) { note(`Groq model already selected (${label})`); return }
+    note(`picker says "${label}", switching to Groq`)
     await page.getByText(/Gemini 3\.5 Flash|Gemini 3\.8 Flash|GPT OSS|Qwen/i).first().click({ timeout: 8000 })
     await sleep(800)
     await shot(`menu-${Date.now() % 100000}`)
@@ -74,7 +77,7 @@ const SCENARIOS = [
   { id: 'search', set: 1, prompt: 'Search the web: what is the current Ghana cedi to US dollar rate? One line please.' },
   { id: 'weather-calc', set: 1, prompt: 'What is the weather in Accra right now, and what is 12.5% of GHS 2,450?' },
   { id: 'github', set: 1, prompt: 'Read the GitHub repo vuejs/core and tell me in two lines what it is.' },
-  { id: 'skill', set: 1, prompt: 'Use a skill to help me write a short, polite email declining a quote.' },
+  { id: 'skill', set: 2, prompt: 'Use a skill to help me write a short, polite email declining a quote.' },
   { id: 'plan', set: 1, prompt: 'Make me a short plan with steps to launch a small online shop in Ghana.' },
   { id: 'agent', set: 2, prompt: 'Create an agent that summarizes my unread emails every morning.' },
   { id: 'task', set: 2, prompt: 'Set up a task that checks the cedi rate every morning and tells me.' },
