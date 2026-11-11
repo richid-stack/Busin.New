@@ -112,13 +112,12 @@ try {
   await send('Automate this: every time a client emails me, save their attachment to Google Drive and tell me on Slack.')
   const done2 = await waitForAnswer()
   await sleep(1500)
+  // Bring the trace row into view, then shoot it closed and open (both states must be on record).
+  const traceRow = page.getByText(/integration status/i).first()
+  try { await traceRow.scrollIntoViewIfNeeded({ timeout: 5000 }); await page.evaluate(() => { const el = document.querySelector('[data-chat-scroll]') }); } catch {}
+  await sleep(600)
   await shot('05-workflow-collapsed')
-  // Open the first trace row so both states are on record.
-  const rows = page.locator('button[aria-expanded="false"]')
-  const n = await rows.count()
-  note(`collapsed rows found: ${n}`)
-  for (let i = 0; i < Math.min(n, 3); i++) { try { await rows.nth(i).click({ timeout: 2000 }); await sleep(400) } catch {} }
-  await sleep(800)
+  try { await traceRow.click({ timeout: 5000 }); await sleep(900) } catch (e) { note(`could not open the trace row: ${redact(e.message).slice(0, 120)}`) }
   await shot('06-workflow-expanded')
   note(`workflow chat finished: ${done2}`)
   note(`page text:\n${redact((await page.evaluate(() => document.body.innerText)).slice(0, 3000))}`)
