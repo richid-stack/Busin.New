@@ -40,6 +40,7 @@ export async function openFileNote(userId: string, open: { artifactId: string, s
     lines.push(`- The whole page is the part to change. For small changes use replace_text with text copied exactly from the page; use replace_html only for a redesign.`, `- The page as it is now${html.length > PAGE_CAP ? ` (the first ${PAGE_CAP} characters)` : ''}:`, html.slice(0, PAGE_CAP))
     return lines.join('\n')
   }
+  lines.push('- To change some words (a date, a name, a price), use replace_text with the words copied exactly from the parts above. To add, remove or rebuild a whole part, use the numbered changes.')
   const sel = open.selection
   if (sel) lines.push(`- The user picked ${file.kind === 'document' ? 'block' : file.kind === 'presentation' ? 'slide' : 'row'} ${sel.from}${sel.to !== sel.from ? ` to ${sel.to}` : ''}${sel.col ? `, column ${sel.col}` : ''}${file.kind === 'workbook' && sel.sheet ? ` of sheet ${sel.sheet}` : ''}. Their request is about that part. Its content: ${describeSelection(file.kind, file.spec, sel)}`)
   return lines.join('\n')
