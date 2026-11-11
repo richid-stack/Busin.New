@@ -121,12 +121,14 @@ try {
   const done2 = await waitForAnswer()
   await sleep(1500)
   // Bring the trace row into view, then shoot it closed and open (both states must be on record).
-  const traceRow = page.getByText(/integration status/i).first()
+  const traceRow = page.locator('button', { hasText: /integration status/i }).first()
   try { await traceRow.scrollIntoViewIfNeeded({ timeout: 5000 }); await page.evaluate(() => { const el = document.querySelector('[data-chat-scroll]') }); } catch {}
   await sleep(600)
   await shot('05-workflow-collapsed')
   try { await traceRow.click({ timeout: 5000 }); await sleep(900) } catch (e) { note(`could not open the trace row: ${redact(e.message).slice(0, 120)}`) }
   await shot('06-workflow-expanded')
+  // What the same chat looks like when it is opened again from the saved copy.
+  try { await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000); await shot('07-workflow-after-reload'); note(`after reload, rows: ${redact((await page.locator('button', { hasText: /integration status/i }).allInnerTexts()).join(' | '))}`) } catch (e) { note(`reload failed: ${e.message}`) }
   note(`workflow chat finished: ${done2}`)
   note(`page text:\n${redact((await page.evaluate(() => document.body.innerText)).slice(0, 3000))}`)
 } catch (err) {
