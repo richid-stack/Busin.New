@@ -59,7 +59,7 @@ async function turn(token, model, text) {
   const chat = await created.json()
   const res = await api(token, `/api/chats/${chat.id}`, { method: 'POST', headers: { Accept: 'text/event-stream' }, body: JSON.stringify({ model, messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text }] }] }) })
   const raw = await res.text()
-  const out = { status: res.status, text: '', tools: [], errors: [], raw }
+  const out = { status: res.status, text: '', tools: [], errors: [], inputErrors: [], raw }
   const byCall = new Map()
   for (const line of raw.split('\n')) {
     if (!line.startsWith('data:')) continue
@@ -68,6 +68,7 @@ async function turn(token, model, text) {
     let ev; try { ev = JSON.parse(body) } catch { continue }
     if (ev.type === 'text-delta') out.text += ev.delta ?? ''
     if (ev.type === 'error') out.errors.push(String(ev.errorText ?? '').slice(0, 300))
+    if (ev.type === 'tool-input-error') out.inputErrors.push({ name: ev.toolName, input: ev.input, error: String(ev.errorText ?? '').slice(0, 600) })
     if (ev.type === 'tool-input-available') byCall.set(ev.toolCallId, { name: ev.toolName, input: ev.input })
     if (ev.type === 'tool-output-available') out.tools.push({ ...(byCall.get(ev.toolCallId) || {}), output: ev.output })
   }
@@ -104,6 +105,7 @@ try {
     const create = made.tools.find(t => t.name === 'create_document')
     const edit = made.tools.find(t => t.name === 'edit_file')
     check(create?.output?.status === 'ok' && create.output.artifactId, `[${tag}] the assistant makes a Word file that can be opened`, create ? `status ${create.output?.status}` : 'no file made')
+    if (!edit || edit.output?.status !== 'ok') show(`${tag} edit turn: calls the model tried that were refused`, JSON.stringify(made.inputErrors, null, 1), 3500)
     check(edit?.output?.status === 'ok' && edit.output.version >= 2, `[${tag}] the assistant changes one part of it`, edit ? `status ${edit.output?.status} ${edit.output?.error || ''}` : 'no change made')
     if (create?.output?.artifactId) {
       const view = await (await api(token, `/api/artifacts/${create.output.artifactId}`)).json()
@@ -113,6 +115,8 @@ try {
       check(dl.status === 200 && (await dl.arrayBuffer()).byteLength > 1000, `[${tag}] the file downloads`)
     }
 
+    // Gemini's free plan allows 5 requests a minute, so wait before the next chat.
+    if (provider === 'google') await sleep(70000)
     // 3. A web page.
     const page = await turn(token, model, 'Create a one-page landing page for a kente weaving studio in Bonwire with a hero, three product cards and an order button.')
     const made3 = page.tools.find(t => t.name === 'create_page')
