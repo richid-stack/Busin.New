@@ -81,6 +81,14 @@ try {
   browser = await chromium.launch()
   const ctx = await browser.newContext({ viewport: { width: 1360, height: 860 }, deviceScaleFactor: 2, colorScheme: 'dark' })
   page = await ctx.newPage()
+  let streams = 0
+  page.on('response', async (res) => {
+    try {
+      if (res.request().method() !== 'POST' || !/\/api\/chats\/[^/]+$/.test(new URL(res.url()).pathname)) return
+      const body = await res.text()
+      writeFileSync(`${OUT}/stream-${++streams}.txt`, redact(body).replace(/"thoughtSignature":"[^"]*"/g, '').slice(0, 30000))
+    } catch {}
+  })
   page.on('pageerror', e => note(`page error: ${redact(e.message).slice(0, 200)}`))
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120_000 })
   await sleep(6000)
