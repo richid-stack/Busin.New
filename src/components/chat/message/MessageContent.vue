@@ -50,6 +50,10 @@ const emit = defineEmits<{
   save: [message: UIMessage, text: string]
   cancelEdit: []
 }>()
+
+function isToolPart(part: any): boolean {
+  return typeof part?.type === 'string' && (part.type.startsWith('tool-') || part.type === 'dynamic-tool')
+}
 </script>
 
 <template>
@@ -82,8 +86,9 @@ const emit = defineEmits<{
 
   <template
     v-for="(part, index) in getMergedParts(message.parts || [])"
-    :key="`${message.id}-${part.type}-${index}`"
+    :key="`${message.id}-${part.type}-${index}${isToolPart(part) ? `-${part.state}` : ''}`"
   >
+    <!-- Tool parts are updated in place as results arrive. Keying them by state makes each row draw again when its state changes, so no row stays on "Running", "Drafting" or empty until the chat is reloaded. -->
     <UChatReasoning
       v-if="isReasoningUIPart(part)"
       :text="part.text"
@@ -586,10 +591,8 @@ const emit = defineEmits<{
         v-else-if="getToolName(part) === 'integration_execute'"
         :invocation="part"
       />
-      <!-- Keyed by state: the part is updated in place, so without this the row kept saying "Running" and stayed empty until the chat was reloaded. -->
       <ChatToolGeneric
         v-else
-        :key="`${part.toolCallId}:${part.state}`"
         :part="part"
       />
     </template>
