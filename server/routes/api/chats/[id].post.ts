@@ -382,7 +382,7 @@ ${focused && !('read_document' in tools) ? '' : `**ATTACHED FILES:**
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length && !(focused && !('load_skill' in tools)) ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`,
+${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in tools)) ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length && !(focused && !('load_skill' in tools)) ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`,
           messages: await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })),
           tools,
           providerOptions: ownKey ? undefined : {
