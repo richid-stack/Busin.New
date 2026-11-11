@@ -1,0 +1,55 @@
+--- skill
+picker says "", switching to Groq
+shot menu-92977
+picked GPT OSS 120B (Groq)
+shot skill-1-closed
+shot skill-2-open
+skill: finished=true rowsOpened=1 chars=680
+
+--- agent
+picker says "", switching to Groq
+shot menu-89275
+picked GPT OSS 120B (Groq)
+shot agent-1-closed
+shot agent-2-open
+agent: finished=true rowsOpened=1 chars=1399
+
+--- task
+picker says "", switching to Groq
+shot menu-75504
+picked GPT OSS 120B (Groq)
+shot task-1-closed
+shot task-2-open
+task: finished=true rowsOpened=1 chars=1631
+
+--- memory
+picker says "", switching to Groq
+shot menu-61696
+picked GPT OSS 120B (Groq)
+shot memory-1-closed
+shot memory-2-open
+memory: finished=true rowsOpened=3 chars=1465
+Could not save to memoryAma prefers short answers and runs a business called Mensah Labs. | Could not save to memoryAma prefers short answers and their business is Mensah Labs.
+--- chart
+picker says "", switching to Groq
+shot menu-49323
+picked GPT OSS 120B (Groq)
+shot chart-1-closed
+shot chart-2-open
+chart: finished=true rowsOpened=1 chars=774
+
+--- assets
+picker says "", switching to Groq
+shot menu-35527
+picked GPT OSS 120B (Groq)
+shot assets-1-closed
+shot assets-2-open
+assets: finished=true rowsOpened=2 chars=1768
+
+--- workflow
+picker says "", switching to Groq
+shot menu-32051
+picked GPT OSS 120B (Groq)
+shot workflow-1-closed
+shot workflow-2-open
+workflow: finished=true rowsOpened=2 chars=2919

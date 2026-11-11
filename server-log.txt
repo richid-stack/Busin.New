@@ -1,0 +1,170 @@
+[info] Using `[36mindex.html[39m` as renderer template.
+
+  [32m[1mVITE[22m v8.3.0[39m  [2mready in [0m[1m1205[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m3100[22m/[39m
+[2m9:27:46 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mdependencies optimized: [33m@ai-sdk/vue, ai, ofetch[32m[39m
+[2m9:27:47 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m9:27:49 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m9:27:50 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mdependencies optimized: [33m@comark/vue, @comark/vue/plugins/shiki, @shikijs/langs/c, @shikijs/langs/cpp, @shikijs/langs/css, @shikijs/langs/diff, @shikijs/langs/dockerfile, @shikijs/langs/go, @shikijs/langs/graphql, @shikijs/langs/html, @shikijs/langs/java, @shikijs/langs/kotlin, @shikijs/langs/php, @shikijs/langs/python, @shikijs/langs/ruby, @shikijs/langs/rust, @shikijs/langs/sql, @shikijs/langs/swift, @shikijs/langs/toml, @shikijs/langs/xml, date-fns, vue-chrts, vue-router/experimental, zod[32m[39m
+[2m9:27:50 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32moptimized dependencies changed. reloading[39m
+[chat] focused tools for a small plan: find_skill, load_external_skill, load_skill, weather, calculator, web_search, web_fetch
+[chat] model error: Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 5024, Requested 5808. Please try again in 21.24s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing
+APICallError [AI_APICallError]: Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 5024, Requested 5808. Please try again in 21.24s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing
+    at file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3982:14
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at postToApi (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3614:28)
+    at postJsonToApi (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3555:7)
+    at _GroqChatLanguageModel.doStream (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/groq/dist/index.js:592:50)
+    at execute (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:8781:26)
+    at runWithTracingChannelSpan (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:4458:12)
+    at executeLanguageModelCall (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:4666:14)
+    at streamLanguageModelCall (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:8779:7)
+    at retryWithExponentialBackoffInternal (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3833:12)
+    at streamStep (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:10471:44)
+    at Object.flush (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:10914:23) {
+  cause: undefined,
+  url: 'https://api.groq.com/openai/v1/chat/completions',
+  requestBodyValues: {
+    model: 'openai/gpt-oss-120b',
+    user: undefined,
+    parallel_tool_calls: undefined,
+    max_tokens: undefined,
+    temperature: undefined,
+    top_p: undefined,
+    frequency_penalty: undefined,
+    presence_penalty: undefined,
+    stop: undefined,
+    seed: undefined,
+    response_format: undefined,
+    reasoning_format: 'parsed',
+    reasoning_effort: undefined,
+    service_tier: undefined,
+    messages: [ [Object], [Object], [Object], [Object] ],
+    tools: [
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object]
+    ],
+    tool_choice: 'auto',
+    stream: true
+  },
+  statusCode: 429,
+  responseHeaders: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cache-control': 'private, max-age=0, no-store, no-cache, must-revalidate',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': 'a58c441b8ad69007-MSP',
+    connection: 'keep-alive',
+    'content-length': '378',
+    'content-type': 'application/json',
+    date: 'Wed, 11 Nov 2026 09:28:18 GMT',
+    'retry-after': '22',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=fmIH9LgMSk2KGWYDOJ56j.D4B_BLxDueVLKukuJyfEo-1794389298.4864028-1.0.1.1-tao34MJYQB5ViJId05bP0kamqkOC_FhFyMtjiuU_tSltkSchN_boFpAVmw3viQTiOfF0z1mU3McM0ULZkRD71U8tmfJ_sic9YFRZjXETtgfCHO3Da17FubilWhpUUK2t; HttpOnly; SameSite=None; Partitioned; Secure; Path=/; Domain=groq.com; Expires=Wed, 11 Nov 2026 09:58:18 GMT',
+    'strict-transport-security': 'max-age=15552000',
+    vary: 'Origin',
+    'x-groq-region': 'msp',
+    'x-ratelimit-limit-requests': '1000',
+    'x-ratelimit-limit-tokens': '8000',
+    'x-ratelimit-remaining-requests': '975',
+    'x-ratelimit-remaining-tokens': '2976',
+    'x-ratelimit-reset-requests': '36m0s',
+    'x-ratelimit-reset-tokens': '37.68s',
+    'x-request-id': 'req_01m74yzka4etta4rzr02e5a5bw'
+  },
+  responseBody: '{"error":{"message":"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 5024, Requested 5808. Please try again in 21.24s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}\n',
+  isRetryable: true,
+  data: {
+    error: {
+      message: 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 5024, Requested 5808. Please try again in 21.24s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing',
+      type: 'tokens'
+    }
+  },
+  [Symbol(vercel.ai.error)]: true,
+  [Symbol(vercel.ai.error.AI_APICallError)]: true
+}
+[chat] focused tools for a small plan: propose_agent, task_propose, weather, calculator, web_search, web_fetch
+[chat] focused tools for a small plan: propose_agent, task_propose, weather, calculator, web_search, web_fetch
+[chat] focused tools for a small plan: remember, forget_memory, weather, calculator, web_search, web_fetch
+[chat] focused tools for a small plan: chart, weather, calculator, web_search, web_fetch
+[chat] focused tools for a small plan: look_at_page, design_tokens, find_icons, find_fonts, weather, calculator, web_search, web_fetch, inspect_design
+[chat] model error: Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6146, Requested 4945. Please try again in 23.1825s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing
+APICallError [AI_APICallError]: Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6146, Requested 4945. Please try again in 23.1825s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing
+    at file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3982:14
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at postToApi (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3614:28)
+    at postJsonToApi (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3555:7)
+    at _GroqChatLanguageModel.doStream (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/groq/dist/index.js:592:50)
+    at execute (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:8781:26)
+    at runWithTracingChannelSpan (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:4458:12)
+    at executeLanguageModelCall (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:4666:14)
+    at streamLanguageModelCall (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:8779:7)
+    at retryWithExponentialBackoffInternal (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3833:12)
+    at streamStep (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:10471:44)
+    at Object.flush (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:10914:23) {
+  cause: undefined,
+  url: 'https://api.groq.com/openai/v1/chat/completions',
+  requestBodyValues: {
+    model: 'openai/gpt-oss-120b',
+    user: undefined,
+    parallel_tool_calls: undefined,
+    max_tokens: undefined,
+    temperature: undefined,
+    top_p: undefined,
+    frequency_penalty: undefined,
+    presence_penalty: undefined,
+    stop: undefined,
+    seed: undefined,
+    response_format: undefined,
+    reasoning_format: 'parsed',
+    reasoning_effort: undefined,
+    service_tier: undefined,
+    messages: [ [Object], [Object], [Object], [Object], [Object], [Object] ],
+    tools: [
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object], [Object],
+      [Object]
+    ],
+    tool_choice: 'auto',
+    stream: true
+  },
+  statusCode: 429,
+  responseHeaders: {
+    'alt-svc': 'h3=":443"; ma=86400',
+    'cache-control': 'private, max-age=0, no-store, no-cache, must-revalidate',
+    'cf-cache-status': 'DYNAMIC',
+    'cf-ray': 'a58c4ee49c379007-MSP',
+    connection: 'keep-alive',
+    'content-length': '380',
+    'content-type': 'application/json',
+    date: 'Wed, 11 Nov 2026 09:35:40 GMT',
+    'retry-after': '24',
+    server: 'cloudflare',
+    'set-cookie': '__cf_bm=ga1t6q5B70BxbXcEgXQ8PQMsAvcHup4DiteEDPlsBAo-1794389740.260493-1.0.1.1-tL7t6I2umWIChVu_J2KowGm0ATgmLid1Kaj01vPfjCW82nzUvP060XwP6OHB0WBq_c8f3K644e5_TBZUsctnGRCpw2nFr7igx3EgWGf1P8zMwtNcMfMb4koc4e.Wtd_P; HttpOnly; SameSite=None; Partitioned; Secure; Path=/; Domain=groq.com; Expires=Wed, 11 Nov 2026 10:05:40 GMT',
+    'strict-transport-security': 'max-age=15552000',
+    vary: 'Origin',
+    'x-groq-region': 'msp',
+    'x-ratelimit-limit-requests': '1000',
+    'x-ratelimit-limit-tokens': '8000',
+    'x-ratelimit-remaining-requests': '960',
+    'x-ratelimit-remaining-tokens': '1854',
+    'x-ratelimit-reset-requests': '57m36s',
+    'x-ratelimit-reset-tokens': '46.095s',
+    'x-request-id': 'req_01m74zd2qnef3ba57qd9qjtpqa'
+  },
+  responseBody: '{"error":{"message":"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6146, Requested 4945. Please try again in 23.1825s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing","type":"tokens","code":"rate_limit_exceeded"}}\n',
+  isRetryable: true,
+  data: {
+    error: {
+      message: 'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01kmf1gyh9fcsakjz6bhk7zy14` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6146, Requested 4945. Please try again in 23.1825s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing',
+      type: 'tokens'
+    }
+  },
+  [Symbol(vercel.ai.error)]: true,
+  [Symbol(vercel.ai.error.AI_APICallError)]: true
+}
+[chat] focused tools for a small plan: weather, calculator, web_search, web_fetch, workflow_create, workflow_run, integration_status, integration_execute
