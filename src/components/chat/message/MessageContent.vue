@@ -585,8 +585,10 @@ const emit = defineEmits<{
         v-else-if="getToolName(part) === 'integration_execute'"
         :invocation="part"
       />
+      <!-- Keyed by state: the part is updated in place, so without this the row kept saying "Running" and stayed empty until the chat was reloaded. -->
       <ChatToolGeneric
         v-else
+        :key="`${part.toolCallId}:${part.state}`"
         :part="part"
       />
     </template>
