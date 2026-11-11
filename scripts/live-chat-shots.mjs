@@ -51,6 +51,7 @@ async function waitForAnswer(maxMs = 150_000) {
 /** Picks a Groq model in the model menu (the app opens on Gemini, which this run has no key for). */
 async function pickGroq() {
   try {
+    if (await page.getByText(/GPT OSS 120B \(Groq\)/i).count()) { note('Groq model already selected'); return }
     await page.getByText(/Gemini 3\.5 Flash|Gemini 3\.8 Flash|GPT OSS|Qwen/i).first().click({ timeout: 8000 })
     await sleep(800)
     await shot(`menu-${Date.now() % 100000}`)
