@@ -51,7 +51,7 @@ async function waitForAnswer(maxMs = 150_000) {
 /** Picks a Groq model in the model menu (the app opens on Gemini, which this run has no key for). */
 async function pickGroq() {
   try {
-    if (await page.getByText(/GPT OSS 120B \(Groq\)/i).count()) { note('Groq model already selected'); return }
+    if (!(await page.getByText(/^Gemini 3\.\d Flash( Lite)?$/).count())) { note('Groq model already selected'); return }
     await page.getByText(/Gemini 3\.5 Flash|Gemini 3\.8 Flash|GPT OSS|Qwen/i).first().click({ timeout: 8000 })
     await sleep(800)
     await shot(`menu-${Date.now() % 100000}`)
@@ -105,6 +105,8 @@ try {
   note(`simple chat finished: ${done1}`)
 
   // 2. A simple workflow request, in a fresh chat.
+  // Groq's free plan allows about 8,000 tokens a minute, so let the minute pass before the next chat.
+  await sleep(70_000)
   await page.goto(BASE, { waitUntil: 'domcontentloaded' })
   await sleep(4000)
   await send('Automate this: every time a client emails me, save their attachment to Google Drive and tell me on Slack.')
