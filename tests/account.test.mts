@@ -35,6 +35,7 @@ const seed = async (uid: string) => {
   await db.collection('bridge_pairings').doc(`p-${uid}`).set({ userId: uid, codeHash: 'CODE-HASH-SECRET' })
   await db.collection('memories').doc(`mem-${uid}`).set({ userId: uid, text: 'Likes tea' })
   await db.collection('memory_settings').doc(uid).set({ userId: uid, enabled: false })
+  await db.collection('user_skills').doc(`${uid}__pdf-forms`).set({ userId: uid, name: 'pdf-forms', description: 'Fill PDFs', body: 'steps', source: 'acme/pdf-skills', warnings: [], installedAt: '2026-11-01T00:00:00Z' })
   await db.collection('mcp_servers').doc(`s-${uid}`).set({ userId: uid, name: 'Linear', url: 'https://mcp.example.com/x', sealedToken: 'SEALED-SECRET', approved: { mcp_linear_search: { fingerprint: 'f' } } })
   await db.collection('model_connections').doc(`${uid}__groq`).set({ userId: uid, providerId: 'groq', baseUrl: '', sealedKey: 'v1.MODEL-KEY-SECRET.x.y', models: [{ id: 'm1', label: 'M1' }], enabled: ['m1'], manual: [], fetchedAt: '2026-10-20T00:00:00.000Z', createdAt: '2026-10-20T00:00:00.000Z' })
   await db.collection('usage').doc(`${uid}__2026-10`).set({ userId: uid, total: 4, days: { '2026-10-19': 4 } })
@@ -81,6 +82,7 @@ assert(out.connectedApps.sort().join() === 'notion,slack', 'connected apps are l
 const text = JSON.stringify(out)
 assert(!text.includes('SEALED-SECRET') && !text.includes('sealedToken'), 'MCP tokens never leave in an export')
 assert((out.mcpServers[0] as any).approvedTools[0] === 'mcp_linear_search', 'MCP servers are listed with their approved tools')
+assert(out.keptSkills.length === 1 && (out.keptSkills[0] as any).source === 'acme/pdf-skills', 'kept skills are in the export with where they came from')
 assert(!text.includes('SEALED-KEY') && (out.connectedKeys[0] as any).hint === '…abcd' && out.connectorActivity.length === 1, 'saved service keys are listed by their last four characters only, with what was done')
 assert(!text.includes('bob') && !text.includes('hello from bob'), 'nothing of another person is exported')
 assert(!('data' in (out.files[0] as any)) && (out.files[0] as any).name === 'report.xlsx', 'files are listed, not embedded')
@@ -119,7 +121,7 @@ assert(e instanceof AccountDeletionError && db.raw('agents').has('a-alice'), 'if
 // ---- Erasure ----
 const res = await eraseUserData(deps(), 'alice')
 assert(calls.includes('disconnect:conn1') && calls.includes('disconnect:conn2') && calls.includes('auth:alice'), 'apps are disconnected and the sign-in account removed')
-for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit', 'voice_keys', 'reef_profiles', 'reef_handles', 'reef_projects', 'reef_versions', 'reef_posts', 'reef_alerts']) {
+for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit', 'voice_keys', 'reef_profiles', 'reef_handles', 'reef_projects', 'reef_versions', 'reef_posts', 'reef_alerts']) {
   assert([...db.raw(c).values()].every(d => d.userId !== 'alice'), `${c}: all of Alice's documents are gone`)
 }
 assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice') && !db.raw('voice_settings').has('alice'), 'usage, plan, memory and voice settings are gone')
