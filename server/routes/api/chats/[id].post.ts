@@ -58,7 +58,7 @@ import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatu
 import { MODELS } from '../../../../shared/utils/models'
 import { parseMyModelId } from '../../../../shared/modelProviders'
 import { resolveModel } from '../../../services/models/resolve'
-import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
+import { DEFAULT_MODEL, availableModels, getLanguageModel, providerOf } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
@@ -317,12 +317,7 @@ export default defineHandler(async (event) => {
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
       try {
-        const result = streamText({
-          abortSignal: event.req.signal,
-          experimental_toolApprovalSecret: toolApprovalSecret(userId),
-          model: languageModel,
-          maxRetries: 0,
-          instructions: `You are a knowledgeable and helpful AI assistant. ${session.data.user?.username ? `The user's name is ${session.data.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
+        const instructionsText = `You are a knowledgeable and helpful AI assistant. ${session.data.user?.username ? `The user's name is ${session.data.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
 
 **FORMATTING RULES (CRITICAL):**
 - ABSOLUTELY NO MARKDOWN HEADINGS: Never use #, ##, ###, ####, #####, or ######
@@ -381,8 +376,15 @@ ${fetchGuidance(Object.keys(tools))}${'browser' in tools ? `**BROWSER:**
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`,
-          messages: await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })),
+${signedIn ? (setup.workflowPrompt ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`
+        const prompt = withPromptCache(providerOf(modelId), instructionsText, await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })))
+        const result = streamText({
+          abortSignal: event.req.signal,
+          experimental_toolApprovalSecret: toolApprovalSecret(userId),
+          model: languageModel,
+          maxRetries: 0,
+          instructions: prompt.system,
+          messages: prompt.messages,
           tools,
           providerOptions: ownKey ? undefined : {
             anthropic: {
