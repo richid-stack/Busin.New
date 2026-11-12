@@ -13,3 +13,12 @@ assert(names('groq', 'Write a Word proposal for Akosua').includes('create_docume
 assert(names('groq', 'plot my sales').includes('chart'), 'a chart request brings the chart tool')
 assert(!names('groq', 'anything at all').some(n => n.startsWith('mcp_') || n === 'browser'), 'heavy tools never ride along uninvited')
 assert(names('groq', 'remember that I like short answers').includes('remember'), 'memory tools appear when asked')
+
+import { toolsUsedIn } from '../server/services/models/focus'
+const withBuild: Record<string, number> = { ...all, ...Object.fromEntries(['list_files', 'read_file', 'search_files', 'write_file', 'edit_project_file', 'delete_file', 'create_page'].map((n, i) => [n, i])) }
+const has = (text: string, used?: string[]) => Object.keys(focusTools(withBuild, { provider: 'groq', text, used }))
+assert(has('Build me a tip calculator').includes('write_file') && has('Build me a tip calculator').includes('edit_project_file'), 'a build request brings the project tools')
+assert(!has('hello there').includes('write_file'), 'a plain chat does not carry the project tools')
+assert(has('make it 15 percent', ['write_file']).includes('edit_project_file'), 'a follow-up keeps the project tools once the chat has used one')
+assert(!has('make it 15 percent').includes('edit_project_file'), 'and without that history it does not guess')
+assert(toolsUsedIn([{ parts: [{ type: 'text' }, { type: 'tool-write_file' }] }, { parts: [{ type: 'tool-weather' }] }, {}]).join() === 'write_file,weather', 'tools used earlier are read from the messages')

@@ -61,7 +61,7 @@ import { resolveModel } from '../../../services/models/resolve'
 import { DEFAULT_MODEL, availableModels, getLanguageModel, providerOf } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
-import { focusTools } from '../../../services/models/focus'
+import { focusTools, toolsUsedIn } from '../../../services/models/focus'
 import { modelErrorMessage } from '../../../utils/modelError'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
@@ -309,7 +309,7 @@ export default defineHandler(async (event) => {
   }
   const setup = resolveChatSetup({ agent, tools: allTools, model: modelId, defaultSteps: 10 })
   // Free plans with a small minute-by-minute allowance get only the tools this message is about.
-  const tools = focusTools(setup.tools, { provider: providerOf(modelId), text: userText })
+  const tools = focusTools(setup.tools, { provider: providerOf(modelId), text: userText, used: toolsUsedIn(messages) })
   // Focused: the model is on a small plan, so leave out instructions for tools it was not given.
   const focused = Object.keys(tools).length < Object.keys(setup.tools).length
 
