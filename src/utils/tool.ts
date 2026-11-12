@@ -210,5 +210,25 @@ export function getServerTrace(part: ToolPart): { rows: { verb: string, name: st
   }
 }
 
-/** The rows for a trace that lists what was looked at or done: the folder, or a tool server. */
-export const getRowsTrace = (part: ToolPart) => ((part as { type?: string }).type === 'tool-add_tool_server' ? getServerTrace(part) : getFolderTrace(part))
+/** Keeping a skill, one row per thing that happened: a short label, then the name. */
+export function getKeepTrace(part: ToolPart): { rows: { verb: string, name: string, plain?: boolean }[], title: string, summary?: string, failed: boolean, error?: string } {
+  const o = part.output as { status?: string, name?: string, source?: string, warnings?: string[], error?: string } | undefined
+  const name = o?.name || 'the skill'
+  if (!o || o.status !== 'installed') return { rows: [], title: `Could not keep ${name}`, failed: true, error: plainError(o?.error) }
+  return {
+    title: `Kept ${name}`,
+    summary: o.warnings?.length ? `In every chat · ${o.warnings.length} ${o.warnings.length === 1 ? 'warning' : 'warnings'}` : 'In every chat',
+    rows: [
+      ...(o.source ? [{ verb: 'Read', name: o.source }] : []),
+      { verb: 'Checked', name, plain: true },
+      { verb: 'Kept', name, plain: true }
+    ],
+    failed: false
+  }
+}
+
+/** The rows for a trace that lists what was looked at or done: the folder, a tool server, or a kept skill. */
+export const getRowsTrace = (part: ToolPart) => {
+  const type = (part as { type?: string }).type
+  return type === 'tool-add_tool_server' ? getServerTrace(part) : type === 'tool-install_skill' ? getKeepTrace(part) : getFolderTrace(part)
+}

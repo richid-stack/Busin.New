@@ -6,6 +6,9 @@ import { createRunnerServer } from '../runner/app'
 import { runBoxPlan } from '../runner/plan'
 import { CLOUD_LIMITS, boxResponseSchema, cloudPlanSchema } from '../shared/cloudBox'
 
+// The cloud box worker runs on Linux (it switches users and reads /proc), so there is nothing to check on Windows.
+if (process.platform === 'win32') { console.log('PASS skipped on Windows: the cloud box worker runs on Linux'); process.exit(0) }
+
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
 const ac = () => new AbortController().signal
 const isRoot = typeof process.getuid === 'function' && process.getuid() === 0
@@ -110,9 +113,14 @@ const longRun = post({ steps: [{ program: 'node', args: ['slow.js'] }], files: s
 await new Promise(r => setTimeout(r, 400))
 assert((await post({ steps: [{ program: 'node', args: ['--version'] }] })).status === 429, 'a second plan while one is running is told to wait')
 await longRun
-const r3 = await post({ steps: [{ program: 'node', args: ['--version'] }] })
-assert(r3.status === 200, 'and the next one works once the first has finished')
+assert((await post({ steps: [{ program: 'node', args: ['--version'] }] })).status === 429, 'a worker that is about to restart takes no further plan')
 app.close()
+// Without a restart (a worker started by hand) the next plan is fine once the first has finished.
+const app2 = createRunnerServer({ secret: SECRET, box: deps, maxBodyChars: 5000 })
+await new Promise<void>(r => app2.listen(0, '127.0.0.1', r))
+const r3 = await fetch(`http://127.0.0.1:${(app2.address() as AddressInfo).port}/run`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SECRET}` }, body: JSON.stringify({ steps: [{ program: 'node', args: ['--version'] }] }) })
+assert(r3.status === 200, 'and the next one works once the first has finished')
+app2.close()
 assert((() => { try { createRunnerServer({ secret: 'short' }); return false } catch { return true } })(), 'the worker refuses to start with a weak secret')
 
 fs.rmSync(work, { recursive: true, force: true })
