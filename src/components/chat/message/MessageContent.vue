@@ -85,7 +85,7 @@ function isToolPart(part: any): boolean {
 
   <template
     v-for="(part, index) in getMergedParts(message.parts || [])"
-    :key="`${message.id}-${part.type}-${index}${isToolPart(part) ? `-${part.state}` : ''}`"
+    :key="`${message.id}-${part.type}-${index}${isToolPart(part) ? `-${(part as { state?: string }).state}` : ''}`"
   >
     <!-- Tool parts are updated in place as results arrive. Keying them by state makes each row draw again when its state changes, so no row stays on "Running", "Drafting" or empty until the chat is reloaded. -->
     <UChatReasoning
