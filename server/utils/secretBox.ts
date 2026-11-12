@@ -7,6 +7,9 @@ import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } f
  */
 export class SecretBoxError extends Error {}
 
+/** The full 16-byte tag. A shorter one is refused, because a short tag is much easier to forge. */
+const TAG_BYTES = 16
+
 function key(purpose: string): Buffer {
   const material = process.env.SECRETS_KEY || process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-secrets-key-not-for-production-use')
   if (material.length < 16) throw new SecretBoxError('Stored secrets need SECRETS_KEY (or SESSION_SECRET) to be set on the server.')
@@ -15,7 +18,7 @@ function key(purpose: string): Buffer {
 
 export function seal(plain: string, purpose = 'secret'): string {
   const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', key(purpose), iv)
+  const cipher = createCipheriv('aes-256-gcm', key(purpose), iv, { authTagLength: TAG_BYTES })
   const body = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()])
   return ['v1', iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), body.toString('base64url')].join('.')
 }
@@ -24,8 +27,10 @@ export function open(sealed: string, purpose = 'secret'): string {
   const [version, iv, tag, body] = sealed.split('.')
   if (version !== 'v1' || !iv || !tag || !body) throw new SecretBoxError('The stored secret is not readable.')
   try {
-    const decipher = createDecipheriv('aes-256-gcm', key(purpose), Buffer.from(iv, 'base64url'))
-    decipher.setAuthTag(Buffer.from(tag, 'base64url'))
+    const tagBytes = Buffer.from(tag, 'base64url')
+    if (tagBytes.length !== TAG_BYTES) throw new SecretBoxError('The stored secret is not readable.')
+    const decipher = createDecipheriv('aes-256-gcm', key(purpose), Buffer.from(iv, 'base64url'), { authTagLength: TAG_BYTES })
+    decipher.setAuthTag(tagBytes)
     return Buffer.concat([decipher.update(Buffer.from(body, 'base64url')), decipher.final()]).toString('utf8')
   } catch (err) {
     if (err instanceof SecretBoxError) throw err
