@@ -43,7 +43,7 @@ async function waitForAnswer(maxMs = 150_000) {
     const len = (await page.evaluate(() => document.body.innerText.length)) 
     stable = len === last ? stable + 1 : 0
     last = len
-    if (stable >= 4) return true
+    if (stable >= 8) return true
   }
   return false
 }
