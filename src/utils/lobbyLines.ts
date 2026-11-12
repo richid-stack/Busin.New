@@ -58,6 +58,7 @@ export function phraseFor(part: Part): string {
   if (name === 'check_setup') return 'Checking what is connected.'
   if (name === 'find_skill') return 'Looking for a skill.'
   if (name === 'load_external_skill') return 'Opening a skill.'
+  if (name === 'install_skill') return 'Keeping a skill for you.'
   if (name === 'run_in_cloud') return 'Running the plan in a fresh cloud box.'
   if (name === 'run_on_computer') return 'Running the plan on your computer.'
   if (name === 'add_tool_server') return 'Adding the tool server.'

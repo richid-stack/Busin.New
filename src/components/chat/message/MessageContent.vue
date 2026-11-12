@@ -414,11 +414,11 @@ const emit = defineEmits<{
         </p>
       </UChatTool>
       <UChatTool
-        v-else-if="getToolName(part) === 'look_in_folder' || getToolName(part) === 'add_tool_server'"
-        :text="isToolStreaming(part) ? (getToolName(part) === 'add_tool_server' ? 'Adding the tool server...' : 'Looking in your folder...') : getRowsTrace(part).failed ? (getToolName(part) === 'add_tool_server' ? getRowsTrace(part).title : 'Could not look in the folder') : getRowsTrace(part).title"
+        v-else-if="getToolName(part) === 'look_in_folder' || getToolName(part) === 'add_tool_server' || getToolName(part) === 'install_skill'"
+        :text="isToolStreaming(part) ? (getToolName(part) === 'add_tool_server' ? 'Adding the tool server...' : getToolName(part) === 'install_skill' ? 'Keeping the skill...' : 'Looking in your folder...') : getRowsTrace(part).failed ? (getToolName(part) !== 'look_in_folder' ? getRowsTrace(part).title : 'Could not look in the folder') : getRowsTrace(part).title"
         :suffix="getRowsTrace(part).summary"
         :streaming="isToolStreaming(part)"
-        :icon="getToolName(part) === 'add_tool_server' ? 'i-lucide-plug' : 'i-lucide-folder-search'"
+        :icon="getToolName(part) === 'add_tool_server' ? 'i-lucide-plug' : getToolName(part) === 'install_skill' ? 'i-lucide-book-open-text' : 'i-lucide-folder-search'"
         :chevron="getRowsTrace(part).rows.length || getRowsTrace(part).error ? 'leading' : undefined"
       >
         <div
@@ -509,7 +509,7 @@ const emit = defineEmits<{
         :text="isToolStreaming(part) ? 'Opening the skill...' : getLookupTrace(part).failed ? 'Could not load the skill' : 'Loaded the skill'"
         :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
         :streaming="isToolStreaming(part)"
-        icon="i-lucide-wand-sparkles"
+        icon="i-lucide-book-open-text"
         :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
       >
         <ul
@@ -535,7 +535,7 @@ const emit = defineEmits<{
         :text="isToolStreaming(part) ? 'Opening a skill...' : getSkillName(part) ? 'Used the skill' : 'Skill unavailable'"
         :suffix="getSkillName(part)"
         :streaming="isToolStreaming(part)"
-        icon="i-lucide-wand-sparkles"
+        icon="i-lucide-book-open-text"
       />
       <UChatTool
         v-else-if="getToolName(part) === 'web_fetch'"

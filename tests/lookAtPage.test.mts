@@ -54,6 +54,12 @@ assert(t.title === 'Kente Studio' && t.themeColor === '#b4531a', 'title and them
 assert(t.colors[0]!.hex === '#ff5a1f' && t.colors[0]!.role === 'accent', 'the most used colour comes first')
 assert(t.fonts.some(f => f.family === 'DM Serif Display') && t.fonts.some(f => f.family === 'Inter'), 'Google Fonts families are read from the link')
 assert(t.stylesheets === 1 && !calls.some(c => c.includes('googleapis')), 'a stylesheet that fails is skipped, Google Fonts css is not downloaded')
+const tricky = await readDesignTokens('https://shop.example.com/', { fetcher: async (url) => {
+  calls.push(url)
+  if (url === 'https://shop.example.com/') return { status: 200, url, contentType: 'text/html', headers: {}, body: Buffer.from('<title>T</title><link rel="stylesheet" href="https://cdn.example.com/site.css?ref=fonts.googleapis.com">'), truncated: false }
+  return { status: 200, url, contentType: 'text/css', headers: {}, body: Buffer.from('a{color:#112233}'), truncated: false }
+} })
+assert(tricky.stylesheets === 1 && calls.some(c => c.startsWith('https://cdn.example.com/site.css')), 'an address that only mentions Google Fonts in its text is still read as a stylesheet')
 const bare = await readDesignTokens('https://js.example.com/', { fetcher: async url => ({ status: 200, url, contentType: 'text/html', headers: {}, body: Buffer.from('<html><title>App</title><div id=root></div></html>'), truncated: false }) })
 assert(bare.colors.length === 0 && /JavaScript/.test(bare.note), 'a page with no CSS says so and points to look_at_page')
 let threw = false
@@ -73,23 +79,32 @@ const db: FileDb = { collection: () => ({ doc: (id: string) => ({ set: async (d:
 const store = createFileStore(db)
 const JPG = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(2000, 7)])
 const seen: any[] = []
-let behaviour: 'ok' | 'bigfull' | 'bigalways' | 'inspect' | 'unsafe' = 'ok'
+let behaviour: 'png' | 'ok' | 'bigfull' | 'bigalways' | 'inspect' | 'unsafe' = 'ok'
 const provider = {
   capture: async (req: any) => {
     seen.push(req)
     if (behaviour === 'inspect') throw new InspectError('The page took too long to load.')
     if (behaviour === 'unsafe') throw new UnsafeUrlError('That address is not allowed.')
     const big = behaviour === 'bigalways' || (behaviour === 'bigfull' && req.fullPage)
-    return { bytes: big ? Buffer.alloc(800_000, 1) : JPG, mediaType: 'image/jpeg' as const, width: req.width ?? 1280, height: 800, url: 'https://shop.example.com/', title: 'Kente Studio' }
+    return { bytes: big ? Buffer.alloc(800_000, 1) : JPG, mediaType: (behaviour === 'png' ? 'image/png' : 'image/jpeg') as 'image/png' | 'image/jpeg', width: req.width ?? 1280, height: 800, url: 'https://shop.example.com/', title: 'Kente Studio' }
   }
 }
 const lookTool: any = createLookAtPageTool('u1', { store, provider: () => provider })
+const jobTool: any = createLookAtPageTool('u1', { store, provider: () => provider }, { allowComputer: false })
 const ok: any = await run(lookTool, { url: 'https://shop.example.com/', width: 390 })
 assert(ok.status === 'ok' && ok.fileId && ok.title === 'Kente Studio' && ok.source === 'shop.example.com' && !JSON.stringify(ok).includes('/9j/'), 'a look returns the file id and details, never the picture')
 assert((await store.get(ok.fileId, 'u1'))?.name === 'shop.example.com 390px.jpg', 'the screenshot is kept for the user under a clear name')
 const out: any = await lookTool.toModelOutput({ toolCallId: 't', input: {}, output: ok })
 assert(out.type === 'content' && out.value.some((v: any) => v.type === 'image-data' && v.mediaType === 'image/jpeg'), 'the model receives the screenshot')
 assert(typeof ok.notice === 'string' && /not instructions/.test(ok.notice), 'the page text is marked as untrusted')
+seen.length = 0
+const noComputer: any = await run(jobTool, { url: 'http://localhost:5173/', onMyComputer: true })
+assert(noComputer.status === 'failed' && /background job/.test(noComputer.error) && seen.length === 0, 'a background job is never allowed to open a page on the person\'s computer')
+assert((await run(jobTool, { url: 'https://shop.example.com/' })).status === 'ok', 'but it can still look at public pages')
+behaviour = 'png'
+const pngShot: any = await run(lookTool, { url: 'https://shop.example.com/', width: 820 })
+const pngFile = await store.get(pngShot.fileId, 'u1')
+assert(pngFile?.mime === 'image/png' && pngFile?.name === 'shop.example.com 820px.png', 'a screenshot sent as a PNG is kept as a PNG, so its label matches its bytes')
 behaviour = 'bigfull'; seen.length = 0
 const retried: any = await run(lookTool, { url: 'https://shop.example.com/', fullPage: true })
 assert(retried.status === 'ok' && seen.length === 2 && seen[1].fullPage === false, 'an oversize full-page shot is retried as the first screen')

@@ -41,6 +41,7 @@ export const CAPABILITIES: Capability[] = [
   cap('find_skill', 'Look for a skill', 'read', 30_000, []),
   // Opening a skill from the internet needs the person to approve it, so a task may not do it alone.
   cap('load_external_skill', 'Open a skill from GitHub', 'act', 30_000, []),
+  { tool: 'install_skill', label: 'Keep a skill', location: 'remote', risk: 'act', unattended: false, timeoutMs: 30_000, verifiedBy: [] },
   cap('create_document', 'Create a Word or PDF file', 'create', 60_000, ['file']),
   cap('create_spreadsheet', 'Create an Excel file', 'create', 60_000, ['file']),
   cap('create_presentation', 'Create a PowerPoint file', 'create', 60_000, ['file']),
