@@ -26,6 +26,11 @@ export interface DesignTokens {
 type Fetcher = (url: string, options: { maxBytes: number, timeoutMs: number, signal?: AbortSignal }) => Promise<SafeFetchResult>
 
 const MAX_SHEETS = 6
+
+/** True only when the address really is on Google Fonts, not when the text appears somewhere in a longer address. */
+function isGoogleFontsUrl(href: string): boolean {
+  try { return new URL(href).hostname === 'fonts.googleapis.com' } catch { return false }
+}
 const MAX_HTML = 1_500_000
 const MAX_SHEET = 600_000
 
@@ -149,12 +154,12 @@ export async function readDesignTokens(url: string, deps: { fetcher?: Fetcher, s
   // Google Fonts links name the families in the address itself.
   const googleFamilies: string[] = []
   for (const h of hrefs) {
-    if (!/fonts\.googleapis\.com/.test(h)) continue
+    if (!isGoogleFontsUrl(h)) continue
     for (const f of new URL(h).searchParams.getAll('family')) googleFamilies.push(f.split(':')[0]!.replace(/\+/g, ' '))
   }
 
   let read = 0
-  for (const href of hrefs.filter(h => !/fonts\.googleapis\.com/.test(h)).slice(0, MAX_SHEETS)) {
+  for (const href of hrefs.filter(h => !isGoogleFontsUrl(h)).slice(0, MAX_SHEETS)) {
     try {
       const sheet = await fetcher(href, { maxBytes: MAX_SHEET, timeoutMs: 8_000, signal: deps.signal })
       if (sheet.status >= 200 && sheet.status < 300) { css.push(sheet.body.toString('utf8')); read++ }

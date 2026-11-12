@@ -41,6 +41,8 @@ import { bridgeStore } from '../../../services/bridge/store'
 import { createDocumentTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
 import { prepareMessagesForModel, supportsNativePdf } from '../../../services/documents/attachments'
 import { skills } from '../../../services/skills/registry'
+import { installedAsSkill, listInstalledSkills } from '../../../services/skills/userSkills'
+import { createInstallSkillTool } from '../../../utils/tools/installSkill'
 import { describeCatalog } from '../../../services/skills/parse'
 import { getAgent } from '../../../services/agents/store'
 import { filterSkills } from '../../../services/agents/profile'
@@ -61,18 +63,13 @@ import { resolveModel } from '../../../services/models/resolve'
 import { DEFAULT_MODEL, availableModels, getLanguageModel } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
+import { modelErrorMessage } from '../../../utils/modelError'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
-const RATE_LIMIT_PATTERN = /quota|RESOURCE_EXHAUSTED|429|rate[ -]?limit|\bI?O?TPM\b/i
-
-// Turns provider errors into a short, honest message; details stay in the server log.
+// Provider errors become a short, honest message; details stay in the server log.
 function describeModelError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error)
-  console.error('[chat] model error:', message)
-  if (RATE_LIMIT_PATTERN.test(message)) {
-    return 'This model has reached its rate limit. Wait a moment and try again, or pick another model from the dropdown.'
-  }
-  return 'Something went wrong while generating the response. Please try again.'
+  console.error('[chat] model error:', error instanceof Error ? error.message : String(error))
+  return modelErrorMessage(error)
 }
 
 const WORKFLOW_PROMPT = `**WORKFLOWS & SERVICE AUTOMATIONS (CRITICAL):**
@@ -248,7 +245,10 @@ export default defineHandler(async (event) => {
   let produced = false
 
   // Workflow and app-integration tools act on a person's account, so they exist only for signed-in users.
-  const activeSkills = agent ? filterSkills(skills, agent) : skills
+  // Skills the person chose to keep sit beside the built-in ones. They never replace a built-in one of the same name.
+  const keptSkills = signedIn ? await listInstalledSkills(userId).then(list => list.map(installedAsSkill).filter(k => !skills.some(b => b.name === k.name))).catch((err) => { console.warn('Kept skills unavailable:', err?.message); return [] }) : []
+  const allSkills = [...skills, ...keptSkills]
+  const activeSkills = agent ? filterSkills(allSkills, agent) : allSkills
   const loadSkill = createLoadSkillTool(userId, activeSkills)
   const readDocument = createReadDocumentTool(userId, messages)
   // Tools from the MCP servers the person approved. Reading them must never stop a chat.
@@ -280,7 +280,7 @@ export default defineHandler(async (event) => {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
     // Saving files and looking at images act on the person's own storage, so they need an account.
-    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
+    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), install_skill: createInstallSkillTool(userId, skills.map(b => b.name)), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
