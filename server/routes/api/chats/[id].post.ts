@@ -58,6 +58,7 @@ import { createWorkflowCreateTool, createWorkflowRunTool, createIntegrationStatu
 import { MODELS } from '../../../../shared/utils/models'
 import { parseMyModelId } from '../../../../shared/modelProviders'
 import { resolveModel } from '../../../services/models/resolve'
+import { withPromptCache } from '../../../services/models/promptCache'
 import { DEFAULT_MODEL, availableModels, getLanguageModel, providerOf } from '../../../utils/models'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
