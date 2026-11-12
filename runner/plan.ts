@@ -94,6 +94,7 @@ export async function runBoxPlan(raw: unknown, signal: AbortSignal, deps: BoxDep
 
 /** Stops anything the programs left running. Best effort: the worker is restarted after the plan anyway. */
 function endLeftovers(uid: number | undefined): Promise<void> {
-  if (uid === undefined || uid === 0) return Promise.resolve()
+  // Never stop the worker itself: when it already runs as this user, the plan's leftovers are cleaned by the restart.
+  if (uid === undefined || uid === 0 || (typeof process.getuid === 'function' && process.getuid() === uid)) return Promise.resolve()
   return new Promise(resolve => execFile('pkill', ['-9', '-u', String(uid)], () => resolve()))
 }

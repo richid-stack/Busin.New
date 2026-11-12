@@ -79,23 +79,32 @@ const db: FileDb = { collection: () => ({ doc: (id: string) => ({ set: async (d:
 const store = createFileStore(db)
 const JPG = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(2000, 7)])
 const seen: any[] = []
-let behaviour: 'ok' | 'bigfull' | 'bigalways' | 'inspect' | 'unsafe' = 'ok'
+let behaviour: 'png' | 'ok' | 'bigfull' | 'bigalways' | 'inspect' | 'unsafe' = 'ok'
 const provider = {
   capture: async (req: any) => {
     seen.push(req)
     if (behaviour === 'inspect') throw new InspectError('The page took too long to load.')
     if (behaviour === 'unsafe') throw new UnsafeUrlError('That address is not allowed.')
     const big = behaviour === 'bigalways' || (behaviour === 'bigfull' && req.fullPage)
-    return { bytes: big ? Buffer.alloc(800_000, 1) : JPG, mediaType: 'image/jpeg' as const, width: req.width ?? 1280, height: 800, url: 'https://shop.example.com/', title: 'Kente Studio' }
+    return { bytes: big ? Buffer.alloc(800_000, 1) : JPG, mediaType: (behaviour === 'png' ? 'image/png' : 'image/jpeg') as 'image/png' | 'image/jpeg', width: req.width ?? 1280, height: 800, url: 'https://shop.example.com/', title: 'Kente Studio' }
   }
 }
 const lookTool: any = createLookAtPageTool('u1', { store, provider: () => provider })
+const jobTool: any = createLookAtPageTool('u1', { store, provider: () => provider }, { allowComputer: false })
 const ok: any = await run(lookTool, { url: 'https://shop.example.com/', width: 390 })
 assert(ok.status === 'ok' && ok.fileId && ok.title === 'Kente Studio' && ok.source === 'shop.example.com' && !JSON.stringify(ok).includes('/9j/'), 'a look returns the file id and details, never the picture')
 assert((await store.get(ok.fileId, 'u1'))?.name === 'shop.example.com 390px.jpg', 'the screenshot is kept for the user under a clear name')
 const out: any = await lookTool.toModelOutput({ toolCallId: 't', input: {}, output: ok })
 assert(out.type === 'content' && out.value.some((v: any) => v.type === 'image-data' && v.mediaType === 'image/jpeg'), 'the model receives the screenshot')
 assert(typeof ok.notice === 'string' && /not instructions/.test(ok.notice), 'the page text is marked as untrusted')
+seen.length = 0
+const noComputer: any = await run(jobTool, { url: 'http://localhost:5173/', onMyComputer: true })
+assert(noComputer.status === 'failed' && /background job/.test(noComputer.error) && seen.length === 0, 'a background job is never allowed to open a page on the person\'s computer')
+assert((await run(jobTool, { url: 'https://shop.example.com/' })).status === 'ok', 'but it can still look at public pages')
+behaviour = 'png'
+const pngShot: any = await run(lookTool, { url: 'https://shop.example.com/', width: 820 })
+const pngFile = await store.get(pngShot.fileId, 'u1')
+assert(pngFile?.mime === 'image/png' && pngFile?.name === 'shop.example.com 820px.png', 'a screenshot sent as a PNG is kept as a PNG, so its label matches its bytes')
 behaviour = 'bigfull'; seen.length = 0
 const retried: any = await run(lookTool, { url: 'https://shop.example.com/', fullPage: true })
 assert(retried.status === 'ok' && seen.length === 2 && seen[1].fullPage === false, 'an oversize full-page shot is retried as the first screen')

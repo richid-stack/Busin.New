@@ -136,7 +136,8 @@ export const folderReadInput = z.object({ file: z.string().trim().min(1).max(120
 
 /** What the server accepts back from a command. The output is only ever shown as text. */
 export const runCommandResult = z.object({
-  exitCode: z.number().int().min(-1).max(255),
+  // A Windows program that crashes ends with a 32-bit code far above 255 (for example 3221225477), and its output must still arrive.
+  exitCode: z.number().int().min(-(2 ** 31)).max(2 ** 32 - 1),
   timedOut: z.boolean(),
   ms: z.number().int().min(0),
   output: z.string().max(RUN_LIMITS.maxOutputChars + 500),
