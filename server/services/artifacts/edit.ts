@@ -52,7 +52,7 @@ const PAGE_OPS = new Set(['set_title', 'replace_text', 'replace_html'])
 // A project is changed with the project file tools; replace_text is the only change that also works on it.
 const PROJECT_OPS = new Set(['set_title', 'replace_text'])
 const OPS: Record<ArtifactKind, Set<string>> = { document: DOCUMENT_OPS, workbook: WORKBOOK_OPS, presentation: PRESENTATION_OPS, page: PAGE_OPS, project: PROJECT_OPS }
-const WHAT: Record<ArtifactKind, string> = { document: 'a document', workbook: 'a spreadsheet', presentation: 'a presentation', page: 'a web page' }
+const WHAT: Record<ArtifactKind, string> = { document: 'a document', workbook: 'a spreadsheet', presentation: 'a presentation', page: 'a web page', project: 'a project' }
 
 function within(list: unknown[], at: number, what: string, allowEnd = false) {
   const max = list.length + (allowEnd ? 1 : 0)
