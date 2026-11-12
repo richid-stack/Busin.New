@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 const only = (process.env.STORE_SUITES ?? '').split(',').filter(Boolean)
 const suites = (process.argv.slice(2).length ? process.argv.slice(2) : only.length ? only : [
   'usage', 'memory', 'modelProviders', 'integrations', 'taskPause', 'taskSchedules',
-  'reefCommunity', 'reefRoutes', 'reefSeed', 'browserHolds', 'bridgeLive', 'bridgeRunJobs'
+  'reefCommunity', 'reefRoutes', 'reefSeed', 'browserHolds', 'bridgeLive', 'bridgeRunJobs', 'artifacts'
 ])
 const failed = []
 for (const name of suites) {

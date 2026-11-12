@@ -45,6 +45,8 @@ export const CAPABILITIES: Capability[] = [
   cap('create_document', 'Create a Word or PDF file', 'create', 60_000, ['file']),
   cap('create_spreadsheet', 'Create an Excel file', 'create', 60_000, ['file']),
   cap('create_presentation', 'Create a PowerPoint file', 'create', 60_000, ['file']),
+  // Changes a file the person has open beside the chat, so a person has to be there.
+  { tool: 'edit_file', label: 'Change part of a file', location: 'remote', risk: 'act', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
   cap('inspect_design', 'Look at a page or picture', 'read', 70_000, ['visual']),
   // Changes files on a person's own computer (always into a new copy), so it needs a person present for now.
   { tool: 'computer_excel', label: 'Work on spreadsheets on your computer', location: 'local', risk: 'act', unattended: false, timeoutMs: 130_000, verifiedBy: ['file'] },

@@ -15,6 +15,7 @@ import ChatToolAgentProposal from '../tool/AgentProposal.vue'
 import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
 import ChatToolFile from '../tool/File.vue'
+import ChatToolEditFile from '../tool/EditFile.vue'
 import ChatToolInspection from '../tool/Inspection.vue'
 import ChatToolComputerExcel from '../tool/ComputerExcel.vue'
 import ChatToolTaskProposal from '../tool/TaskProposal.vue'
@@ -556,6 +557,10 @@ const emit = defineEmits<{
       />
       <ChatToolFile
         v-else-if="['create_document', 'create_spreadsheet', 'create_presentation'].includes(getToolName(part))"
+        :invocation="part"
+      />
+      <ChatToolEditFile
+        v-else-if="getToolName(part) === 'edit_file'"
         :invocation="part"
       />
       <ChatToolTaskProposal
