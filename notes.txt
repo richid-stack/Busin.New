@@ -1,0 +1,23 @@
+build finished=true
+shot 1-built-closed
+shot 2-built-open
+PASS the trace says a file was Created
+PASS index.html is shown
+PASS the project pane is open with its file list
+rows opened: 2
+
+shot 3-preview
+PASS the preview shows a working page (inputs: 2)
+preview text: Bill Amount Tip % Total: 132.00
+PASS the module split across two files really runs in the preview (120 + 10% = 132)
+shot 4-preview-used
+shot 5-download-menu
+PASS Project downloads (tip-calculator.zip, 1203 bytes)
+PASS Single page downloads (tip-calculator.html, 1869 bytes)
+PASS the project download is a zip file
+PASS the single page has the script inside
+change finished=true
+shot 6-changed-closed
+shot 7-changed-open
+PASS the second reply shows edit steps
+PASS the pane marks what changed in version 2
