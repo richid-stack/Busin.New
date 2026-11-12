@@ -54,6 +54,12 @@ assert(t.title === 'Kente Studio' && t.themeColor === '#b4531a', 'title and them
 assert(t.colors[0]!.hex === '#ff5a1f' && t.colors[0]!.role === 'accent', 'the most used colour comes first')
 assert(t.fonts.some(f => f.family === 'DM Serif Display') && t.fonts.some(f => f.family === 'Inter'), 'Google Fonts families are read from the link')
 assert(t.stylesheets === 1 && !calls.some(c => c.includes('googleapis')), 'a stylesheet that fails is skipped, Google Fonts css is not downloaded')
+const tricky = await readDesignTokens('https://shop.example.com/', { fetcher: async (url) => {
+  calls.push(url)
+  if (url === 'https://shop.example.com/') return { status: 200, url, contentType: 'text/html', headers: {}, body: Buffer.from('<title>T</title><link rel="stylesheet" href="https://cdn.example.com/site.css?ref=fonts.googleapis.com">'), truncated: false }
+  return { status: 200, url, contentType: 'text/css', headers: {}, body: Buffer.from('a{color:#112233}'), truncated: false }
+} })
+assert(tricky.stylesheets === 1 && calls.some(c => c.startsWith('https://cdn.example.com/site.css')), 'an address that only mentions Google Fonts in its text is still read as a stylesheet')
 const bare = await readDesignTokens('https://js.example.com/', { fetcher: async url => ({ status: 200, url, contentType: 'text/html', headers: {}, body: Buffer.from('<html><title>App</title><div id=root></div></html>'), truncated: false }) })
 assert(bare.colors.length === 0 && /JavaScript/.test(bare.note), 'a page with no CSS says so and points to look_at_page')
 let threw = false
