@@ -40,7 +40,7 @@ assert(Object.keys(tools).includes('web_fetch') && Object.keys(tools).includes('
 assert(Object.keys(buildTaskTools('u1', ['utilities'])).sort().join() === 'calculator,chart,plan,weather', 'a task gets only the groups chosen for it')
 const opened = Object.keys(buildTaskTools('u1', ['save_files', 'study_sites', 'read_code'])).sort()
 assert(['fetch_file', 'view_image', 'look_at_page', 'design_tokens', 'find_icons', 'find_fonts', 'github_read', 'community_search'].every(t => opened.includes(t)), 'a task can save files, study designs (with icons and fonts) and read code when those are chosen')
-assert(!opened.includes('load_external_skill') && !opened.includes('check_setup') && !opened.includes('find_skill'), 'a task never loads outside skills or checks setup on its own')
+assert(!opened.includes('load_external_skill') && !opened.includes('install_skill') && !opened.includes('check_setup') && !opened.includes('find_skill'), 'a task never loads outside skills or checks setup on its own')
 assert(!taskInputSchema.safeParse({ ...base, tools: ['more_skills'] }).success && !taskInputSchema.safeParse({ ...base, tools: ['design_assets'] }).success, 'the skills group is not offered to tasks, and the old icons group no longer exists')
 assert(parse({ ...base }).success && (parse({ ...base }) as any).data.tools.join() === 'web,create_files,inspect,utilities', 'tasks without a choice keep the same default tools as before')
 

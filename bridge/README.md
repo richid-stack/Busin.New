@@ -1,10 +1,10 @@
 # OpenLobs Bridge
 
-A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.5: it can answer a ping, look at web pages, let OpenLobs use a browser, and work on spreadsheets in one folder, each only if you allow it.** It is the base for later steps (other apps).
+A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.6: it can answer a ping, look at web pages, let OpenLobs use a browser, work on spreadsheets in one folder, and run approved commands in one folder, each only if you allow it.** It is the base for later steps (other apps).
 
 ## What it will and will not do
 
-- It only **calls out** to your OpenLobs address. It opens no port and runs no commands. The only programs it starts are your browser (for a browser job you allowed) and, for spreadsheet work you allowed, Microsoft Excel or LibreOffice, driven by two fixed scripts that nothing from OpenLobs is ever written into (`sheets/engine.ts`; `process.ts` is the single place that starts a program).
+- It only **calls out** to your OpenLobs address. It opens no port. The programs it starts are your browser (for a browser job you allowed), for spreadsheet work you allowed Microsoft Excel or LibreOffice driven by two fixed scripts that nothing from OpenLobs is ever written into (`sheets/engine.ts`; `process.ts` starts these), and, only with the **run** permission, the programs on a short fixed list (node, npm, python, git and similar) in the one folder you chose, each step approved by you first (`run.ts` starts these; see the run section below).
 - It has a fixed list of jobs (`HANDLERS` in `core.ts`). A job not on the list is refused on this computer even if the server sends it.
 - It says what it is doing, can be stopped with Ctrl+C, and stops by itself if you disconnect it in OpenLobs.
 - The token that proves this computer's identity is stored in a file only your user can read (`%APPDATA%\OpenLobsBridge\config.json` on Windows, `~/.openlobs-bridge/config.json` elsewhere).
