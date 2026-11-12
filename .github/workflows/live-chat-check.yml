@@ -10,8 +10,6 @@ on:
         description: 'Models to try, in order (comma separated)'
         required: false
         default: 'google/gemini-3.8-flash,google/gemini-3.5-flash,google/gemini-3.1-flash-lite,groq/gpt-oss-120b,groq/gpt-oss-20b,groq/qwen3.8-27b'
-  push:
-    branches: [ci/live-chat-check]
 
 permissions:
   contents: read
