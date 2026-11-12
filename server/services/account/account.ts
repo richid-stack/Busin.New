@@ -13,7 +13,7 @@ import { deleteComposioConnection, isComposioConfigured, listComposioUserConnect
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings', 'voice_settings'] as const
 /** Nested data that goes with its parent document. */
@@ -158,6 +158,7 @@ export interface UserExport {
   agents: unknown[]
   memory: { enabled: boolean, items: unknown[] }
   mcpServers: unknown[]
+  keptSkills: unknown[]
   modelProviders: unknown[]
   voice: unknown
   files: unknown[]
@@ -236,6 +237,12 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     simple('integrations', LEGACY_SECRETS)
   ])
 
+  // Skills the person chose to keep, with where each came from.
+  const keptSkills = (await ownedDocs(db, 'user_skills', id)).map((doc) => {
+    const d = doc.data()
+    return { name: d.name, description: d.description, source: d.source, instructions: d.body, installedAt: plain(d.installedAt) }
+  })
+
   // Which providers have a key saved and which models are switched on. The key itself is never exported.
   const modelProviders = (await ownedDocs(db, 'model_connections', id)).map((doc) => {
     const d = doc.data()
@@ -266,6 +273,7 @@ export async function collectUserData(deps: AccountDeps, user: { id: string, nam
     agents,
     memory: { enabled: memSettings.exists ? memSettings.data()?.enabled !== false : true, items: memories },
     mcpServers: servers,
+    keptSkills,
     modelProviders,
     voice: { settings: voiceSettings.exists ? plain(voiceSettings.data()) : null, keys: voiceKeys },
     files,

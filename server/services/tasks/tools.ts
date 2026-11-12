@@ -33,7 +33,7 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
     web_fetch: createWebFetchTool(userId),
     fetch_file: createFetchFileTool(userId),
     view_image: createViewImageTool(userId),
-    look_at_page: createLookAtPageTool(userId),
+    look_at_page: createLookAtPageTool(userId, undefined, { allowComputer: false }),
     design_tokens: createDesignTokensTool(userId),
     find_icons: createFindIconsTool(userId),
     find_fonts: createFindFontsTool(userId),
@@ -43,7 +43,7 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
     create_spreadsheet: createSpreadsheetTool(userId),
     create_presentation: createPresentationTool(userId),
     // A task has no attachments, so these two see only the web.
-    inspect_design: createInspectDesignTool(userId, [], taskModel),
+    inspect_design: createInspectDesignTool(userId, [], taskModel, { allowComputer: false }),
     ...(createReadDocumentTool(userId, []) ? { read_document: createReadDocumentTool(userId, []) } : {}),
     chart: chartTool,
     plan: planTool,

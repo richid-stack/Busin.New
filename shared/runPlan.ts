@@ -105,6 +105,15 @@ export function isSecretFile(path: string): boolean {
   return false
 }
 
+/** Git pathspecs that keep secret files out of "git add", matching isSecretFile above. Case does not matter. */
+const SECRET_PATHSPECS = [
+  '**/.ssh/**', '**/.aws/**', '**/.gnupg/**', '**/.kube/**', '**/.env', '**/.env.*',
+  ...['pem', 'key', 'p12', 'pfx', 'keystore', 'jks', 'kdbx', 'ppk'].map(e => `**/*.${e}`),
+  '**/id_rsa*', '**/id_dsa*', '**/id_ecdsa*', '**/id_ed25519*',
+  '**/.npmrc', '**/.pypirc', '**/.netrc', '**/.git-credentials', '**/.htpasswd',
+  '**/credentials', '**/credentials.*', '**/secret', '**/secret.*', '**/secrets', '**/secrets.*', '**/service-account*.json', '**/serviceaccount*.json'
+].map(p => `:(exclude,glob,icase)${p}`)
+
 interface Spec { flags?: Record<string, 'bool' | 'int' | 'path' | 'word' | 'text'>, max?: number }
 interface Parsed { flags: Array<[string, string | undefined]>, pos: string[], rest: string[] }
 
@@ -306,7 +315,9 @@ function git(args: string[]): Draft {
     const all = p.flags.length > 0
     if (!all && !p.pos.length) no('Say which files to add, or use -A for everything.')
     for (const s of p.pos) { relPath(s, 'file'); if (isSecretFile(s)) no(`"${s}" holds secrets, so it is never added.`) }
-    return draft({ argv: ['add', ...flagsOf(p), ...(p.pos.length ? ['--', ...p.pos] : [])], kind: 'save', words: all ? 'Get all the changes ready to save' : `Get ${list(p.pos)} ready to save` })
+    // Naming a file is checked above, but "-A", "." or a folder pulls in files nobody named. Git is told to leave out anything
+    // that looks like a password or key, wherever it sits. (This also leaves out .env.example; name it to check it in yourself.)
+    return draft({ argv: ['add', ...flagsOf(p), '--', ...(p.pos.length ? p.pos : ['.']), ...SECRET_PATHSPECS], kind: 'save', words: all ? 'Get all the changes ready to save (password and key files are left out)' : `Get ${list(p.pos)} ready to save (password and key files are left out)` })
   }
   if (sub === 'commit') {
     const p = parse(rest, { flags: { '-m': 'text', '-a': 'bool' }, max: 0 })
