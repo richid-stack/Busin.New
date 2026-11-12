@@ -81,6 +81,7 @@ try {
   browser = await chromium.launch()
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: 'dark', acceptDownloads: true })
   page = await ctx.newPage()
+  await page.addInitScript(() => { try { localStorage.setItem('model', 'google/gemini-3.1-flash-lite') } catch {} })
   page.on('pageerror', e => note(`page error: ${redact(e.message).slice(0, 200)}`))
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120_000 })
   await sleep(6000)
