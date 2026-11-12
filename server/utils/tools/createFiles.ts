@@ -8,7 +8,8 @@ import { BuildError, documentSpec, presentationSpec, workbookSpec } from '../../
 import { FILE_RETENTION_DAYS, MAX_FILE_BYTES, safeFileName } from '../../services/files/store'
 import { fileStore } from '../../services/files'
 import { createArtifact } from '../../services/artifacts/store'
-import { outline } from '../../services/artifacts/model'
+import { outline, pageSpec } from '../../services/artifacts/model'
+import { completePage } from '../../../shared/pageHtml'
 import type { ArtifactKind, ArtifactSpec } from '../../services/artifacts/model'
 import { checkRateLimit } from '../rateLimit'
 import { withToolLimits } from './limits'
@@ -27,7 +28,8 @@ const MIME = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pdf: 'application/pdf',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  html: 'text/html; charset=utf-8'
 } as const
 type Format = keyof typeof MIME
 
@@ -89,5 +91,13 @@ export function createPresentationTool(userId: string, store: Store = fileStore(
     description: 'Create a PowerPoint (.pptx) presentation and give it to the user to download. Start with a title slide. Keep slides short: a title and up to 8 brief bullets, or one small table. Put detail in speaker notes.',
     inputSchema: presentationSpec,
     execute: withToolLimits(limits('create_presentation', userId), spec => issue(userId, store, 'pptx', spec.title, () => buildPptx(spec), { kind: 'presentation', spec, opts }))
+  })
+}
+
+export function createPageTool(userId: string, store: Store = fileStore(), opts: FileOptions = {}) {
+  return tool({
+    description: 'Create a web page or a design (a landing page, a one-page site, a poster, a card, a small interactive page) and show it to the user beside the chat. It is one HTML file with its CSS in a <style> tag. It must be fully self-contained: no outside scripts, fonts, links to other files or pictures from the internet. Draw pictures with CSS and inline SVG, and use system fonts. Make it responsive so it works on a phone. Use only real details the user gave you; leave clearly marked placeholders otherwise.',
+    inputSchema: pageSpec,
+    execute: withToolLimits(limits('create_page', userId), spec => issue(userId, store, 'html', spec.title, async () => new TextEncoder().encode(completePage(spec.html, spec.title)), { kind: 'page', spec, opts }))
   })
 }

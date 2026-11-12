@@ -556,7 +556,7 @@ const emit = defineEmits<{
         :part="part"
       />
       <ChatToolFile
-        v-else-if="['create_document', 'create_spreadsheet', 'create_presentation'].includes(getToolName(part))"
+        v-else-if="['create_document', 'create_spreadsheet', 'create_presentation', 'create_page'].includes(getToolName(part))"
         :invocation="part"
       />
       <ChatToolEditFile

@@ -4,16 +4,29 @@ import { buildPptx } from '../documents/build/pptx'
 import { buildXlsx } from '../documents/build/xlsx'
 import { documentSpec, presentationSpec, workbookSpec } from '../documents/build/spec'
 import type { DocumentSpec, PresentationSpec, WorkbookSpec } from '../documents/build/spec'
+import { completePage, pageHeadings, pageProblem, PAGE_MAX_CHARS } from '../../../shared/pageHtml'
+import { z } from 'zod'
 
-export type ArtifactKind = 'document' | 'workbook' | 'presentation'
-export type ArtifactFormat = 'docx' | 'pdf' | 'xlsx' | 'pptx'
-export type ArtifactSpec = DocumentSpec | WorkbookSpec | PresentationSpec
+/** A web page: one self-contained HTML file. See shared/pageHtml.ts for what it may contain. */
+export const pageSpec = z.object({
+  title: z.string().min(1).max(200).describe('Short name for the page, also used as the file name'),
+  html: z.string().min(1).max(PAGE_MAX_CHARS).superRefine((html, ctx) => {
+    const problem = pageProblem(html)
+    if (problem) ctx.addIssue({ code: 'custom', message: problem })
+  }).describe('The whole page as HTML with its CSS in a <style> tag. No outside files, fonts, scripts or pictures: draw with CSS and inline SVG.')
+})
+export type PageSpec = z.infer<typeof pageSpec>
+
+export type ArtifactKind = 'document' | 'workbook' | 'presentation' | 'page'
+export type ArtifactFormat = 'docx' | 'pdf' | 'xlsx' | 'pptx' | 'html'
+export type ArtifactSpec = DocumentSpec | WorkbookSpec | PresentationSpec | PageSpec
 
 export const MIME_BY_FORMAT: Record<ArtifactFormat, string> = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pdf: 'application/pdf',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  html: 'text/html; charset=utf-8'
 }
 
 export const ARTIFACT_LIMITS = {
@@ -25,15 +38,17 @@ export const ARTIFACT_LIMITS = {
 export const KIND_FORMATS: Record<ArtifactKind, ArtifactFormat[]> = {
   document: ['docx', 'pdf'],
   workbook: ['xlsx'],
-  presentation: ['pptx']
+  presentation: ['pptx'],
+  page: ['html']
 }
 
-export const KIND_LABEL: Record<ArtifactKind, string> = { document: 'Document', workbook: 'Spreadsheet', presentation: 'Presentation' }
+export const KIND_LABEL: Record<ArtifactKind, string> = { document: 'Document', workbook: 'Spreadsheet', presentation: 'Presentation', page: 'Web page' }
 
 /** Checks a spec of the given kind with the same rules a new file goes through. Throws a zod error when it does not fit. */
 export function parseSpec(kind: ArtifactKind, spec: unknown): ArtifactSpec {
   if (kind === 'document') return documentSpec.parse(spec)
   if (kind === 'workbook') return workbookSpec.parse(spec)
+  if (kind === 'page') return pageSpec.parse(spec)
   return presentationSpec.parse(spec)
 }
 
@@ -43,6 +58,7 @@ export async function buildArtifactFile(kind: ArtifactKind, format: ArtifactForm
   let bytes: Uint8Array
   if (kind === 'document') bytes = format === 'pdf' ? await buildPdf(spec as DocumentSpec) : await buildDocx(spec as DocumentSpec)
   else if (kind === 'workbook') bytes = await buildXlsx(spec as WorkbookSpec)
+  else if (kind === 'page') bytes = new TextEncoder().encode(completePage((spec as PageSpec).html, (spec as PageSpec).title))
   else bytes = await buildPptx(spec as PresentationSpec)
   return { bytes, mime: MIME_BY_FORMAT[format] }
 }
@@ -66,6 +82,10 @@ export function outline(kind: ArtifactKind, spec: ArtifactSpec): string[] {
   if (kind === 'workbook') {
     return (spec as WorkbookSpec).sheets.map((s, i) => `Sheet ${i + 1}, "${s.name}": columns ${s.header.join(', ')} (${s.rows.length} rows)`)
   }
+  if (kind === 'page') {
+    const { html } = spec as PageSpec
+    return [`The whole page, ${Math.max(1, Math.round(html.length / 1000))}K characters`, ...pageHeadings(html).map(h => `Heading: ${h.trim()}`)]
+  }
   return (spec as PresentationSpec).slides.map((s, i) => `${i + 1}. ${s.layout} slide: ${short(s.title)}`)
 }
 
@@ -80,6 +100,7 @@ export function partLabel(kind: ArtifactKind, spec: ArtifactSpec, selection: Par
     return first.type === 'table' ? 'The table' : 'The list'
   }
   if (kind === 'presentation') return `Slide ${selection.from}`
+  if (kind === 'page') return 'The page'
   return selection.from === selection.to ? `Row ${selection.from}` : `Rows ${selection.from} to ${selection.to}`
 }
 

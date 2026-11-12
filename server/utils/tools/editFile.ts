@@ -16,7 +16,7 @@ const real: EditFileDeps = { get: getArtifact, save: saveVersion }
 /** Changes one or a few parts of a file the assistant made earlier. The person can step back with undo. */
 export function createEditFileTool(userId: string, deps: EditFileDeps = real) {
   return tool({
-    description: 'Change parts of a file you created earlier (a Word or PDF document, a spreadsheet or a presentation) without writing it all again. Use the artifactId from when it was created, or from the file the user has open beside the chat. Numbers count from 1 and match the list of parts. Send only what changes. Every change is saved as a new version, and the user can go back with the undo arrow.',
+    description: 'Change parts of a file you created earlier (a Word or PDF document, a spreadsheet, a presentation or a web page) without writing it all again. Use the artifactId from when it was created, or from the file the user has open beside the chat. Numbers count from 1 and match the list of parts. Send only what changes. To change some words anywhere (a date, a name, a price, a sentence) use replace_text with the words copied exactly from the file; it works on every kind of file. Use the other changes for adding, removing or rebuilding whole parts. Every change is saved as a new version, and the user can go back with the undo arrow.',
     inputSchema: z.object({
       artifactId: z.string().min(36).max(36).describe('The artifactId of the file'),
       summary: z.string().min(1).max(120).describe('What this change does, in a few plain words, for example "Made the timeline eight weeks"'),

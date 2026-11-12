@@ -29,7 +29,8 @@ export function useWorkPane() {
       const next = await res.json() as ArtifactView
       if (mine !== generation) return
       file.value = next
-      const count = next.kind === 'document' ? (next.spec as any).blocks.length : next.kind === 'presentation' ? (next.spec as any).slides.length : (next.spec as any).sheets[Math.min(sheet.value, (next.spec as any).sheets.length) - 1]?.rows.length ?? 0
+      const spec = next.spec as any
+      const count = next.kind === 'document' ? spec.blocks.length : next.kind === 'presentation' ? spec.slides.length : next.kind === 'page' ? 1 : (spec.sheets[Math.min(sheet.value, spec.sheets.length) - 1]?.rows.length ?? 0)
       if (selection.value && selection.value.to > count) selection.value = null
       if (next.kind === 'workbook') sheet.value = Math.min(sheet.value, (next.spec as any).sheets.length)
     } catch {

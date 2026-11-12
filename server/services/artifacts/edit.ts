@@ -31,17 +31,26 @@ export const changeSchema = z.discriminatedUnion('op', [
   // Presentations
   z.object({ op: z.literal('replace_slide'), at: n('Slide number to replace'), slide: slideSchema }),
   z.object({ op: z.literal('insert_slide'), at: n('The new slide goes in this position; later slides move down'), slide: slideSchema }),
-  z.object({ op: z.literal('delete_slide'), at: n('Slide number to remove') })
+  z.object({ op: z.literal('delete_slide'), at: n('Slide number to remove') }),
+  // Any file: change some words. Web pages: also the whole page
+  z.object({
+    op: z.literal('replace_text'),
+    find: z.string().min(1).max(2000).describe('Exact words to change, copied as they are written in the file. They must be found once, so include enough around them'),
+    replace: z.string().max(20_000).describe('What it becomes. Leave empty to remove it'),
+    all: z.boolean().optional().describe('Set true to change every place it appears')
+  }),
+  z.object({ op: z.literal('replace_html'), html: z.string().min(1).max(200_000).describe('The whole page again. Only for a redesign; for small changes use replace_text') })
 ])
 export type Change = z.infer<typeof changeSchema>
 
 export class EditError extends Error {}
 
-const DOCUMENT_OPS = new Set(['set_title', 'replace_block', 'insert_block', 'delete_block'])
-const WORKBOOK_OPS = new Set(['set_title', 'set_cells', 'add_rows', 'delete_rows', 'replace_sheet', 'add_sheet', 'delete_sheet'])
-const PRESENTATION_OPS = new Set(['set_title', 'replace_slide', 'insert_slide', 'delete_slide'])
-const OPS: Record<ArtifactKind, Set<string>> = { document: DOCUMENT_OPS, workbook: WORKBOOK_OPS, presentation: PRESENTATION_OPS }
-const WHAT: Record<ArtifactKind, string> = { document: 'a document', workbook: 'a spreadsheet', presentation: 'a presentation' }
+const DOCUMENT_OPS = new Set(['set_title', 'replace_text', 'replace_block', 'insert_block', 'delete_block'])
+const WORKBOOK_OPS = new Set(['set_title', 'replace_text', 'set_cells', 'add_rows', 'delete_rows', 'replace_sheet', 'add_sheet', 'delete_sheet'])
+const PRESENTATION_OPS = new Set(['set_title', 'replace_text', 'replace_slide', 'insert_slide', 'delete_slide'])
+const PAGE_OPS = new Set(['set_title', 'replace_text', 'replace_html'])
+const OPS: Record<ArtifactKind, Set<string>> = { document: DOCUMENT_OPS, workbook: WORKBOOK_OPS, presentation: PRESENTATION_OPS, page: PAGE_OPS }
+const WHAT: Record<ArtifactKind, string> = { document: 'a document', workbook: 'a spreadsheet', presentation: 'a presentation', page: 'a web page' }
 
 function within(list: unknown[], at: number, what: string, allowEnd = false) {
   const max = list.length + (allowEnd ? 1 : 0)
@@ -50,6 +59,30 @@ function within(list: unknown[], at: number, what: string, allowEnd = false) {
 
 const MAX_CHANGES = 30
 
+/** Words in these fields are structure, not content, so a find-and-replace never touches them. */
+const STRUCTURE = new Set(['type', 'layout', 'formula', 'formats', 'level'])
+
+/** Calls `fn` on every piece of text in a file, skipping the structure fields. */
+function mapText(node: unknown, fn: (text: string) => string): unknown {
+  if (typeof node === 'string') return fn(node)
+  if (Array.isArray(node)) return node.map(item => mapText(item, fn))
+  if (node && typeof node === 'object') {
+    return Object.fromEntries(Object.entries(node).map(([key, value]) => [key, STRUCTURE.has(key) ? value : mapText(value, fn)]))
+  }
+  return node
+}
+
+/** Changes words anywhere in a document, spreadsheet, presentation or page. */
+function replaceWords(spec: any, change: { find: string, replace: string, all?: boolean }): any {
+  // The title is changed with set_title, so it is left out here and a word in it is not counted as a second match.
+  const inBody = (fn: (text: string) => string) => Object.fromEntries(Object.entries(spec).map(([key, value]) => [key, key === 'title' ? value : mapText(value, fn)]))
+  let found = 0
+  inBody(text => { found += text.split(change.find).length - 1; return text })
+  if (found === 0) throw new EditError(`Those words are not in the file: "${change.find.slice(0, 60)}". Copy them exactly as they are written.`)
+  if (found > 1 && !change.all) throw new EditError(`Those words appear ${found} times. Include more of the words around them, or set all to true to change every one.`)
+  return inBody(text => text.split(change.find).join(change.replace))
+}
+
 /**
  * Applies changes to a copy of the spec and returns the checked result. The original is never touched, so a failure
  * half way leaves nothing changed. The result goes through the same rules as a new file.
@@ -57,11 +90,13 @@ const MAX_CHANGES = 30
 export function applyChanges(kind: ArtifactKind, current: ArtifactSpec, changes: Change[]): ArtifactSpec {
   if (!changes.length) throw new EditError('Nothing to change.')
   if (changes.length > MAX_CHANGES) throw new EditError(`Send at most ${MAX_CHANGES} changes at a time.`)
-  const spec = structuredClone(current) as any
+  let spec = structuredClone(current) as any
   for (const change of changes) {
     if (!OPS[kind].has(change.op)) throw new EditError(`"${change.op}" does not work on ${WHAT[kind]}.`)
     switch (change.op) {
       case 'set_title': spec.title = change.title; break
+      case 'replace_html': spec.html = change.html; break
+      case 'replace_text': spec = replaceWords(spec, change); break
       case 'replace_block': within(spec.blocks, change.at, 'block'); spec.blocks[change.at - 1] = change.block; break
       case 'insert_block': within(spec.blocks, change.at, 'position', true); spec.blocks.splice(change.at - 1, 0, change.block); break
       case 'delete_block': within(spec.blocks, change.at, 'block'); spec.blocks.splice(change.at - 1, 1); break
