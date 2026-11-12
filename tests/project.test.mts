@@ -6,6 +6,7 @@ import { bundleProject, cleanPath, PROJECT_LIMITS, projectProblem, ProjectError 
 import { buildArtifactFile, buildProjectPage, outline, parseSpec } from '../server/services/artifacts/model'
 import type { ProjectSpec } from '../server/services/artifacts/model'
 import { createArtifactStore } from '../server/services/artifacts/store'
+import { openFileNote } from '../server/services/artifacts/context'
 import { createProjectTools } from '../server/utils/tools/projectFiles'
 import type { ProjectToolDeps } from '../server/utils/tools/projectFiles'
 import { createFakeFirestore } from './fakeFirestore'
@@ -142,3 +143,8 @@ assert((await store.getVersionSpec('u1', meta.id, 2)) !== null && (await store.g
 assert((await run(tools('u2', 'c1').list_files, {})).count === 0, 'another person does not see the project')
 assert((await run(tools('u1', 'c2').list_files, {})).count === 0, 'another chat has its own project')
 assert((await store.findProjectForChat('u1', 'c1'))!.id === meta.id, 'a chat keeps one project')
+
+// The note about the open project points at the project tools, not edit_file.
+const pNote = await openFileNote('u1', { artifactId: meta.id }, store.getArtifact)
+assert(pNote.includes('edit_project_file') && pNote.includes('Do not use edit_file') && !pNote.includes('use edit_file with this artifactId') && pNote.includes('src/split.js'), 'the open project note names the project tools and lists the files')
+assert(await openFileNote('u2', { artifactId: meta.id }, store.getArtifact) === '', 'someone else\'s project adds nothing')
