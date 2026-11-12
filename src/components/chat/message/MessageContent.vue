@@ -16,6 +16,7 @@ import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
 import ChatToolFile from '../tool/File.vue'
 import ChatToolEditFile from '../tool/EditFile.vue'
+import ChatToolProjectFile from '../tool/ProjectFile.vue'
 import ChatToolInspection from '../tool/Inspection.vue'
 import ChatToolComputerExcel from '../tool/ComputerExcel.vue'
 import ChatToolTaskProposal from '../tool/TaskProposal.vue'
@@ -566,6 +567,10 @@ function isToolPart(part: any): boolean {
       />
       <ChatToolEditFile
         v-else-if="getToolName(part) === 'edit_file'"
+        :invocation="part"
+      />
+      <ChatToolProjectFile
+        v-else-if="['list_files', 'read_file', 'search_files', 'write_file', 'edit_project_file', 'delete_file'].includes(getToolName(part))"
         :invocation="part"
       />
       <ChatToolTaskProposal

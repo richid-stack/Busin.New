@@ -1,4 +1,4 @@
-export type ArtifactKind = 'document' | 'workbook' | 'presentation' | 'page'
+export type ArtifactKind = 'document' | 'workbook' | 'presentation' | 'page' | 'project'
 
 export type DocBlock =
   | { type: 'heading', text: string, level: number }
@@ -19,6 +19,8 @@ export interface PresentationContent { title: string, slides: Slide[] }
 
 export interface PageContent { title: string, html: string }
 
+export interface ProjectContent { title: string, files: { path: string, content: string }[] }
+
 /** What the person has picked in the open file. Numbers count from 1: blocks, rows or slides. */
 export interface PartSelection {
   sheet?: number
@@ -30,7 +32,7 @@ export interface PartSelection {
 export interface ArtifactView {
   id: string
   kind: ArtifactKind
-  format: 'docx' | 'pdf' | 'xlsx' | 'pptx' | 'html'
+  format: 'docx' | 'pdf' | 'xlsx' | 'pptx' | 'html' | 'zip'
   title: string
   chatId: string | null
   head: number
@@ -39,5 +41,5 @@ export interface ArtifactView {
   updatedAt: string
   canUndo: boolean
   canRedo: boolean
-  spec: DocumentContent | WorkbookContent | PresentationContent | PageContent
+  spec: DocumentContent | WorkbookContent | PresentationContent | PageContent | ProjectContent
 }

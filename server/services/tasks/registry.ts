@@ -48,6 +48,13 @@ export const CAPABILITIES: Capability[] = [
   cap('create_page', 'Create a web page', 'create', 60_000, ['file']),
   // Changes a file the person has open beside the chat, so a person has to be there.
   { tool: 'edit_file', label: 'Change part of a file', location: 'remote', risk: 'act', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
+  // The project belongs to a chat, so a person has to be in the chat.
+  { tool: 'list_files', label: 'List project files', location: 'remote', risk: 'read', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
+  { tool: 'read_file', label: 'Read a project file', location: 'remote', risk: 'read', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
+  { tool: 'search_files', label: 'Search project files', location: 'remote', risk: 'read', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
+  { tool: 'write_file', label: 'Write a project file', location: 'remote', risk: 'act', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
+  { tool: 'edit_project_file', label: 'Change a project file', location: 'remote', risk: 'act', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
+  { tool: 'delete_file', label: 'Remove a project file', location: 'remote', risk: 'act', unattended: false, timeoutMs: 40_000, verifiedBy: [] },
   cap('inspect_design', 'Look at a page or picture', 'read', 70_000, ['visual']),
   // Changes files on a person's own computer (always into a new copy), so it needs a person present for now.
   { tool: 'computer_excel', label: 'Work on spreadsheets on your computer', location: 'local', risk: 'act', unattended: false, timeoutMs: 130_000, verifiedBy: ['file'] },

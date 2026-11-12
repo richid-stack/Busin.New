@@ -6,6 +6,7 @@ const short = (text: string, n: number) => (text.length > n ? `${text.slice(0, n
 export function partLabel(file: ArtifactView, sel: PartSelection): string {
   if (file.kind === 'presentation') return `Slide ${sel.from}`
   if (file.kind === 'page') return 'The page'
+  if (file.kind === 'project') return 'The project'
   if (file.kind === 'workbook') return sel.from === sel.to ? `Row ${sel.from}` : `Rows ${sel.from} to ${sel.to}`
   const block = (file.spec as DocumentContent).blocks[sel.from - 1]
   if (!block) return 'This part'

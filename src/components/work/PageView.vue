@@ -26,7 +26,12 @@ const doc = computed(() => previewDocument(props.spec.html, props.spec.title))
       />
     </div>
     <div class="mt-3">
-      <ChangeBox placeholder="Ask for a change, e.g. “bigger button”" :busy="busy" :label="label" @change="emit('change', $event)" />
+      <ChangeBox
+        placeholder="Ask for a change, e.g. “bigger button”"
+        :busy="busy"
+        :label="label"
+        @change="emit('change', $event)"
+      />
     </div>
   </div>
 </template>

@@ -230,10 +230,24 @@ watch(status, (now, before) => {
   if (now !== 'ready' || (before !== 'streaming' && before !== 'submitted')) return
   const last = messages.value[messages.value.length - 1]
   const edited = last?.role === 'assistant'
-    ? last.parts.filter(p => isToolUIPart(p) && getToolName(p) === 'edit_file').map(p => (p as any).output).filter(o => o?.status === 'ok' && o.artifactId).pop()
+    ? last.parts.filter(p => isToolUIPart(p) && ['edit_file', 'write_file', 'edit_project_file', 'delete_file'].includes(getToolName(p))).map(p => (p as any).output).filter(o => o?.status === 'ok' && o.artifactId).pop()
     : undefined
   if (edited && workPane.openId.value !== edited.artifactId) void workPane.open(edited.artifactId)
   else if (workPane.openId.value) void workPane.refresh()
+})
+// While a project is being built, files appear beside the chat as each step finishes.
+const PROJECT_STEPS = ['write_file', 'edit_project_file', 'delete_file']
+const projectProgress = computed(() => {
+  const last = messages.value[messages.value.length - 1]
+  if (last?.role !== 'assistant') return { count: 0, id: undefined as string | undefined }
+  const done = last.parts.filter(p => isToolUIPart(p) && PROJECT_STEPS.includes(getToolName(p)) && (p as any).output?.status === 'ok' && (p as any).output.artifactId)
+  return { count: done.length, id: (done[done.length - 1] as any)?.output.artifactId as string | undefined }
+})
+watch(() => projectProgress.value.count, (count, was) => {
+  const id = projectProgress.value.id
+  if (!count || count === was || !id) return
+  if (workPane.openId.value !== id) void workPane.open(id)
+  else void workPane.refresh()
 })
 const paneOpen = computed(() => !!workPane.openId.value)
 const working = computed(() => status.value === 'streaming' || status.value === 'submitted')
@@ -494,7 +508,7 @@ function handleTextAction(action: string, selectedText: string) {
               :editing="editingMessageId === message.id"
               :vote="getVote(message.id)"
               @edit="startEdit"
-              @convertToWorkflow="convertToWorkflow"
+              @convert-to-workflow="convertToWorkflow"
               @regenerate="regenerateMessage"
               @vote="vote"
             />
@@ -557,7 +571,10 @@ function handleTextAction(action: string, selectedText: string) {
                 class="max-w-40 truncate"
                 :title="`This chat is with your agent ${agent.name}`"
               />
-              <ModelSelect v-if="!agent?.model" v-model="model" />
+              <ModelSelect
+                v-if="!agent?.model"
+                v-model="model"
+              />
             </div>
 
             <div class="flex items-center gap-1.5">
