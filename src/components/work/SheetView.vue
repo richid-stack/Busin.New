@@ -26,42 +26,79 @@ const example = computed(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-[640px]" @click="emit('select', null)">
+  <div
+    class="mx-auto max-w-[640px]"
+    @click="emit('select', null)"
+  >
     <div class="rounded-xl border border-default bg-default shadow-sm overflow-auto max-h-[60vh] text-sm">
       <table class="w-full border-collapse">
         <thead class="bg-elevated/70 sticky top-0">
           <tr>
             <th class="w-9 border-b border-default" />
-            <th v-for="(h, c) in current.header" :key="c" class="text-left font-medium text-muted px-3 py-2 border-b border-default whitespace-nowrap">
+            <th
+              v-for="(h, c) in current.header"
+              :key="c"
+              class="text-left font-medium text-muted px-3 py-2 border-b border-default whitespace-nowrap"
+            >
               <span class="text-[10px] text-dimmed me-1">{{ columnLetter(c) }}</span>{{ h }}
             </th>
           </tr>
         </thead>
         <tbody>
-          <template v-for="(row, r) in current.rows" :key="r">
+          <template
+            v-for="(row, r) in current.rows"
+            :key="r"
+          >
             <tr :class="rowPicked(r) ? 'bg-primary/5' : 'hover:bg-elevated/40'">
-              <td class="text-xs text-dimmed text-center border-b border-default py-2 cursor-pointer select-none" @click.stop="pick(r)">{{ r + 1 }}</td>
+              <td
+                class="text-xs text-dimmed text-center border-b border-default py-2 cursor-pointer select-none"
+                @click.stop="pick(r)"
+              >
+                {{ r + 1 }}
+              </td>
               <td
                 v-for="(_, c) in current.header"
                 :key="c"
                 :class="['px-3 py-2 border-b border-default cursor-pointer whitespace-nowrap', cellText(row[c], current.formats?.[c], current).number ? 'tabular-nums text-right' : c === 0 ? 'font-medium text-highlighted' : '', cellText(row[c], current.formats?.[c], current).formula ? 'font-medium' : '', cellPicked(r, c) ? 'ring-2 ring-inset ring-primary/60' : '']"
                 @click.stop="pick(r, c)"
-              >{{ cellText(row[c], current.formats?.[c], current).text }}</td>
+              >
+                {{ cellText(row[c], current.formats?.[c], current).text }}
+              </td>
             </tr>
           </template>
         </tbody>
       </table>
     </div>
-    <div v-if="here" class="mt-3"><ChangeBox :placeholder="example" :busy="busy" :label="label" @change="emit('change', $event)" /></div>
-    <p v-else class="mt-3 text-xs text-muted text-center">Click a row or a cell to ask for a change.</p>
-    <div v-if="spec.sheets.length > 1" class="mt-3 flex flex-wrap gap-1.5">
+    <div
+      v-if="here"
+      class="mt-3"
+    >
+      <ChangeBox
+        :placeholder="example"
+        :busy="busy"
+        :label="label"
+        @change="emit('change', $event)"
+      />
+    </div>
+    <p
+      v-else
+      class="mt-3 text-xs text-muted text-center"
+    >
+      Click a row or a cell to ask for a change.
+    </p>
+    <div
+      v-if="spec.sheets.length > 1"
+      class="mt-3 flex flex-wrap gap-1.5"
+    >
       <button
         v-for="(s, i) in spec.sheets"
         :key="i"
         type="button"
         :class="['rounded-md px-2.5 py-1 text-xs transition-colors', i + 1 === sheet ? 'bg-default border border-default text-highlighted shadow-sm' : 'text-muted hover:text-highlighted']"
         @click.stop="emit('sheet', i + 1)"
-      >{{ s.name }}</button>
+      >
+        {{ s.name }}
+      </button>
     </div>
   </div>
 </template>

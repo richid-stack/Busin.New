@@ -24,7 +24,10 @@ defineExpose({ focus: () => input.value?.focus() })
     @submit.prevent="send"
     @click.stop
   >
-    <UIcon name="i-lucide-pencil-line" class="size-4 text-primary ms-2 shrink-0" />
+    <UIcon
+      name="i-lucide-pencil-line"
+      class="size-4 text-primary ms-2 shrink-0"
+    />
     <input
       ref="input"
       v-model="text"
@@ -34,6 +37,13 @@ defineExpose({ focus: () => input.value?.focus() })
       :aria-label="label ? `Change: ${label}` : 'Ask for a change'"
       class="flex-1 min-w-0 bg-transparent text-[13px] text-highlighted placeholder:text-muted outline-none"
     >
-    <UButton type="submit" label="Change" size="xs" color="neutral" :disabled="!text.trim() || busy" :loading="busy" />
+    <UButton
+      type="submit"
+      label="Change"
+      size="xs"
+      color="neutral"
+      :disabled="!text.trim() || busy"
+      :loading="busy"
+    />
   </form>
 </template>

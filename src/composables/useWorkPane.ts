@@ -30,7 +30,7 @@ export function useWorkPane() {
       if (mine !== generation) return
       file.value = next
       const spec = next.spec as any
-      const count = next.kind === 'document' ? spec.blocks.length : next.kind === 'presentation' ? spec.slides.length : next.kind === 'page' ? 1 : (spec.sheets[Math.min(sheet.value, spec.sheets.length) - 1]?.rows.length ?? 0)
+      const count = next.kind === 'document' ? spec.blocks.length : next.kind === 'presentation' ? spec.slides.length : next.kind === 'page' || next.kind === 'project' ? 1 : (spec.sheets[Math.min(sheet.value, spec.sheets.length) - 1]?.rows.length ?? 0)
       if (selection.value && selection.value.to > count) selection.value = null
       if (next.kind === 'workbook') sheet.value = Math.min(sheet.value, (next.spec as any).sheets.length)
     } catch {
@@ -79,19 +79,25 @@ export function useWorkPane() {
     }
   }
 
-  async function download() {
+  /** Saves the file. A project comes as a .zip, or as one web page (`as: 'html'`). */
+  async function download(as?: 'html') {
     const f = file.value
     if (!f || downloading.value) return
     downloading.value = true
     error.value = ''
     let url = ''
     try {
-      const res = await fetch(`/api/artifacts/${encodeURIComponent(f.id)}/download`)
-      if (!res.ok) { error.value = messageFor(res.status, 'The download failed. Please try again.'); return }
+      const res = await fetch(`/api/artifacts/${encodeURIComponent(f.id)}/download${as ? `?as=${as}` : ''}`)
+      if (!res.ok) {
+        // A project that cannot be made into one page says why (for example, a script needs a package).
+        const body = res.status === 422 ? await res.json().catch(() => null) as { statusMessage?: string, message?: string } | null : null
+        error.value = body?.statusMessage || body?.message || messageFor(res.status, 'The download failed. Please try again.')
+        return
+      }
       url = URL.createObjectURL(await res.blob())
       const link = document.createElement('a')
       link.href = url
-      link.download = `${f.title}.${f.format}`
+      link.download = `${f.title}.${as ?? f.format}`
       document.body.appendChild(link)
       link.click()
       link.remove()

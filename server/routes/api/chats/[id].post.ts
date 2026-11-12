@@ -38,8 +38,10 @@ import { createRunInCloudTool } from '../../../utils/tools/runInCloud'
 import { defaultCloudBox } from '../../../services/cloudbox/provider'
 import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
 import { bridgeStore } from '../../../services/bridge/store'
+import { randomUUID } from 'node:crypto'
 import { artifactSink, createDocumentTool, createPageTool, createPresentationTool, createSpreadsheetTool } from '../../../utils/tools/createFiles'
 import { createEditFileTool } from '../../../utils/tools/editFile'
+import { createProjectTools } from '../../../utils/tools/projectFiles'
 import { openFileNote } from '../../../services/artifacts/context'
 import { prepareMessagesForModel, supportsNativePdf } from '../../../services/documents/attachments'
 import { skills } from '../../../services/skills/registry'
@@ -310,6 +312,8 @@ export default defineHandler(async (event) => {
           create_presentation: createPresentationTool(userId, undefined, { chatId: id, artifacts: artifactSink }),
           create_page: createPageTool(userId, undefined, { chatId: id, artifacts: artifactSink }),
           edit_file: createEditFileTool(userId),
+          // The chat's project: files kept by OpenLobs. One request makes one version, so one undo takes a whole reply back.
+          ...createProjectTools(userId, { chatId: id, requestId: randomUUID() }),
           inspect_design: createInspectDesignTool(userId, messages, modelId),
           add_tool_server: createAddToolServerTool(userId),
           // Only offered where a browser is set up, so the assistant is never told about a tool that cannot work.
@@ -362,6 +366,7 @@ export default defineHandler(async (event) => {
 - Write the real content first, then call the tool once. The user downloads the file from a card in the chat, so never paste a link.
 - Use create_document with format pdf only when the user wants a final copy; otherwise Word, because it can be edited.
 - Never put made-up facts, prices or dates in a file. Use what the user gave you or what you found, and leave clearly marked blanks otherwise.
+- To build something with several files (an app, a site, a script with tests), use the project tools: list_files to see what is there, read_file and search_files to understand it, write_file for new or fully rewritten files, edit_project_file for changes inside a file, delete_file to remove one. The first write_file makes the project. Look before you change: read a file before editing it, and copy the old text exactly. Work in small steps and keep each file short. A project holds plain text only (up to 200 files, 600 thousand characters), and nothing in it runs by itself: to run or test it, use run_in_cloud or run_on_computer, which the user approves. The user sees every step, can open the project beside the chat and can undo your whole reply. After a build, say in two or three plain sentences what you made and what to open.
 - The user can open a file beside the chat and ask for a change. To change one, call edit_file with only the parts that change (never write the whole file again), then say in one sentence what changed. Each change is a new version they can undo.
 
 ${fetchGuidance(Object.keys(tools))}${'browser' in tools ? `**BROWSER:**

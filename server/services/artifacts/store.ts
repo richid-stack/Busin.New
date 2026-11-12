@@ -61,7 +61,7 @@ export interface ArtifactDb { collection(name: string): any, batch(): any, runTr
 
 export function createArtifactStore(db: ArtifactDb) {
   /** Saves a brand new file as version 1. */
-  async function createArtifact(userId: string, input: { kind: ArtifactKind, format: ArtifactFormat, title: string, spec: ArtifactSpec, chatId?: string | null }): Promise<ArtifactMeta> {
+  async function createArtifact(userId: string, input: { kind: ArtifactKind, format: ArtifactFormat, title: string, spec: ArtifactSpec, chatId?: string | null, by?: string }): Promise<ArtifactMeta> {
     await assertNotDeleting(userId, db)
     if (!KIND_FORMATS[input.kind].includes(input.format)) throw new Error('That format does not fit this kind of file.')
     const id = randomUUID()
@@ -70,7 +70,7 @@ export function createArtifactStore(db: ArtifactDb) {
     const meta = { userId, kind: input.kind, format: input.format, title: input.title, chatId: input.chatId ?? null, head: 1, latest: 1, oldest: 1, createdAt: now, updatedAt: now, expiresAt }
     const batch = db.batch()
     batch.set(db.collection(META).doc(id), sanitizeForFirestore(meta))
-    batch.set(db.collection(VERSIONS).doc(versionId(id, 1)), sanitizeForFirestore({ userId, artifactId: id, n: 1, note: 'Created', specJson: JSON.stringify(input.spec), createdAt: now, expiresAt }))
+    batch.set(db.collection(VERSIONS).doc(versionId(id, 1)), sanitizeForFirestore({ userId, artifactId: id, n: 1, note: 'Created', ...(input.by ? { by: input.by } : {}), specJson: JSON.stringify(input.spec), createdAt: now, expiresAt }))
     await batch.commit()
     return metaFrom(id, meta)
   }
@@ -97,7 +97,7 @@ export function createArtifactStore(db: ArtifactDb) {
    * over (there is one line of history, not a tree). Only the newest {@link ARTIFACT_LIMITS.versions} are kept.
    * `expectedHead` makes a change fail when something else moved the file in the meantime.
    */
-  async function saveVersion(userId: string, id: string, input: { spec: ArtifactSpec, note: string, title?: string, expectedHead?: number }): Promise<ArtifactView> {
+  async function saveVersion(userId: string, id: string, input: { spec: ArtifactSpec, note: string, title?: string, expectedHead?: number, mergeKey?: string }): Promise<ArtifactView> {
     await assertNotDeleting(userId, db)
     if (!isId(id)) throw new ArtifactGone('This file was not found. It may have expired.')
     const metaRef = db.collection(META).doc(id)
@@ -108,13 +108,26 @@ export function createArtifactStore(db: ArtifactDb) {
       const meta = metaFrom(id, data)
       parseSpec(meta.kind, input.spec) // refuses a spec that does not fit this kind of file
       if (input.expectedHead !== undefined && input.expectedHead !== meta.head) throw new ArtifactGone('The file changed while you were working. Open it again and retry.')
-      const next = meta.head + 1
       const now = new Date().toISOString()
+      // Several changes made during one assistant reply are one version, so a single undo takes the whole reply back
+      // and a long build does not use up the versions that are kept.
+      if (input.mergeKey && meta.head === meta.latest) {
+        const headRef = db.collection(VERSIONS).doc(versionId(id, meta.head))
+        const headSnap = await tx.get(headRef)
+        if (headSnap.exists && headSnap.data()!.by === input.mergeKey) {
+          const expiresAt = retention()
+          const title = input.title ?? meta.title
+          tx.set(headRef, sanitizeForFirestore({ ...headSnap.data()!, note: input.note.slice(0, 200), specJson: JSON.stringify(input.spec), createdAt: now, expiresAt }))
+          tx.update(metaRef, sanitizeForFirestore({ title, updatedAt: now, expiresAt }))
+          return { ...meta, title, updatedAt: now }
+        }
+      }
+      const next = meta.head + 1
       for (let n = meta.head + 1; n <= meta.latest; n++) tx.delete(db.collection(VERSIONS).doc(versionId(id, n)))
       const oldest = Math.max(meta.oldest, next - ARTIFACT_LIMITS.versions + 1)
       for (let n = meta.oldest; n < oldest; n++) tx.delete(db.collection(VERSIONS).doc(versionId(id, n)))
       const expiresAt = retention()
-      tx.set(db.collection(VERSIONS).doc(versionId(id, next)), sanitizeForFirestore({ userId, artifactId: id, n: next, note: input.note.slice(0, 200), specJson: JSON.stringify(input.spec), createdAt: now, expiresAt }))
+      tx.set(db.collection(VERSIONS).doc(versionId(id, next)), sanitizeForFirestore({ userId, artifactId: id, n: next, note: input.note.slice(0, 200), ...(input.mergeKey ? { by: input.mergeKey } : {}), specJson: JSON.stringify(input.spec), createdAt: now, expiresAt }))
       const title = input.title ?? meta.title
       tx.update(metaRef, sanitizeForFirestore({ head: next, latest: next, oldest, title, updatedAt: now, expiresAt }))
       return { ...meta, head: next, latest: next, oldest, title, updatedAt: now }
@@ -141,7 +154,25 @@ export function createArtifactStore(db: ArtifactDb) {
     return { ...meta, spec, canUndo: to > meta.oldest, canRedo: to < meta.latest }
   }
 
-  return { createArtifact, getArtifact, saveVersion, moveHead }
+  /** The project a chat is building, if it has one. A chat has at most one. */
+  async function findProjectForChat(userId: string, chatId: string): Promise<ArtifactMeta | null> {
+    const found = await db.collection(META).where('userId', '==', userId).where('chatId', '==', chatId).where('kind', '==', 'project').limit(1).get()
+    const doc = found.docs.find((d: any) => !expired(d.data()))
+    return doc ? metaFrom(doc.id, doc.data()) : null
+  }
+
+  /** The content of one kept version, for comparing with the one being shown. Null when it is not kept or not the person's. */
+  async function getVersionSpec(userId: string, id: string, n: number): Promise<ArtifactSpec | null> {
+    if (!isId(id) || !Number.isInteger(n)) return null
+    const snap = await db.collection(META).doc(id).get()
+    const data = snap.exists ? snap.data()! : null
+    if (!data || data.userId !== userId || expired(data)) return null
+    const meta = metaFrom(id, data)
+    if (n < meta.oldest || n > meta.latest) return null
+    return readVersion(id, n)
+  }
+
+  return { createArtifact, getArtifact, saveVersion, moveHead, findProjectForChat, getVersionSpec }
 }
 
 let shared: ReturnType<typeof createArtifactStore> | undefined
@@ -149,4 +180,6 @@ const real = () => (shared ??= createArtifactStore(getFirebaseDb() as unknown as
 export const createArtifact = (...a: Parameters<ReturnType<typeof createArtifactStore>['createArtifact']>) => real().createArtifact(...a)
 export const getArtifact = (...a: Parameters<ReturnType<typeof createArtifactStore>['getArtifact']>) => real().getArtifact(...a)
 export const saveVersion = (...a: Parameters<ReturnType<typeof createArtifactStore>['saveVersion']>) => real().saveVersion(...a)
+export const findProjectForChat = (...a: Parameters<ReturnType<typeof createArtifactStore>['findProjectForChat']>) => real().findProjectForChat(...a)
+export const getVersionSpec = (...a: Parameters<ReturnType<typeof createArtifactStore>['getVersionSpec']>) => real().getVersionSpec(...a)
 export const moveHead = (...a: Parameters<ReturnType<typeof createArtifactStore>['moveHead']>) => real().moveHead(...a)

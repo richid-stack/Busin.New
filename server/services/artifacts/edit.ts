@@ -49,7 +49,9 @@ const DOCUMENT_OPS = new Set(['set_title', 'replace_text', 'replace_block', 'ins
 const WORKBOOK_OPS = new Set(['set_title', 'replace_text', 'set_cells', 'add_rows', 'delete_rows', 'replace_sheet', 'add_sheet', 'delete_sheet'])
 const PRESENTATION_OPS = new Set(['set_title', 'replace_text', 'replace_slide', 'insert_slide', 'delete_slide'])
 const PAGE_OPS = new Set(['set_title', 'replace_text', 'replace_html'])
-const OPS: Record<ArtifactKind, Set<string>> = { document: DOCUMENT_OPS, workbook: WORKBOOK_OPS, presentation: PRESENTATION_OPS, page: PAGE_OPS }
+// A project is changed with the project file tools; replace_text is the only change that also works on it.
+const PROJECT_OPS = new Set(['set_title', 'replace_text'])
+const OPS: Record<ArtifactKind, Set<string>> = { document: DOCUMENT_OPS, workbook: WORKBOOK_OPS, presentation: PRESENTATION_OPS, page: PAGE_OPS, project: PROJECT_OPS }
 const WHAT: Record<ArtifactKind, string> = { document: 'a document', workbook: 'a spreadsheet', presentation: 'a presentation', page: 'a web page' }
 
 function within(list: unknown[], at: number, what: string, allowEnd = false) {
@@ -60,7 +62,7 @@ function within(list: unknown[], at: number, what: string, allowEnd = false) {
 const MAX_CHANGES = 30
 
 /** Words in these fields are structure, not content, so a find-and-replace never touches them. */
-const STRUCTURE = new Set(['type', 'layout', 'formula', 'formats', 'level'])
+const STRUCTURE = new Set(['type', 'layout', 'formula', 'formats', 'level', 'path'])
 
 /** Calls `fn` on every piece of text in a file, skipping the structure fields. */
 function mapText(node: unknown, fn: (text: string) => string): unknown {
