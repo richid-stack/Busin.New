@@ -1,8 +1,20 @@
 <div align="center">
 
-<img src="docs/assets/banner.svg" alt="OpenLobs: chat, agents and workflows that do the work, on your apps, your models and your own computer." width="100%" />
-
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mark-dark.svg">
+  <img src="docs/assets/mark-light.svg" alt="" width="104">
+</picture>
 <br />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/wordmark-dark.svg">
+  <img src="docs/assets/wordmark-light.svg" alt="OpenLobs" width="250">
+</picture>
+
+---
+
+**Chat, agents and workflows that do the work.**
+
+On your apps, your models and your own computer.
 
 [![CI](https://github.com/richid-stack/Busin.New/actions/workflows/ci.yml/badge.svg)](https://github.com/richid-stack/Busin.New/actions/workflows/ci.yml)
 ![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vuedotjs&logoColor=white)
@@ -11,7 +23,7 @@
 ![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-ffca28?logo=firebase&logoColor=black)
 ![Cloud Run](https://img.shields.io/badge/Google%20Cloud-Cloud%20Run-4285f4?logo=googlecloud&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-22%2B-5fa04e?logo=nodedotjs&logoColor=white)
-![Status](https://img.shields.io/badge/status-active%20development-ff6b5e)
+![Status](https://img.shields.io/badge/status-active%20development-555555)
 
 **[What it does](#what-it-does) · [Screens](#screens) · [Built to be trusted](#built-to-be-trusted) · [How it fits together](#how-it-fits-together) · [Run it](#run-it) · [Status](#status) · [Docs](#docs)**
 
