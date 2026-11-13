@@ -5,6 +5,11 @@ name: live-capabilities-shots
 # branch "capabilities-shots". Start it by hand from the Actions tab.
 on:
   workflow_dispatch:
+    inputs:
+      scenarios:
+        description: 'Which checks to run (comma separated)'
+        required: false
+        default: 'photos,workflow,task'
   push:
     branches: [ci/live-capabilities]
 
@@ -26,6 +31,7 @@ jobs:
       UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       CRON_SECRET: live-check-cron-secret-0123456789
+      LIVE_SCENARIOS: ${{ github.event.inputs.scenarios || 'photos,task' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
