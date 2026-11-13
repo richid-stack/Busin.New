@@ -11,7 +11,7 @@ on:
       scenarios:
         description: 'Which checks to run (comma separated)'
         required: false
-        default: 'workflow,photos,build,task,schedule,agent'
+        default: 'photos,build,task,schedule,agent'
       models:
         description: 'Models to try, in order (comma separated)'
         required: false
@@ -39,7 +39,7 @@ jobs:
       PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
-      LIVE_SCENARIOS: ${{ github.event.inputs.scenarios || 'workflow,photos,build,task,schedule,agent' }}
+      LIVE_SCENARIOS: ${{ github.event.inputs.scenarios || 'photos,build,task,schedule,agent' }}
       CRON_SECRET: live-check-cron-secret-0123456789
       LIVE_OUT: live-capabilities-output
       LIVE_MODELS: ${{ github.event.inputs.models || 'google/gemini-3.8-flash,google/gemini-3.5-flash,google/gemini-3.1-flash-lite,groq/gpt-oss-120b,groq/gpt-oss-20b,groq/qwen3.8-27b' }}

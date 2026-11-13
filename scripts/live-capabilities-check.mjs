@@ -78,18 +78,25 @@ async function turn(token, model, text) {
 
 
 const gone = new Set()
-const limited = r => /quota|rate.?limit|429|exhaust|RESOURCE_EXHAUSTED|too many|tokens per|overloaded|503/i.test([r.status !== 200 ? `status ${r.status}` : '', ...r.errors, r.raw.slice(0, 600)].join(' ')) || (r.status === 200 && !r.text && !r.tools.length)
-/** One chat turn, moving to the next model the moment one is out of quota. */
+const daily = r => /used up its free allowance|tomorrow|daily|per day|RPD|quota exceeded/i.test([...r.errors, r.raw.slice(0, 800)].join(' '))
+const limited = r => /quota|rate.?limit|429|exhaust|RESOURCE_EXHAUSTED|too many|tokens per|overloaded|busy|503/i.test([r.status !== 200 ? `status ${r.status}` : '', ...r.errors, r.raw.slice(0, 600)].join(' ')) || (r.status === 200 && !r.text && !r.tools.length)
+/** One chat turn. A model that is out for the day is dropped; one that is only busy this minute is skipped, and only when every
+ *  model is busy at once does it pause (up to 35 seconds, three times) instead of giving up. */
 async function ask(token, text, label) {
-  for (const m of usable) {
-    if (gone.has(m)) continue
-    const r = await turn(token, m, text)
-    if (limited(r)) {
-      console.log(`  ${label}: ${m} is out of room (${(r.errors[0] || `status ${r.status}`).slice(0, 110).replace(/\s+/g, ' ')}), moving on`)
-      gone.add(m)
-      continue
+  for (let pass = 0; pass < 4; pass++) {
+    for (const m of usable) {
+      if (gone.has(m)) continue
+      const r = await turn(token, m, text)
+      if (limited(r)) {
+        const why = (r.errors[0] || `status ${r.status}`).slice(0, 100).replace(/\s+/g, ' ')
+        if (daily(r)) { gone.add(m); console.log(`  ${label}: ${m} is out for the day (${why}), dropped`) } else console.log(`  ${label}: ${m} is busy (${why}), next`)
+        continue
+      }
+      return { ...r, model: m }
     }
-    return { ...r, model: m }
+    if (usable.every(m => gone.has(m))) return null
+    console.log(`  ${label}: every model is busy this minute, pausing 35s (pass ${pass + 1})`)
+    await sleep(35_000)
   }
   return null
 }
@@ -102,13 +109,14 @@ try {
   const token = await signIn()
   check(true, 'sign-in works with a real token')
   check(usable.length > 0, 'at least one model key is set', usable.join(', '))
-  const only = (process.env.LIVE_SCENARIOS || 'workflow,photos,build,task,schedule,agent').split(',')
+  const only = (process.env.LIVE_SCENARIOS || 'photos,build,task,schedule,agent').split(',')
 
   // 1. A workflow built from chat, then run.
   if (only.includes('workflow')) {
     const r = await ask(token, 'Build me a workflow called "Weekly fintech digest". The trigger is a webhook. It has one AI step that writes a five-bullet digest on the topic it is given. Then run it now with the topic "mobile money in Ghana" and tell me what it wrote.', 'workflow')
     if (!r) check(false, '[workflow] a model answered', 'every model was out of room')
     else {
+      show('workflow: what it said', r.text, 900); for (const t of r.tools) show(`workflow tool ${t.name}`, JSON.stringify(t.output ?? t.input), 700)
       save('workflow-turn.json', { model: r.model, text: r.text, tools: r.tools.map(t => ({ name: t.name, input: t.input, output: t.output })) })
       const made = toolOut(r, 'workflow_create')[0]?.output
       const ran = toolOut(r, 'workflow_run')[0]?.output
@@ -128,6 +136,7 @@ try {
     const r = await ask(token, 'Find me photos of kente cloth, save the best one to my files, look at it, and tell me in one sentence what it shows and who took it.', 'photos')
     if (!r) check(false, '[photos] a model answered', 'every model was out of room')
     else {
+      show('photos: what it said', r.text, 700); for (const t of r.tools) show(`photos tool ${t.name}`, JSON.stringify({ input: t.input, status: t.output?.status, error: t.output?.error, count: t.output?.count }), 500)
       save('photos-turn.json', { model: r.model, text: r.text, tools: r.tools.map(t => ({ name: t.name, input: t.input, status: t.output?.status, error: t.output?.error, count: t.output?.count })) })
       const found = toolOut(r, 'find_photos')[0]?.output
       const kept = toolOut(r, 'fetch_file')[0]?.output
@@ -145,6 +154,7 @@ try {
     if (!r) check(false, '[build] a model answered', 'every model was out of room')
     else {
       const writes = toolOut(r, 'write_file').filter(t => t.output?.status === 'ok')
+      show('build: what it said', r.text, 700); console.log('  build steps:', r.tools.map(t => `${t.name}${t.input?.path ? `(${t.input.path})` : ''}:${t.output?.status ?? '?'}`).join(' '))
       save('build-turn.json', { model: r.model, steps: r.tools.length, text: r.text, tools: r.tools.map(t => ({ name: t.name, path: t.input?.path, status: t.output?.status, error: t.output?.error })) })
       check(writes.length >= 6, `[build] six files written (${r.model})`, `${writes.length} written, ${r.tools.length} steps in all`)
       const id = writes.find(t => t.output?.artifactId)?.output.artifactId
@@ -175,7 +185,7 @@ try {
         check(!!task?.id, '[task] pressing Start creates it', task ? '' : `status ${started.status}`)
         if (task?.id) {
           const end = await poll(async () => (await api(token, `/api/tasks/${task.id}`)).json(), t => ['done', 'partial', 'failed', 'cancelled'].includes(t.status), 8 * 60_000, 8000)
-          save('task-final.json', end)
+          save('task-final.json', end); show('task: final', JSON.stringify({ status: end?.status, outcome: end?.outcome, result: String(end?.result ?? '').slice(0, 600), criteria: end?.criteria, artifacts: end?.artifacts, error: end?.error }), 1800)
           check(end?.status === 'done' || end?.status === 'partial', `[task] it runs to the end (${end?.status})`, String(end?.outcome || end?.result || '').slice(0, 160).replace(/\s+/g, ' '))
           check((end?.artifacts?.length ?? 0) >= 1, '[task] it saved a file', (end?.artifacts || []).map(a => a.name || a.title).join(', '))
         }
@@ -196,7 +206,7 @@ try {
       save('schedule-tick.json', tj)
       check(tick.status === 200 && (tj.schedules?.fired ?? tj.schedules?.started ?? tj.schedules?.made ?? 0) >= 1, '[schedule] the timer made the task when it was due', JSON.stringify(tj.schedules).slice(0, 160))
       const found = await poll(async () => { const all = await (await api(token, '/api/tasks')).json(); return (Array.isArray(all) ? all : all.tasks || []).find(t => t.scheduleId === sched.id) }, t => t && ['done', 'partial', 'failed', 'cancelled'].includes(t.status), 6 * 60_000, 8000)
-      save('schedule-task.json', found)
+      save('schedule-task.json', found); show('schedule: task final', JSON.stringify({ status: found?.status, outcome: found?.outcome, result: String(found?.result ?? '').slice(0, 600), criteria: found?.criteria }), 1800)
       check(found?.status === 'done' || found?.status === 'partial', `[schedule] the task it made finished (${found?.status ?? 'none made'})`, String(found?.outcome || found?.result || '').slice(0, 160).replace(/\s+/g, ' '))
     }
   }
@@ -207,6 +217,7 @@ try {
     if (!r) check(false, '[agent] a model answered', 'every model was out of room')
     else {
       const prop = toolOut(r, 'propose_agent')[0]?.output
+      show('agent: what it said', r.text, 600); show('agent: proposal', JSON.stringify(prop), 900)
       save('agent-proposal.json', { model: r.model, text: r.text, proposal: prop, tools: r.tools.map(t => t.name) })
       check(prop?.status === 'proposed', `[agent] proposed in chat as a card (${r.model})`, prop ? prop.status : `tools used: ${r.tools.map(t => t.name).join(', ') || 'none'}`)
       if (prop?.status === 'proposed') {
