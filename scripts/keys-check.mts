@@ -39,7 +39,7 @@ await check('read a page: firecrawl', 'FIRECRAWL_API_KEY', async () => {
 await check('email: resend (to the Resend test inbox)', 'RESEND_API_KEY', async () => {
   const r = await sendEmail(
     { to: 'delivered@resend.dev', subject: 'OpenLobs key check', html: '<p>Key check.</p>', text: 'Key check.', idempotencyKey: `keycheck-${Date.now()}` },
-    { config: { apiKey: process.env.RESEND_API_KEY!.trim(), from: 'OpenLobs <onboarding@resend.dev>' } }
+    { config: { apiKey: process.env.RESEND_API_KEY!.trim(), from: process.env.EMAIL_FROM?.trim() || 'OpenLobs <onboarding@resend.dev>' } }
   )
   if (!r.sent) throw new Error(r.reason || 'not sent')
   return 'accepted by Resend'
