@@ -120,11 +120,15 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
   const before = resumeNote
     ? (await store.events(task.userId, task.id).catch(() => [])).filter(e => e.kind === 'tool').slice(-12).map(e => e.text)
     : []
+  // One check at a time: if the database is slow, a new check does not pile on top of the one still running.
+  let checking = false
   const poll = setInterval(async () => {
+    if (checking) return
+    checking = true
     try {
       if (!(await store.stillMine(task.id, lease))) stopper.abort(new Error('cancelled'))
       else await store.update(task.id, lease, {}).catch(() => {})
-    } catch { /* the next check will try again */ }
+    } catch { /* the next check will try again */ } finally { checking = false }
   }, deps.pollMs ?? 10_000)
 
   try {

@@ -3,6 +3,8 @@ import { look, parseLookInput } from './browser'
 import type { LookDeps } from './browser'
 import { workbookApply, workbookInspect, workbookList } from './sheets/jobs'
 import type { SheetDeps } from './sheets/jobs'
+import { folderLook, folderRead, runCommand } from './run'
+import type { RunDeps } from './run'
 import type { Control } from './control'
 import { BROWSER_USE_CAPABILITY, BROWSER_USE_PERMISSION, isLiveOp } from '../shared/bridgeLive'
 import type { LiveReply, LiveRequest } from '../shared/bridgeLive'
@@ -16,7 +18,7 @@ import type { LiveReply, LiveRequest } from '../shared/bridgeLive'
  *  3. A job can be stopped, and the Bridge says out loud what it is doing.
  */
 
-export const BRIDGE_VERSION = '0.5.0'
+export const BRIDGE_VERSION = '0.6.0'
 
 /** The browser OpenLobs uses on this computer (see deviceBrowser.ts). Replaceable in tests. */
 export interface LiveBrowserHost {
@@ -27,7 +29,7 @@ export interface LiveBrowserHost {
 }
 
 /** `allow` lists what the person has allowed on this computer (see PERMISSIONS). A ping is always allowed. */
-export interface Config { server: string, deviceId: string, token: string, name: string, allow?: string[], /** The one folder spreadsheet jobs may use. Chosen on this computer. */ workspace?: string }
+export interface Config { server: string, deviceId: string, token: string, name: string, allow?: string[], /** The one folder spreadsheet jobs may use. Chosen on this computer. */ workspace?: string, /** The one folder approved commands may run in. Chosen on this computer. */ runFolder?: string }
 
 export interface Deps {
   fetch: typeof fetch
@@ -44,6 +46,8 @@ export interface Deps {
   liveBrowser?: LiveBrowserHost
   /** The pause switch and status board shared with the tray icon. Absent in tests that do not need it. */
   control?: Control
+  /** Replaceable in tests: the environment and platform approved commands start with. */
+  run?: RunDeps
 }
 
 export const defaultDeps = (log: (line: string) => void = line => console.log(line)): Deps => ({
@@ -67,6 +71,8 @@ export interface HandlerContext {
   upload: (bytes: Uint8Array, mediaType: 'image/jpeg' | 'image/png') => Promise<void>
   /** The folder the person chose for spreadsheets, if any. */
   workspace: string | null
+  /** The folder the person chose for approved commands, if any. */
+  runFolder: string | null
 }
 export type Handler = (input: Record<string, unknown>, ctx: HandlerContext) => Promise<Record<string, unknown>>
 
@@ -74,17 +80,19 @@ export type Handler = (input: Record<string, unknown>, ctx: HandlerContext) => P
 export const PERMISSIONS: Record<string, { label: string, kinds: string[] }> = {
   browser: { label: 'Look at web pages in Edge or Chrome (read-only, in an empty browser with no logins)', kinds: ['browser_look'] },
   [BROWSER_USE_PERMISSION]: { label: 'Let OpenLobs use a browser on this computer, in a browser profile of its own (you sign in to sites there once; OpenLobs asks you before anything that sends, pays or deletes, and never types your passwords)', kinds: [BROWSER_USE_CAPABILITY] },
-  excel: { label: 'Read spreadsheets in one folder and save changed copies there (the original is never changed)', kinds: ['workbook_list', 'workbook_inspect', 'workbook_apply'] }
+  excel: { label: 'Read spreadsheets in one folder and save changed copies there (the original is never changed)', kinds: ['workbook_list', 'workbook_inspect', 'workbook_apply'] },
+  run: { label: 'Run commands you approve (npm, pip, node, python, git) in one folder you choose, and look at the files there. Programs you approve run with your account\'s access, so you see every plan first', kinds: ['run_command', 'folder_look', 'folder_read'] }
 }
 export const ALWAYS_ALLOWED = ['ping']
 
 /** The jobs this computer will do right now: a ping, plus whatever the person allowed. */
-export function activeKinds(config: Pick<Config, 'allow' | 'workspace'>): string[] {
+export function activeKinds(config: Pick<Config, 'allow' | 'workspace' | 'runFolder'>): string[] {
   const kinds = [...ALWAYS_ALLOWED]
   for (const name of config.allow ?? []) {
     if (!Object.prototype.hasOwnProperty.call(PERMISSIONS, name)) continue
     // Spreadsheet work needs a folder. Without one, nothing is offered.
     if (name === 'excel' && !config.workspace) continue
+    if (name === 'run' && !config.runFolder) continue
     kinds.push(...PERMISSIONS[name]!.kinds)
   }
   return kinds
@@ -123,6 +131,18 @@ export const HANDLERS: Record<string, { label: string, run: Handler }> = {
   workbook_apply: {
     label: 'Save a changed copy of a spreadsheet in the chosen folder',
     run: async (input, { workspace, signal, deps }) => ({ ...(await workbookApply(workspace, input, signal, deps.sheets)) })
+  },
+  run_command: {
+    label: 'Run a command you approved',
+    run: async (input, { runFolder, signal, deps }) => ({ ...(await runCommand(runFolder, input, signal, deps.run)) })
+  },
+  folder_look: {
+    label: 'Look at the files in the chosen folder',
+    run: async (input, { runFolder }) => ({ ...folderLook(runFolder, input) })
+  },
+  folder_read: {
+    label: 'Read a file in the chosen folder',
+    run: async (input, { runFolder }) => ({ ...folderRead(runFolder, input) })
   }
 }
 
@@ -258,7 +278,7 @@ export async function pollOnce(config: Config, deps: Deps, running: Map<string, 
         const upload = async (bytes: Uint8Array, mediaType: 'image/jpeg' | 'image/png') => {
           await call(config, deps, `/api/bridge/jobs/${encodeURIComponent(id)}/file`, { mediaType, imageBase64: Buffer.from(bytes).toString('base64') }, controller.signal)
         }
-        const result = await handler.run(typeof job.input === 'object' && job.input ? job.input : {}, { deps, signal: controller.signal, active, upload, workspace: config.workspace ?? null })
+        const result = await handler.run(typeof job.input === 'object' && job.input ? job.input : {}, { deps, signal: controller.signal, active, upload, workspace: config.workspace ?? null, runFolder: config.runFolder ?? null })
         if (controller.signal.aborted) { await report({ ok: false, cancelled: true }); deps.log(`Stopped "${kind}".`) }
         else { await report({ ok: true, result }); deps.log(`Finished "${kind}".`) }
       } catch (err: any) {
@@ -360,7 +380,7 @@ export async function run(config: Config, deps: Deps, signal: AbortSignal, reloa
       try {
         // What is allowed can change while the Bridge runs (bridge allow browser), so read it fresh each round.
         const fresh = reload?.()
-        current = { ...config, allow: fresh?.allow ?? config.allow, workspace: fresh ? fresh.workspace : config.workspace }
+        current = { ...config, allow: fresh?.allow ?? config.allow, workspace: fresh ? fresh.workspace : config.workspace, runFolder: fresh ? fresh.runFolder : config.runFolder }
         if (!(await pollOnce(current, deps, running, inner.signal, tasks))) { deps.log('This computer was disconnected from OpenLobs.'); connected = false; publish(); return 'disconnected' }
         connected = true
         wait = 1000

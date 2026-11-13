@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { AccountDeletingError, DELETIONS, assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
+import { sanitizeForFirestore } from '../../utils/firebase'
 import { DEFAULT_CRITERION, FINAL_STATUSES, LIMITS, canTransition, isFinal } from './model'
 import { finalStatus } from './status'
 import type { Artifact, Criterion, EventKind, ResumeNote, Task, TaskEvent, TaskInput, TaskStatus, Waiting } from './model'
@@ -198,7 +199,8 @@ export function createTaskStore(db: TaskDb, opts: { now?: () => Date } = {}) {
         if (typeof patch.result === 'string') next.result = clip(patch.result, 6000)
         if (typeof patch.outcome === 'string') next.outcome = clip(patch.outcome, 600)
         if (typeof patch.error === 'string') next.error = clip(patch.error, 600)
-        tx.update(ref(id), next)
+        // A check result can leave a field empty (undefined). Firestore refuses those, so they are dropped before the write.
+        tx.update(ref(id), sanitizeForFirestore(next))
         return fromDoc(id, { ...snap.data(), ...next })
       })
     },

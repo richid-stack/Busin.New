@@ -12,6 +12,11 @@ import type { TaskBrowser } from '../../utils/tools/browser'
 import type { BrowserService } from '../browser/service'
 import { holdStore, startWait } from '../browser/holds'
 import { browserKey } from '../browser/service'
+import { createFetchFileTool, createViewImageTool } from '../../utils/tools/fetchFile'
+import { createDesignTokensTool, createLookAtPageTool } from '../../utils/tools/lookAtPage'
+import { createFindFontsTool, createFindIconsTool } from '../../utils/tools/findAssets'
+import { createGithubReadTool } from '../../utils/tools/githubRead'
+import { createCommunitySearchTool } from '../../utils/tools/communitySearch'
 import { allowedToolNames } from './registry'
 
 /** What a running task hands its tools: how to pause itself, and what the person approved before it paused. */
@@ -26,11 +31,19 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
   const all: Record<string, any> = {
     web_search: createWebSearchTool(userId),
     web_fetch: createWebFetchTool(userId),
+    fetch_file: createFetchFileTool(userId),
+    view_image: createViewImageTool(userId),
+    look_at_page: createLookAtPageTool(userId, undefined, { allowComputer: false }),
+    design_tokens: createDesignTokensTool(userId),
+    find_icons: createFindIconsTool(userId),
+    find_fonts: createFindFontsTool(userId),
+    github_read: createGithubReadTool(userId),
+    community_search: createCommunitySearchTool(userId),
     create_document: createDocumentTool(userId),
     create_spreadsheet: createSpreadsheetTool(userId),
     create_presentation: createPresentationTool(userId),
     // A task has no attachments, so these two see only the web.
-    inspect_design: createInspectDesignTool(userId, [], taskModel),
+    inspect_design: createInspectDesignTool(userId, [], taskModel, { allowComputer: false }),
     ...(createReadDocumentTool(userId, []) ? { read_document: createReadDocumentTool(userId, []) } : {}),
     chart: chartTool,
     plan: planTool,

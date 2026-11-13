@@ -1,0 +1,61 @@
+name: live-chat-check
+
+# Runs the real app against a real model and checks real chats end to end: a plain reply, a Word file made and then
+# changed, and a web page. Start it by hand from the Actions tab ("Run workflow"). It needs the repository secret
+# GEMINI_API_KEY (and, if you want Groq models tried too, GROQ_API_KEY). Sign-in uses Google's Firebase emulators, so no real accounts or data are touched.
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: 'Models to try, in order (comma separated)'
+        required: false
+        default: 'google/gemini-3.8-flash,google/gemini-3.5-flash,google/gemini-3.1-flash-lite,groq/gpt-oss-120b,groq/gpt-oss-20b,groq/qwen3.8-27b'
+
+permissions:
+  contents: read
+
+jobs:
+  live-chat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NUXT_UI_PRO_LICENSE: ${{ secrets.NUXT_UI_PRO_LICENSE }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+      FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
+      UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+      LIVE_MODELS: ${{ github.event.inputs.models || 'google/gemini-3.8-flash,google/gemini-3.5-flash,google/gemini-3.1-flash-lite,groq/gpt-oss-120b,groq/gpt-oss-20b,groq/qwen3.8-27b' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Point the app at the emulators (this file is not committed back)
+        run: |
+          cat > firebase-applet-config.json <<'JSON'
+          { "projectId": "demo-openlobs", "apiKey": "demo", "authDomain": "demo-openlobs.firebaseapp.com", "firestoreDatabaseId": "(default)", "appId": "demo" }
+          JSON
+      - name: Live chats
+        run: npx --yes firebase-tools@15 emulators:exec --only auth,firestore --project demo-openlobs --config firebase.emulator.json "node scripts/live-chat-check.mjs"
+      - name: Keep what the chats made
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-chat-output
+          path: live-chat-output
+          if-no-files-found: ignore

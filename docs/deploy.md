@@ -151,7 +151,9 @@ The worker has no roles, so even a page that tricked the browser into reaching t
 
 What browser use does and does not do: the browser is signed out, so it has none of the person's accounts. For a sign-in, a CAPTCHA or a payment the person presses **Take over** in the chat and types it themselves; what they type goes straight to the page and is never shown to the assistant. A step that sends, buys, deletes or changes something asks the person first, decided by the worker from the live page, not by the assistant. Per person: 400 steps and 60 pages a day.
 
-Not tested by the authors: the exact base image tag (`mcr.microsoft.com/playwright:v1.56.0-noble`) and the commands above; check them on first deploy.
+Checked for real: the worker image is built and exercised on GitHub's machines on every pull request (`scripts/runner-smoke.sh`, in `.github/workflows/real-checks.yml`): it starts, runs node, python, git, npm, pnpm and yarn as an ordinary user, keeps its secret from the programs, and exits after a plan. The worker and the app side are also tested with real processes (`tests/cloudBox.test.mts`, `tests/runInCloud.test.mts`).
+
+Not checked: the `gcloud` deploy commands above and Cloud Run's own behaviour (a real deploy needs your Google Cloud project). Try them once and check that a second plan gets a fresh instance.
 
 ## 5d. Computers (Bridge)
 
@@ -169,7 +171,11 @@ Files OpenLobs creates are kept for 30 days (`expiresAt`). The app hides expired
 
 ```bash
 gcloud firestore fields ttls update expiresAt --collection-group=generated_files --database=$DB --enable-ttl
+gcloud firestore fields ttls update expiresAt --collection-group=artifacts --database=$DB --enable-ttl
+gcloud firestore fields ttls update expiresAt --collection-group=artifact_versions --database=$DB --enable-ttl
 ```
+
+The last two cover the files you can open beside the chat and their saved versions (also 30 days, renewed each time the file is changed).
 
 ## 7. Backups
 

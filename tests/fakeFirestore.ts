@@ -4,9 +4,48 @@
  * `recursiveDelete`. It is not Firestore, so it proves the store logic (shapes, ownership filters,
  * defaults) and not Firestore's own behaviour.
  */
+import { getApps, initializeApp } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
+
 type Doc = Record<string, any>
 
-export function createFakeFirestore() {
+/**
+ * When TEST_FIRESTORE=emulator and the real Firestore emulator is running (FIRESTORE_EMULATOR_HOST), the same call gives
+ * a real Firestore instead: every top-level collection name gets a private prefix, so each test still starts empty and
+ * tests cannot see each other. The checks stay identical, so any difference is Firestore behaving differently from the
+ * stand-in. The few checks that peek inside the stand-in with raw() cannot run there and are skipped by the runner.
+ */
+let emulatorApp: any
+let prefixCounter = 0
+const emulatorRun = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
+function createEmulatorFirestore() {
+  emulatorApp ??= getApps().find((a: any) => a.name === 'store-tests') ?? initializeApp({ projectId: 'demo-openlobs' }, 'store-tests')
+  const real = getFirestore(emulatorApp)
+  const prefix = `t${emulatorRun}x${++prefixCounter}_`
+  return new Proxy(real, {
+    get(target, prop) {
+      if (prop === 'collection') return (name: string) => target.collection(prefix + name)
+      if (prop === 'raw') return () => { throw new Error('RAW_NOT_SUPPORTED: this check looks inside the stand-in and cannot run on the real database') }
+      const v = Reflect.get(target, prop, target)
+      return typeof v === 'function' ? v.bind(target) : v
+    }
+  })
+}
+
+export function createFakeFirestore(): ReturnType<typeof createInMemoryFirestore> {
+  if (process.env.TEST_FIRESTORE === 'emulator' && process.env.FIRESTORE_EMULATOR_HOST) return createEmulatorFirestore() as any
+  return createInMemoryFirestore()
+}
+
+/** Real Firestore refuses a field whose value is undefined, so the stand-in does too (it used to let them through). */
+function refuseUndefined(value: unknown, where = ''): void {
+  if (value === undefined) throw new Error(`Cannot use "undefined" as a Firestore value (found in field "${where}"). If you want to ignore undefined values, enable \`ignoreUndefinedProperties\`.`)
+  // Nor does it take an array directly inside an array (spreadsheet rows, say): store that as a JSON string.
+  if (Array.isArray(value)) value.forEach((v, i) => { if (Array.isArray(v)) throw new Error(`Property ${where} contains an invalid nested entity (an array inside an array).`); refuseUndefined(v, `${where}[${i}]`) })
+  else if (value && typeof value === 'object' && !(value instanceof Date)) for (const [k, v] of Object.entries(value)) refuseUndefined(v, where ? `${where}.${k}` : k)
+}
+
+function createInMemoryFirestore() {
   // Every collection, top level or nested, is stored under its path, e.g. "chats/c1/messages".
   const data = new Map<string, Map<string, Doc>>()
   const col = (path: string) => { if (!data.has(path)) data.set(path, new Map()); return data.get(path)! }
@@ -18,23 +57,28 @@ export function createFakeFirestore() {
     data: () => (d === undefined ? undefined : structuredClone(d)),
     ref: docRef(path, id)
   })
-  const docRef = (path: string, id: string): any => ({
+  const docRef = (path: string, id: string): any => {
+    if (id.includes('/')) throw new Error(`Value for argument "documentPath" must point to a document, but was "${id}". Your path does not contain an even number of components.`)
+    return {
     id,
     path: `${path}/${id}`,
     get: async () => snap(path, id, col(path).get(id)),
-    set: async (d: Doc) => { col(path).set(id, structuredClone(d)) },
+    set: async (d: Doc) => { refuseUndefined(d); col(path).set(id, structuredClone(d)) },
     create: async (d: Doc) => {
+      refuseUndefined(d)
       if (col(path).has(id)) throw new Error('ALREADY_EXISTS: the document exists')
       col(path).set(id, structuredClone(d))
     },
     update: async (patch: Doc) => {
+      refuseUndefined(patch)
       const cur = col(path).get(id)
       if (!cur) throw new Error('NOT_FOUND: no document to update')
       col(path).set(id, { ...cur, ...structuredClone(patch) })
     },
     delete: async () => { col(path).delete(id) },
     collection: (sub: string) => collectionRef(`${path}/${id}/${sub}`)
-  })
+    }
+  }
   const OPS: Record<string, (a: any, b: any) => boolean> = {
     '==': (a, b) => a === b,
     '<=': (a, b) => a !== undefined && a !== null && a <= b,

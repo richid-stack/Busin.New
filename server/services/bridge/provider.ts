@@ -1,7 +1,7 @@
 import { InspectError } from '../inspect/browser'
 import type { Screenshot, ScreenshotRequest } from '../inspect/browser'
 import type { ScreenshotProvider } from '../inspect/screenshot'
-import { isOnline, JOB_PERMISSION, OPEN_JOB, PERMISSION_LABEL } from './model'
+import { isOnline, JOB_PERMISSION, NEEDS_FOLDER, OPEN_JOB, PERMISSION_LABEL } from './model'
 import type { Device, Job, JobKind } from './model'
 import type { BridgeStore } from './store'
 
@@ -34,7 +34,7 @@ export function chooseComputer(devices: Device[], now: Date, name?: string, kind
   if (!allowed.length) {
     const needs = JOB_PERMISSION[kind] ?? 'browser'
     if (needs === 'browser') throw new InspectError(`"${online[0]!.name}" has not allowed looking at web pages. On that computer, run: npm run bridge -- allow browser`)
-    throw new InspectError(`"${online[0]!.name}" has not been allowed to ${PERMISSION_LABEL[needs].toLowerCase()}. On that computer, run: bridge allow ${needs}${needs === 'excel' ? ' --folder "C:\\path\\to\\folder"' : ''}`)
+    throw new InspectError(`"${online[0]!.name}" has not been allowed to ${PERMISSION_LABEL[needs].toLowerCase()}. On that computer, run: bridge allow ${needs}${NEEDS_FOLDER.includes(needs) ? ' --folder "C:\\path\\to\\folder"' : ''}`)
   }
   return [...allowed].sort((a, b) => String(b.lastSeenAt).localeCompare(String(a.lastSeenAt)))[0]!
 }

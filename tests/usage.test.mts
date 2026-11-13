@@ -2,7 +2,7 @@ import { useFirebaseDbForTests } from '../server/utils/firebaseAdmin'
 import { createFakeFirestore } from './fakeFirestore'
 import { dayKey, modelCost, monthKey, nextDayStart, nextMonthStart, planLimits } from '../server/services/usage/plans'
 import { trackToolWork } from '../server/services/integrations/execute'
-import { UsageLimitError, chargeGuest, chargeUsage, consumeCredits, getPlan, getUsage, recordTokens, refundCredits, setPlan } from '../server/services/usage/usage'
+import { UsageLimitError, UsageUnavailableError, chargeGuest, chargeUsage, consumeCredits, getPlan, getUsage, recordTokens, refundCredits, setPlan } from '../server/services/usage/usage'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
 const limitError = async (fn: () => Promise<unknown>) => { try { await fn() } catch (e) { return e instanceof UsageLimitError ? e : null } return null }
@@ -145,4 +145,17 @@ assert(!!(await limitError(() => chargeUsage('g1', 5, { guest: true }))), 'a lim
   await t.tools.send.execute()
   assert(ran === 1 && t.worked() === true, 'once a tool has started the run counts as having done work')
   assert('plain' in t.tools, 'tools without an execute function pass through')
+}
+
+// ---- Storage down: normal work carries on, but things that cost real money refuse ----
+{
+  const broken = { collection: () => { throw new Error('storage is down') }, runTransaction: async () => { throw new Error('storage is down') } }
+  useFirebaseDbForTests(broken)
+  const quiet = console.warn; console.warn = () => {}
+  let normal: any = null, strictErr: any = null
+  try { normal = await chargeUsage('someone-down', 5) } catch { /* reported below */ }
+  try { await chargeUsage('someone-down', 5, { strict: true }) } catch (e) { strictErr = e }
+  console.warn = quiet
+  assert(normal && typeof normal.refund === 'function', 'if credits cannot be counted, ordinary chat carries on')
+  assert(strictErr instanceof UsageUnavailableError, 'but something that costs real money (a cloud box) is refused')
 }
