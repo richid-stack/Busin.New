@@ -4,8 +4,6 @@ name: keys-check
 # Keys are read from repository secrets and are never printed.
 on:
   workflow_dispatch:
-  push:
-    branches: [ci/keys-check]
 
 permissions:
   contents: read
