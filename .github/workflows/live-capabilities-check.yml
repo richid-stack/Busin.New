@@ -4,8 +4,6 @@ name: live-capabilities-check
 # a task started and finished, a schedule that fires on time, and an agent proposed and saved. Real models (Gemini first, then Groq),
 # Firebase emulators for sign-in and data, so no real accounts are touched. Keys come from repository secrets and are never printed.
 on:
-  push:
-    branches: [ci/live-capabilities]
   workflow_dispatch:
     inputs:
       scenarios:

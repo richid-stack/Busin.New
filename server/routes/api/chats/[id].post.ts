@@ -437,6 +437,7 @@ ${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in too
           onChunk: () => { produced = true },
           onFinish: async (event) => {
             assistantFinishEvent = event
+            if (process.env.LIVE_DEBUG) console.info(`[chat] finished: ${event.finishReason}, ${event.steps?.length ?? '?'} step(s), ${modelId}`)
             if (signedIn) recordTokens(userId, event.totalUsage?.inputTokens ?? 0, event.totalUsage?.outputTokens ?? 0).catch(err => console.warn('[usage] token totals not recorded:', err?.message))
           }
         })

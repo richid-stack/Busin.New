@@ -10,7 +10,7 @@ export const createProposeAgentTool = (userId: string) => tool({
     name: z.string().min(1).max(60).describe('Short name, for example "Weekly report writer"'),
     description: z.string().max(200).describe('One line on what it is for'),
     instructions: z.string().min(1).max(4000).describe('Clear instructions the agent will follow every time, written to the agent in the second person'),
-    tools: z.array(z.string()).max(8).describe('Tool groups the agent needs. Leave out anything it does not need.'),
+    tools: z.array(z.string()).max(8).default([]).describe('Tool groups the agent needs. Leave out anything it does not need; an agent that only writes text needs none.'),
     maxSteps: z.number().int().min(1).max(15).optional()
   }),
   execute: withToolLimits(

@@ -1,0 +1,54 @@
+name: live-capabilities-shots
+
+# Opens the real app in a real browser, signs in with Google's local test emulators, sends a simple chat and a simple
+# build request to a real model (Gemini, from the GEMINI_API_KEY repository secret) and saves screenshots to the
+# branch "capabilities-shots". Start it by hand from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/live-capabilities]
+
+permissions:
+  contents: write
+
+jobs:
+  shots:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    env:
+      NUXT_UI_PRO_LICENSE: ${{ secrets.NUXT_UI_PRO_LICENSE }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+      FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
+      UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      CRON_SECRET: live-check-cron-secret-0123456789
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium
+      - name: Point the app at the emulators (this file is not committed back)
+        run: |
+          cat > firebase-applet-config.json <<'JSON'
+          { "projectId": "demo-openlobs", "apiKey": "demo", "authDomain": "demo-openlobs.firebaseapp.com", "firestoreDatabaseId": "(default)", "appId": "demo" }
+          JSON
+      - name: Browser run
+        run: npx --yes firebase-tools@15 emulators:exec --only auth,firestore --project demo-openlobs --config firebase.emulator.json "node scripts/live-capabilities-shots.mjs"
+      - name: Save the screenshots to the capabilities-shots branch
+        if: always()
+        run: |
+          rm -rf /tmp/shots && mkdir /tmp/shots && cp -r shots/. /tmp/shots/ 2>/dev/null || true
+          cd /tmp/shots && git init -q -b capabilities-shots && git config user.name "capabilities-shots-shots" && git config user.email "actions@users.noreply.github.com"
+          git add -A && git commit -q -m "Screenshots from run ${{ github.run_id }}" || exit 0
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" capabilities-shots
