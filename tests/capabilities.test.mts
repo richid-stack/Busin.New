@@ -30,6 +30,8 @@ assert(notion.state === 'not_connected' && /Connect Notion in Integrations/.test
 const pay = await one('paystack')
 assert(pay.state === 'needs_key' && /paste your key/.test(pay.next) && pay.next.includes('dashboard.paystack.com'), 'an app that needs a key says where to make it')
 assert((await one('Linear')).state === 'unavailable', 'when connecting is switched off, it says so instead of asking for a sign-in')
+const partial = await one('code')
+assert(partial.kind !== 'skill', 'a part of a skill name does not hide the app or tool it may mean')
 const skill = await one('code review')
 assert(skill.kind === 'skill' && skill.state === 'ready' && skill.risk === 'guidance', 'a built-in skill is ready and is guidance only')
 

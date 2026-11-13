@@ -93,9 +93,12 @@ if (gitOk) {
   write('a.txt', 'one')
   write('.env', 'SECRET=1')
   assert((await rejects(run('git', ['add', '.env'])) ?? '').includes('secrets'), 'a secret file is never added')
+  fs.mkdirSync(path.join(root, 'keys'), { recursive: true }); write('keys/server.pem', 'KEY'); write('Credentials.JSON', '{}')
   await run('git', ['add', '-A'])
   const c = await run('git', ['commit', '-m', 'First snapshot'])
   assert(c.exitCode === 0 && /First snapshot/.test(c.output), 'git can save a snapshot')
+  const left = (await run('git', ['status', '-s'])).output
+  assert(/\?\? \.env/.test(left) && /\?\? keys\//.test(left) && /\?\? Credentials\.JSON/.test(left) && !/a\.txt/.test(left), 'add everything stages the work but leaves secret files out of the snapshot, whatever their case')
   fs.writeFileSync(path.join(root, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\necho HOOK RAN >&2\nexit 1\n', { mode: 0o755 })
   write('b.txt', 'two')
   await run('git', ['add', 'b.txt'])
@@ -169,3 +172,10 @@ for (const bad of ['/', '/etc', '/usr/local', os.homedir(), '/home', 'C:\\', 'C:
 for (const good of [root, path.join(os.homedir(), 'Documents', 'OpenLobs projects'), 'C:\\Users\\Richie\\Projects\\site']) assert(checkRunFolder(good) === good, `a project folder is accepted: ${good}`)
 
 fs.rmSync(tmp, { recursive: true, force: true })
+
+// ---- a Windows crash code is accepted ----
+{
+  const { runCommandResult } = await import('../server/services/bridge/model')
+  assert(runCommandResult.safeParse({ exitCode: 3221225477, timedOut: false, ms: 5, output: 'crashed', outputTruncated: false }).success && runCommandResult.safeParse({ exitCode: -1, timedOut: true, ms: 5, output: '', outputTruncated: false }).success, 'a program that crashed on Windows still reports its output')
+  assert(!runCommandResult.safeParse({ exitCode: 2 ** 33, timedOut: false, ms: 5, output: '', outputTruncated: false }).success, 'but a nonsense exit code is refused')
+}

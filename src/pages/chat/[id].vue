@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ATTACH_ACCEPT } from '../../utils/attachmentTypes'
-import { ref, computed, reactive, watch, onMounted, provide } from 'vue'
+import { ref, computed, reactive, watch, onMounted, onBeforeUnmount, provide } from 'vue'
 import { $fetch } from 'ofetch'
 import { useChat } from '@ai-sdk/vue'
 import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, getToolName, lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai'
@@ -28,6 +28,8 @@ import { useDictation } from '../../composables/useDictation'
 import ChatIndicator from '../../components/chat/Indicator.vue'
 import TextSelectionToolbar from '../../components/chat/TextSelectionToolbar.vue'
 import Navbar from '../../components/Navbar.vue'
+import WorkPane from '../../components/work/WorkPane.vue'
+import { useWorkPane } from '../../composables/useWorkPane'
 export interface Vote {
   chatId: string
   messageId: string
@@ -43,6 +45,7 @@ const { fetchChats, chats, updateChat } = useChats()
 const { csrf, headerName } = useCsrf()
 const { loggedIn } = useUserSession()
 const { openAuthModal } = useFirebaseAuth()
+const workPane = useWorkPane()
 const { attachments, processing, onInputChange, remove: removeAttachment, clear: clearAttachments, toFileParts } = usePromptAttachments()
 
 const data = await $fetch(`/api/chats/${route.params.id}`).catch(() => null)
@@ -128,7 +131,8 @@ const { messages, status, error, sendMessage, regenerate, stop, addToolApprovalR
         body = JSON.stringify({
           ...reqBody,
           model: model.value,
-          voice: voiceMode.value || undefined
+          voice: voiceMode.value || undefined,
+          workPane: workPane.forChat.value
         })
       } else if (body instanceof FormData) {
         body.append('model', model.value)
@@ -219,6 +223,37 @@ const lobby = reactive(useLobby({
   respond: (id, approved) => addToolApprovalResponse({ id, approved })
 }))
 watch(() => lobby.open, (on) => { voiceMode.value = on })
+
+// A file made or changed in this chat: when the assistant finishes, the open file shows its new version.
+// A change the assistant just made opens the file beside the chat so the result is right there.
+watch(status, (now, before) => {
+  if (now !== 'ready' || (before !== 'streaming' && before !== 'submitted')) return
+  const last = messages.value[messages.value.length - 1]
+  const edited = last?.role === 'assistant'
+    ? last.parts.filter(p => isToolUIPart(p) && ['edit_file', 'write_file', 'edit_project_file', 'delete_file'].includes(getToolName(p))).map(p => (p as any).output).filter(o => o?.status === 'ok' && o.artifactId).pop()
+    : undefined
+  if (edited && workPane.openId.value !== edited.artifactId) void workPane.open(edited.artifactId)
+  else if (workPane.openId.value) void workPane.refresh()
+})
+// While a project is being built, files appear beside the chat as each step finishes.
+const PROJECT_STEPS = ['write_file', 'edit_project_file', 'delete_file']
+const projectProgress = computed(() => {
+  const last = messages.value[messages.value.length - 1]
+  if (last?.role !== 'assistant') return { count: 0, id: undefined as string | undefined }
+  const done = last.parts.filter(p => isToolUIPart(p) && PROJECT_STEPS.includes(getToolName(p)) && (p as any).output?.status === 'ok' && (p as any).output.artifactId)
+  return { count: done.length, id: (done[done.length - 1] as any)?.output.artifactId as string | undefined }
+})
+watch(() => projectProgress.value.count, (count, was) => {
+  const id = projectProgress.value.id
+  if (!count || count === was || !id) return
+  if (workPane.openId.value !== id) void workPane.open(id)
+  else void workPane.refresh()
+})
+const paneOpen = computed(() => !!workPane.openId.value)
+const working = computed(() => status.value === 'streaming' || status.value === 'submitted')
+function changeFromPane(text: string) { sendMessage({ text }) }
+watch(() => route.params.id, () => workPane.close())
+onBeforeUnmount(() => workPane.close())
 
 // The approval cards in the messages answer through this.
 provide('respondToToolApproval', (id: string, approved: boolean) => addToolApprovalResponse({ id, approved }))
@@ -473,7 +508,7 @@ function handleTextAction(action: string, selectedText: string) {
               :editing="editingMessageId === message.id"
               :vote="getVote(message.id)"
               @edit="startEdit"
-              @convertToWorkflow="convertToWorkflow"
+              @convert-to-workflow="convertToWorkflow"
               @regenerate="regenerateMessage"
               @vote="vote"
             />
@@ -536,7 +571,10 @@ function handleTextAction(action: string, selectedText: string) {
                 class="max-w-40 truncate"
                 :title="`This chat is with your agent ${agent.name}`"
               />
-              <ModelSelect v-if="!agent?.model" v-model="model" />
+              <ModelSelect
+                v-if="!agent?.model"
+                v-model="model"
+              />
             </div>
 
             <div class="flex items-center gap-1.5">
@@ -612,4 +650,14 @@ function handleTextAction(action: string, selectedText: string) {
       </template>
     </UError>
   </UContainer>
+
+  <div
+    v-if="data?.id && paneOpen && isOwner"
+    class="fixed inset-0 z-40 md:static md:z-auto md:h-full md:w-[48%] md:max-w-[760px] md:shrink-0"
+  >
+    <WorkPane
+      :busy="working"
+      @send="changeFromPane"
+    />
+  </div>
 </template>

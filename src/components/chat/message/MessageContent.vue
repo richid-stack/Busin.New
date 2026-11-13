@@ -15,6 +15,8 @@ import ChatToolAgentProposal from '../tool/AgentProposal.vue'
 import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
 import ChatToolFile from '../tool/File.vue'
+import ChatToolEditFile from '../tool/EditFile.vue'
+import ChatToolProjectFile from '../tool/ProjectFile.vue'
 import ChatToolInspection from '../tool/Inspection.vue'
 import ChatToolComputerExcel from '../tool/ComputerExcel.vue'
 import ChatToolTaskProposal from '../tool/TaskProposal.vue'
@@ -29,6 +31,7 @@ import { getMergedParts } from '../../../utils/ai'
 import { attachmentIcon } from '../../../utils/attachmentTypes'
 import { getDocumentRead, getFetchedPage, getFileTrace, getRowsTrace, getLookupTrace, getPageTrace, getRunTrace, getSearchProblem, getSearchQuery, getSkillName, getSources } from '../../../utils/tool'
 import type { WeatherUIToolInvocation } from '../../../../server/utils/tools/weather'
+import { withoutSourceMarks } from '../../../../shared/modelText'
 import type { ChartUIToolInvocation } from '../../../../server/utils/tools/chart'
 import type { PlanUIToolInvocation } from '../../../../server/utils/tools/plan'
 import type { CalculatorUIToolInvocation } from '../../../../server/utils/tools/calculator'
@@ -49,6 +52,10 @@ const emit = defineEmits<{
   save: [message: UIMessage, text: string]
   cancelEdit: []
 }>()
+
+function isToolPart(part: any): boolean {
+  return typeof part?.type === 'string' && (part.type.startsWith('tool-') || part.type === 'dynamic-tool')
+}
 </script>
 
 <template>
@@ -81,8 +88,9 @@ const emit = defineEmits<{
 
   <template
     v-for="(part, index) in getMergedParts(message.parts || [])"
-    :key="`${message.id}-${part.type}-${index}`"
+    :key="`${message.id}-${part.type}-${index}${isToolPart(part) ? `-${(part as { state?: string }).state}` : ''}`"
   >
+    <!-- Tool parts are updated in place as results arrive. Keying them by state makes each row draw again when its state changes, so no row stays on "Running", "Drafting" or empty until the chat is reloaded. -->
     <UChatReasoning
       v-if="isReasoningUIPart(part)"
       :text="part.text"
@@ -413,11 +421,11 @@ const emit = defineEmits<{
         </p>
       </UChatTool>
       <UChatTool
-        v-else-if="getToolName(part) === 'look_in_folder' || getToolName(part) === 'add_tool_server'"
-        :text="isToolStreaming(part) ? (getToolName(part) === 'add_tool_server' ? 'Adding the tool server...' : 'Looking in your folder...') : getRowsTrace(part).failed ? (getToolName(part) === 'add_tool_server' ? getRowsTrace(part).title : 'Could not look in the folder') : getRowsTrace(part).title"
+        v-else-if="getToolName(part) === 'look_in_folder' || getToolName(part) === 'add_tool_server' || getToolName(part) === 'install_skill'"
+        :text="isToolStreaming(part) ? (getToolName(part) === 'add_tool_server' ? 'Adding the tool server...' : getToolName(part) === 'install_skill' ? 'Keeping the skill...' : 'Looking in your folder...') : getRowsTrace(part).failed ? (getToolName(part) !== 'look_in_folder' ? getRowsTrace(part).title : 'Could not look in the folder') : getRowsTrace(part).title"
         :suffix="getRowsTrace(part).summary"
         :streaming="isToolStreaming(part)"
-        :icon="getToolName(part) === 'add_tool_server' ? 'i-lucide-plug' : 'i-lucide-folder-search'"
+        :icon="getToolName(part) === 'add_tool_server' ? 'i-lucide-plug' : getToolName(part) === 'install_skill' ? 'i-lucide-book-open-text' : 'i-lucide-folder-search'"
         :chevron="getRowsTrace(part).rows.length || getRowsTrace(part).error ? 'leading' : undefined"
       >
         <div
@@ -508,7 +516,7 @@ const emit = defineEmits<{
         :text="isToolStreaming(part) ? 'Opening the skill...' : getLookupTrace(part).failed ? 'Could not load the skill' : 'Loaded the skill'"
         :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
         :streaming="isToolStreaming(part)"
-        icon="i-lucide-wand-sparkles"
+        icon="i-lucide-book-open-text"
         :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
       >
         <ul
@@ -534,7 +542,7 @@ const emit = defineEmits<{
         :text="isToolStreaming(part) ? 'Opening a skill...' : getSkillName(part) ? 'Used the skill' : 'Skill unavailable'"
         :suffix="getSkillName(part)"
         :streaming="isToolStreaming(part)"
-        icon="i-lucide-wand-sparkles"
+        icon="i-lucide-book-open-text"
       />
       <UChatTool
         v-else-if="getToolName(part) === 'web_fetch'"
@@ -554,7 +562,15 @@ const emit = defineEmits<{
         :part="part"
       />
       <ChatToolFile
-        v-else-if="['create_document', 'create_spreadsheet', 'create_presentation'].includes(getToolName(part))"
+        v-else-if="['create_document', 'create_spreadsheet', 'create_presentation', 'create_page'].includes(getToolName(part))"
+        :invocation="part"
+      />
+      <ChatToolEditFile
+        v-else-if="getToolName(part) === 'edit_file'"
+        :invocation="part"
+      />
+      <ChatToolProjectFile
+        v-else-if="['list_files', 'read_file', 'search_files', 'write_file', 'edit_project_file', 'delete_file'].includes(getToolName(part))"
         :invocation="part"
       />
       <ChatToolTaskProposal
@@ -594,7 +610,7 @@ const emit = defineEmits<{
     <template v-else-if="isTextUIPart(part)">
       <ChatComark
         v-if="message.role === 'assistant'"
-        :value="part.text"
+        :value="withoutSourceMarks(part.text)"
         :streaming="isPartStreaming(part)"
       />
       <template v-else-if="message.role === 'user'">

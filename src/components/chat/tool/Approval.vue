@@ -18,7 +18,8 @@ const input = computed<Record<string, unknown>>(() => (props.part.input && typeo
 const isApp = computed(() => toolName.value === 'integration_execute')
 const isMcp = computed(() => toolName.value.startsWith('mcp_'))
 const isBrowser = computed(() => toolName.value === 'browser')
-const isSkill = computed(() => toolName.value === 'load_external_skill')
+const isKeep = computed(() => toolName.value === 'install_skill')
+const isSkill = computed(() => toolName.value === 'load_external_skill' || isKeep.value)
 const isCloud = computed(() => toolName.value === 'run_in_cloud')
 const isRun = computed(() => toolName.value === 'run_on_computer' || isCloud.value)
 const isAdd = computed(() => toolName.value === 'add_tool_server')
@@ -67,8 +68,8 @@ const title = computed(() => {
   if (isAdd.value) return preset.value?.name || 'a tool server'
   return words(toolName.value)
 })
-const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-wand-sparkles' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
-const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? 'Skill from GitHub' : isCloud.value ? 'Run in the cloud' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
+const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-book-open-text' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
+const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? (isKeep.value ? 'Keep a skill' : 'Skill from GitHub') : isCloud.value ? 'Run in the cloud' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */
 const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
@@ -109,7 +110,7 @@ async function answer(approved: boolean) {
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>
           <p class="text-xs text-muted mt-0.5">
-            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isCloud ? 'In a clean box that is deleted afterwards. Nothing starts until you press Approve.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : isAdd ? 'Nothing is added until you press Approve.' : 'It may change things or reach other people.' }}
+            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isKeep ? 'Instructions written by someone else. Kept in your list for every chat until you remove it.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isCloud ? 'In a clean box that is deleted afterwards. Nothing starts until you press Approve.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : isAdd ? 'Nothing is added until you press Approve.' : 'It may change things or reach other people.' }}
           </p>
         </div>
       </div>
@@ -151,6 +152,18 @@ async function answer(approved: boolean) {
         </div>
         <p class="text-xs text-muted">
           This only adds it. Nothing is switched on: you read each of its tools and choose which to allow afterwards.
+        </p>
+      </template>
+
+      <template v-if="isKeep">
+        <p
+          v-if="input.why"
+          class="text-sm text-default"
+        >
+          {{ input.why }}
+        </p>
+        <p class="text-xs text-muted">
+          It is checked for safety first. You see where it came from on the Skills page, and can remove it there any time.
         </p>
       </template>
 
