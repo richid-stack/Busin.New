@@ -57,6 +57,23 @@ export function pickAvailableModel(preferred?: string | null): string | null {
   return PROVIDER_FALLBACKS.find(f => getProviderApiKey(f.provider))?.model ?? null
 }
 
+/** Models to try after one ran out of room. Another model of the same provider comes first (free allowances are counted per model). */
+const SPARE_MODELS = ['google/gemini-3.1-flash-lite', 'groq/gpt-oss-20b']
+
+/**
+ * The next model to use when the ones in `skip` are out of room: the preferred one, then each provider's default, then spares.
+ * Only models whose provider has a key. Null when nothing is left.
+ */
+export function nextAvailableModel(preferred: string | null | undefined, skip: string[]): string | null {
+  const chain = [preferred ? normalizeModelId(preferred) : null, ...PROVIDER_FALLBACKS.map(f => f.model), ...SPARE_MODELS]
+  for (const id of chain) {
+    if (!id || skip.includes(id)) continue
+    const provider = providerOf(id)
+    if (provider && getProviderApiKey(provider)) return id
+  }
+  return null
+}
+
 /** Every model that can run right now, preferred one first, one per provider. */
 export function availableModels(preferred?: string | null): string[] {
   const first = pickAvailableModel(preferred)

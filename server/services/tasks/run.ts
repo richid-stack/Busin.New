@@ -4,7 +4,7 @@ import { runInspection } from '../inspect/inspect'
 import { defaultProvider } from '../inspect/screenshot'
 import { chargeUsage } from '../usage/usage'
 import { modelCost } from '../usage/plans'
-import { getLanguageModel, pickAvailableModel } from '../../utils/models'
+import { getLanguageModel, nextAvailableModel, pickAvailableModel } from '../../utils/models'
 import { parseMyModelId } from '../../../shared/modelProviders'
 import { resolveModel } from '../models/resolve'
 import { runTask } from './orchestrator'
@@ -20,16 +20,16 @@ import { modelJudge, verifyCriteria } from './verify'
 
 /** The real parts a task runs with. Tests swap them for fakes through `runTask` directly. */
 export function liveDeps(store: TaskStore = taskStore()): RunDeps {
-  const pick = async (modelId: string | null, userId: string) => {
+  const pick = async (modelId: string | null, userId: string, skip: string[] = []) => {
     // The person's own model runs on their own key: never swapped for another, and it costs no credits.
     if (modelId && parseMyModelId(modelId)) return { id: modelId, model: (await resolveModel(userId, modelId)).model }
-    const id = pickAvailableModel(modelId)
+    const id = skip.length ? nextAvailableModel(modelId, skip) : pickAvailableModel(modelId)
     return id ? { id, model: getLanguageModel(id) } : null
   }
   return {
     store,
     tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null, task.model),
-    model: task => pick(task.model, task.userId),
+    model: (task, skip) => pick(task.model, task.userId, skip),
     costOf: id => (parseMyModelId(id) ? 0 : modelCost(id)),
     charge: chargeUsage,
     verify: async (criteria, ctx, task) => {

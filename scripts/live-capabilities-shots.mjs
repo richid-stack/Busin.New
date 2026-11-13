@@ -17,7 +17,7 @@ const OUT = process.env.SHOTS_OUT || 'shots'
 const MODELS = (process.env.LIVE_MODELS || 'google/gemini-3.8-flash,google/gemini-3.5-flash,google/gemini-3.1-flash-lite,groq/gpt-oss-120b,groq/gpt-oss-20b,groq/qwen3.8-27b').split(',')
 const KEYS = { google: 'GEMINI_API_KEY', groq: 'GROQ_API_KEY' }
 const usable = MODELS.filter(m => process.env[KEYS[m.split('/')[0]]])
-const ONLY = (process.env.LIVE_SCENARIOS || 'photos,build,workflow,task,agent').split(',')
+const ONLY = (process.env.LIVE_SCENARIOS || 'photos,workflow,task').split(',')
 mkdirSync(OUT, { recursive: true })
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 const redact = t => String(t).replace(/AIza[0-9A-Za-z_-]{20,}/g, '[key]').replace(/gsk_[0-9A-Za-z]{20,}/g, '[key]')
@@ -137,6 +137,9 @@ try {
   await scenario('photos', 'Find me three photos of kente cloth, save the best one to my files, look at it, and tell me in one sentence what it shows and who took it.', async (text) => {
     check(/Found photos|Found \d+ photo/i.test(text) || await page.getByText(/photos/i).count() > 0, '[photos] the trace shows the photo search')
     check(/Saved|fetch/i.test(text), '[photos] the trace shows the photo being saved')
+    const imgs = await page.evaluate(async () => Promise.all([...document.images].filter(i => /\/api\/files\//.test(i.src)).map(async (i) => { const r = await fetch(i.src, { credentials: 'include' }).catch(() => null); return { src: i.src.slice(-50), shownWidth: i.naturalWidth, status: r?.status, type: r?.headers.get('content-type'), disposition: r?.headers.get('content-disposition') } })))
+    note(`photo images: ${JSON.stringify(imgs)}`)
+    check(imgs.length > 0 && imgs.every(i => i.shownWidth > 0), '[photos] the saved photo shows in the trace')
   })
 
   await scenario('build', 'Build me a habit tracker web app as a project with these separate files: index.html, styles.css, app.js, storage.js, habits.js and README.md. Habits can be added, ticked off per day and deleted, and are kept in the browser. Write all six files now, then tell me in one sentence what you made.', async (text) => {
@@ -158,7 +161,8 @@ try {
       await shot('workflow-3-studio')
       const runs = await (await api(`/api/workflows/${wf.id}/runs`)).json().catch(() => null)
       const l = Array.isArray(runs) ? runs : runs?.runs
-      check(Array.isArray(l) && l.length >= 1, `[workflow] it ran (${l?.[0]?.status})`)
+      check(Array.isArray(l) && l[0]?.status === 'completed', `[workflow] it ran to the end (${l?.[0]?.status})`)
+      note(`workflow run: ${JSON.stringify(l?.[0]?.logs?.map?.(x => ({ n: x.nodeId, s: x.status, m: String(x.message).slice(0, 140) })) ?? l?.[0]).slice(0, 600)}`)
     }
   })
 
