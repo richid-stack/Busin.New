@@ -1,0 +1,69 @@
+name: windows-shots
+
+# Throwaway: builds the OpenLobs Bridge installer on GitHub's Windows machine, clicks through the real installer
+# like a person, and saves screenshots of every screen, the tray icon and its menu to the branch "windows-shots".
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/windows-shots]
+
+permissions:
+  contents: write
+
+jobs:
+  shots:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      NUXT_UI_PRO_LICENSE: ${{ secrets.NUXT_UI_PRO_LICENSE }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the app folder
+        shell: pwsh
+        run: |
+          $node = (Get-Command node).Source
+          node scripts/ci-capture.mjs "build app folder" node bridge/installer/build.mjs --node $node
+          Get-ChildItem dist/bridge-app | Select-Object Name, Length
+
+      - name: Find Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup was not found" }
+          "ISCC=$iscc" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build the installer
+        shell: pwsh
+        env:
+          # Passed as data, never pasted into the script: whoever starts this build cannot make it run their text.
+          DEFAULT_SERVER: ""
+        run: |
+          if ($env:DEFAULT_SERVER -and $env:DEFAULT_SERVER -notmatch '^https://[A-Za-z0-9.:/_~-]+$') { throw "default_server must be an https address with only letters, numbers and . : / _ ~ -" }
+          $log = & $env:ISCC "/DAppVersion=0.4.0" "/DDefaultServer=$env:DEFAULT_SERVER" bridge\installer\openlobs-bridge.iss 2>&1 | Out-String
+          Write-Host $log
+          if ($LASTEXITCODE -ne 0) { $t = $log.Substring([Math]::Max(0, $log.Length - 5000)).Replace('%','%25').Replace("`r",'').Replace("`n",'%0A'); Write-Host "::error title=Inno Setup build::$t"; throw "Installer build failed" }
+          Get-Item dist\OpenLobs-Bridge-Setup.exe | Select-Object Name, Length
+
+      - name: Click through the installer and take pictures
+        run: npx tsx scripts/windows-shots.mts
+      - name: Keep the pictures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-shots
+          path: shots
+          if-no-files-found: warn
+      - name: Save the pictures to the windows-shots branch
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/s" && mkdir "$RUNNER_TEMP/s" && cp -r shots/. "$RUNNER_TEMP/s/" 2>/dev/null || true
+          cd "$RUNNER_TEMP/s" && git init -q -b windows-shots && git config user.name "windows-shots" && git config user.email "actions@users.noreply.github.com"
+          git add -A && git commit -q -m "Screenshots from run ${{ github.run_id }}" || exit 0
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" windows-shots
