@@ -30,7 +30,7 @@ function Find-ByName($pattern, $root = $AE::RootElement) {
 }
 function Find-Setup {
   $kids = $AE::RootElement.FindAll($TS::Children, [System.Windows.Automation.Condition]::TrueCondition)
-  foreach ($k in $kids) { try { if ($k.Current.Name -match 'OpenLobs Bridge' -and $k.Current.ClassName -match 'TWizardForm|TSetupForm|#32770') { return $k } } catch {} }
+  foreach ($k in $kids) { try { if ($k.Current.Name -match '^Setup - OpenLobs Bridge') { return $k } } catch {} }
   return $null
 }
 function Click-Right($el) {
@@ -40,6 +40,8 @@ function Click-Right($el) {
   [Win32]::mouse_event(0x0008, 0, 0, 0, [UIntPtr]::Zero); [Win32]::mouse_event(0x0010, 0, 0, 0, [UIntPtr]::Zero)
 }
 
+(New-Object -ComObject Shell.Application).MinimizeAll()
+Start-Sleep -Seconds 2
 Shot 'desktop-before'
 Start-Process -FilePath $Installer -ArgumentList "/SERVER=$Server", "/CODE=$Code"
 Start-Sleep -Seconds 4
@@ -80,6 +82,8 @@ if ($icon) { Click-Right $icon; Start-Sleep -Seconds 2; Shot 'tray-menu'; [Syste
 
 # Start menu folder.
 $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\OpenLobs Bridge'
+(New-Object -ComObject Shell.Application).MinimizeAll()
+Start-Sleep -Seconds 1
 Start-Process explorer.exe -ArgumentList "`"$menu`""
 Start-Sleep -Seconds 5
 Shot 'start-menu-folder'
