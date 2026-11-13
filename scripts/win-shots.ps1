@@ -2,7 +2,7 @@ param([string]$Installer, [string]$Server, [string]$Code, [string]$Out)
 # Clicks through the real OpenLobs Bridge installer like a person would and photographs every screen, then the
 # tray icon and its menu, the Start menu folder and the status window. Throwaway: runs only on GitHub's Windows machine.
 $ErrorActionPreference = 'Continue'
-Add-Type -AssemblyName System.Windows.Forms, System.Drawing, UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing, UIAutomationClient, UIAutomationTypes, Microsoft.VisualBasic
 Add-Type @"
 using System; using System.Runtime.InteropServices;
 public class Win32 {
@@ -62,7 +62,16 @@ for ($i = 0; $i -lt 40; $i++) {
     try { $next.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() } catch { Write-Host "invoke failed on $name" }
     Start-Sleep -Seconds 2
   } else {
-    Start-Sleep -Seconds 2
+    if ($i -lt 2) {
+      Write-Host "no Next button found; elements in the setup window:"
+      foreach ($e in $win.FindAll($TS::Descendants, [System.Windows.Automation.Condition]::TrueCondition)) { try { Write-Host ("  [{0}] '{1}' enabled={2}" -f $e.Current.ControlType.ProgrammaticName, $e.Current.Name, $e.Current.IsEnabled) } catch {} }
+    }
+    # Fall back to the keyboard: the wizard's default button is Next / Install / Finish.
+    $page++
+    Shot ("installer-{0:d2}" -f $page)
+    try { [Microsoft.VisualBasic.Interaction]::AppActivate($win.Current.Name) } catch {}
+    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+    Start-Sleep -Seconds 3
   }
 }
 Write-Host "wizard pages photographed: $page"
