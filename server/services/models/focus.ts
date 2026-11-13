@@ -25,7 +25,7 @@ const TOPICS: Array<{ words: RegExp, tools: string[] }> = [
   { words: /\b(font|icon|design|style|css|colou?rs?|brand)\b|https?:\/\//i, tools: ['look_at_page', 'design_tokens', 'find_icons', 'find_fonts', 'inspect_design'] },
   { words: /\b(github|repo|repository)\b/i, tools: ['github_read'] },
   { words: /\b(agent|assistant that|task)\b/i, tools: ['propose_agent', 'task_propose'] },
-  { words: /\b(image|photo|picture|file|download)\b/i, tools: ['fetch_file', 'view_image'] }
+  { words: /\b(image|photo|picture|file|download)\b/i, tools: ['fetch_file', 'view_image', 'find_photos'] }
 ]
 
 /** `used` is the tools already called earlier in this chat: a follow-up like "make it 15 percent" names no topic. */

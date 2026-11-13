@@ -6,6 +6,9 @@
 import { PROVIDERS } from '../server/services/web/search'
 import { firecrawlScrape } from '../server/services/web/reader'
 import { sendEmail } from '../server/services/email/email'
+import { createFindPhotosTool } from '../server/utils/tools/findPhotos'
+import { downloadToStore } from '../server/utils/tools/fetchFile'
+import { safeFetch } from '../server/utils/netSafety'
 import { createComposioConnectionLink, getComposioClient, listComposioUserConnections } from '../server/services/composio/client'
 
 type Row = { name: string, status: 'ok' | 'fail' | 'no key', detail: string }
@@ -54,6 +57,18 @@ await check('photos: pexels', 'PEXELS_API_KEY', async () => {
   const j: any = await res.json()
   return `${j.photos?.length ?? 0} photos of ${j.total_results} found`
 })
+
+for (const [src, key] of [['Unsplash', 'UNSPLASH_ACCESS_KEY'], ['Pexels', 'PEXELS_API_KEY'], ['Pixabay', 'PIXABAY_API_KEY']] as const) {
+  await check(`find_photos tool then save one photo: ${src}`, key, async () => {
+    const t: any = createFindPhotosTool('keycheck', undefined, process.env)
+    const out: any = await t.execute(t.inputSchema.parse({ query: 'accra city street', orientation: 'landscape', source: src }), { toolCallId: 'k', messages: [] })
+    if (out.status !== 'ok' || !out.photos?.length) throw new Error(out.error || 'no photos')
+    const saved: { name?: string, bytes?: number }[] = []
+    const dl: any = await downloadToStore('keycheck', out.photos[0].url, 'keycheck-photo', { fetcher: safeFetch as any, store: { save: async (f: any) => { saved.push({ name: f.name, bytes: f.bytes.length }); return { id: 'x' } }, get: async () => null } as any })
+    if (!dl.ok) throw new Error(`saving the first photo failed: ${dl.error}`)
+    return `${out.count} photos, credit "${out.photos[0].credit}", first saved as ${saved[0]?.name} (${Math.round((saved[0]?.bytes ?? 0) / 1024)} KB)`
+  })
+}
 
 await check('composio: key accepted, tools listed', 'COMPOSIO_API_KEY', async () => {
   const client = getComposioClient()!

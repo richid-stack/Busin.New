@@ -18,6 +18,7 @@ import { createWebFetchTool } from '../../../utils/tools/webFetch'
 import { createFetchFileTool, createViewImageTool } from '../../../utils/tools/fetchFile'
 import { createDesignTokensTool, createLookAtPageTool } from '../../../utils/tools/lookAtPage'
 import { createFindFontsTool, createFindIconsTool } from '../../../utils/tools/findAssets'
+import { createFindPhotosTool } from '../../../utils/tools/findPhotos'
 import { createGithubReadTool } from '../../../utils/tools/githubRead'
 import { fetchGuidance } from '../../../services/design/guidance'
 import { createCheckSetupTool } from '../../../utils/tools/checkSetup'
@@ -292,7 +293,7 @@ export default defineHandler(async (event) => {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
     // Saving files and looking at images act on the person's own storage, so they need an account.
-    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), install_skill: createInstallSkillTool(userId, skills.map(b => b.name)), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
+    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), find_photos: createFindPhotosTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), install_skill: createInstallSkillTool(userId, skills.map(b => b.name)), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
