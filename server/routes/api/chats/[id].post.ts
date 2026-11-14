@@ -66,7 +66,8 @@ import { MODELS } from '../../../../shared/utils/models'
 import { parseMyModelId } from '../../../../shared/modelProviders'
 import { resolveModel } from '../../../services/models/resolve'
 import { withPromptCache } from '../../../services/models/promptCache'
-import { DEFAULT_MODEL, availableModels, getLanguageModel, providerOf } from '../../../utils/models'
+import { DEFAULT_MODEL, availableModels, getLanguageModel, nextAvailableModel, providerOf } from '../../../utils/models'
+import { withModelFallback } from '../../../utils/modelFallback'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
 import { focusTools, toolsUsedIn } from '../../../services/models/focus'
@@ -256,6 +257,21 @@ export default defineHandler(async (event) => {
   let assistantFinishEvent: any = null
   let produced = false
 
+  // A model that runs out of allowance, is busy or is too small for the request hands the work to the next model that is set up,
+  // at any step of the reply. A model the person connected with their own key is never swapped.
+  let announce: ((from: string, to: string) => void) | null = null
+  const chatModel = ownKey
+    ? languageModel
+    : withModelFallback(languageModel, {
+      modelId,
+      next: skip => nextAvailableModel(modelId, skip),
+      make: getLanguageModel,
+      onSwitch: (from, to) => {
+        console.info(`[chat] ${from} is out of room, continuing on ${to}`)
+        announce?.(from, to)
+      }
+    })
+
   // Workflow and app-integration tools act on a person's account, so they exist only for signed-in users.
   // Skills the person chose to keep sit beside the built-in ones. They never replace a built-in one of the same name.
   const keptSkills = signedIn ? await listInstalledSkills(userId).then(list => list.map(installedAsSkill).filter(k => !skills.some(b => b.name === k.name))).catch((err) => { console.warn('Kept skills unavailable:', err?.message); return [] }) : []
@@ -338,6 +354,7 @@ export default defineHandler(async (event) => {
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
+      announce = (from, to) => writer.write({ type: 'data-model-switch', data: { from, to }, transient: true })
       try {
         const instructionsText = `You are a knowledgeable and helpful AI assistant. ${session.data.user?.username ? `The user's name is ${session.data.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
 
@@ -406,7 +423,7 @@ ${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in too
         const result = streamText({
           abortSignal: event.req.signal,
           experimental_toolApprovalSecret: toolApprovalSecret(userId),
-          model: languageModel,
+          model: chatModel,
           maxRetries: 0,
           instructions: prompt.system,
           messages: prompt.messages,
