@@ -113,7 +113,7 @@ async function start() {
         v-else
         class="text-xs text-muted"
       >
-        Uses credits as it works.
+        {{ output?.estimate?.text ?? 'Uses credits as it works.' }}
       </p>
       <RouterLink
         v-if="taskId"
