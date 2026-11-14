@@ -102,6 +102,18 @@ export function workflowFailedEmail(i: { name?: string, workflowName: string, st
   return { subject: `Workflow failed: ${i.workflowName}`.slice(0, 150), html, text }
 }
 
+export function approvalWaitingEmail(i: { name?: string, workflowName: string, prompt?: string, appUrl?: string, chatId?: string }): Omit<EmailMessage, 'to'> {
+  const link = i.appUrl && i.chatId ? `${i.appUrl}/chat/${encodeURIComponent(i.chatId)}` : ''
+  const ask = i.prompt ? i.prompt.slice(0, 300) : ''
+  const html = layout('Your workflow is waiting for you', [
+    p(`Hi ${escapeHtml(i.name || 'there')}, <strong>${escapeHtml(i.workflowName)}</strong> paused and needs your OK before it goes on.`),
+    ask ? p(`<span style="color:#71717a">${escapeHtml(ask)}</span>`) : '',
+    link ? button(link, 'Review and approve') : ''
+  ].join(''), 'We send one of these per paused run. You can switch them off in Settings → Notifications.')
+  const text = `Your workflow is waiting for you\n\nHi ${i.name || 'there'}, "${i.workflowName}" paused and needs your OK before it goes on.\n${ask ? `${ask}\n` : ''}${link ? `\n${link}\n` : ''}\nSwitch these off in Settings → Notifications.`
+  return { subject: `Waiting for your OK: ${i.workflowName}`.slice(0, 150), html, text }
+}
+
 const TASK_HEADLINE: Record<string, string> = { done: 'Your task is done', partial: 'Your task is partly done', failed: 'Your task could not be done', needs_review: 'Your task needs your review' }
 
 export function taskFinishedEmail(i: { name?: string, goal: string, outcome: string, status: string, appUrl?: string, taskId?: string }): Omit<EmailMessage, 'to'> {

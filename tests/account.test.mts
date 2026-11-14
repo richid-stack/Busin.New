@@ -33,6 +33,7 @@ const seed = async (uid: string) => {
   await db.collection('devices').doc(`d-${uid}`).collection('events').doc('e1').set({ at: '2026-10-22T10:00:00Z', text: 'paired' })
   await db.collection('bridge_jobs').doc(`j-${uid}`).set({ userId: uid, deviceId: `d-${uid}`, kind: 'ping', status: 'done' })
   await db.collection('bridge_pairings').doc(`p-${uid}`).set({ userId: uid, codeHash: 'CODE-HASH-SECRET' })
+  await db.collection('push_subscriptions').doc(`ps-${uid}`).set({ userId: uid, endpoint: 'https://fcm.googleapis.com/fcm/send/abc', p256dh: 'P256DH-SECRET', auth: 'PUSH-AUTH-SECRET', createdAt: '2026-11-14T00:00:00Z' })
   await db.collection('memories').doc(`mem-${uid}`).set({ userId: uid, text: 'Likes tea' })
   await db.collection('memory_settings').doc(uid).set({ userId: uid, enabled: false })
   await db.collection('user_skills').doc(`${uid}__pdf-forms`).set({ userId: uid, name: 'pdf-forms', description: 'Fill PDFs', body: 'steps', source: 'acme/pdf-skills', warnings: [], installedAt: '2026-11-01T00:00:00Z' })
@@ -73,7 +74,7 @@ assert((out.taskSchedules as any[]).length === 1 && (out.taskSchedules[0] as any
 assert((out.tasks[0] as any).events.length === 1 && !JSON.stringify(out.tasks).includes('LEASE-SECRET'), 'tasks are exported with their logs, without lease details')
 assert(!JSON.stringify(out.tasks).includes('TASK-URL-SECRET') && !JSON.stringify(out.tasks).includes('EVENT-URL-SECRET') && JSON.stringify(out.tasks).includes('example.com/p?api_key=[not exported]&x=1'), 'a key inside an address in a task or its log is not exported')
 assert((out.computers[0] as any).name === 'Desk' && (out.computers[0] as any).events.length === 1 && out.computerJobs.length === 1, 'computers are exported with their logs, plus their jobs')
-assert(!JSON.stringify(out).includes('TOKEN-HASH-SECRET') && !JSON.stringify(out).includes('CODE-HASH-SECRET'), 'computer tokens and pairing codes never leave in an export')
+assert(!JSON.stringify(out).includes('TOKEN-HASH-SECRET') && !JSON.stringify(out).includes('CODE-HASH-SECRET') && !JSON.stringify(out).includes('P256DH-SECRET') && !JSON.stringify(out).includes('PUSH-AUTH-SECRET'), 'computer tokens, pairing codes and device alert keys never leave in an export')
 assert((out.voice as any).settings.speak.service === 'elevenlabs' && (out.voice as any).keys[0].last4 === 'abcd' && !JSON.stringify(out).includes('VOICE-KEY-SECRET'), 'voice choices are exported, and voice keys only as their last four characters')
 assert(out.modelProviders.length === 1 && (out.modelProviders[0] as any).provider === 'groq' && !JSON.stringify(out).includes('MODEL-KEY-SECRET'), 'connected model providers are exported without their keys')
 assert(out.agents.length === 1 && out.memory.items.length === 1 && out.memory.enabled === false, 'agents and memory (including the on/off setting) are included')
@@ -121,7 +122,7 @@ assert(e instanceof AccountDeletionError && db.raw('agents').has('a-alice'), 'if
 // ---- Erasure ----
 const res = await eraseUserData(deps(), 'alice')
 assert(calls.includes('disconnect:conn1') && calls.includes('disconnect:conn2') && calls.includes('auth:alice'), 'apps are disconnected and the sign-in account removed')
-for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings', 'agents', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit', 'voice_keys', 'reef_profiles', 'reef_handles', 'reef_projects', 'reef_versions', 'reef_posts', 'reef_alerts']) {
+for (const c of ['chats', 'workflows', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'devices', 'bridge_jobs', 'bridge_pairings', 'push_subscriptions', 'agents', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'generated_files', 'integrations', 'connector_credentials', 'connector_usage', 'connector_audit', 'voice_keys', 'reef_profiles', 'reef_handles', 'reef_projects', 'reef_versions', 'reef_posts', 'reef_alerts']) {
   assert([...db.raw(c).values()].every(d => d.userId !== 'alice'), `${c}: all of Alice's documents are gone`)
 }
 assert(![...db.raw('usage').keys()].some(k => k.startsWith('alice')) && !db.raw('user_plans').has('alice') && !db.raw('memory_settings').has('alice') && !db.raw('voice_settings').has('alice'), 'usage, plan, memory and voice settings are gone')
