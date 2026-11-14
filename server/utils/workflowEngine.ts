@@ -1,7 +1,8 @@
 import { generateText, isStepCount } from 'ai'
 import type { FirestoreWorkflow } from './firebase'
 import { executeIntegratedAction } from '../services/integrations/registry'
-import { getLanguageModel, pickAvailableModel } from './models'
+import { getLanguageModel, nextAvailableModel, pickAvailableModel } from './models'
+import { isModelOutOfRoom, modelErrorMessage } from './modelError'
 import { runSandboxedCode } from './sandbox'
 import { LOOP_LIMITS, NodeConfigError, loopCap, loopItems, mapWithConcurrency, runHttpNode, runSetNode, runWebFetchNode, spendOutbound } from './workflowNodes'
 import type { HttpConfig, NodeDeps, SetField, WebFetchConfig } from './workflowNodes'
@@ -202,10 +203,28 @@ export interface WorkflowLogEntry {
 // ---------------------------------------------------------------------------
 
 async function runAgent(data: { model?: string, prompt?: string }, inputs: Record<string, any>, userId: string) {
-  const modelId = pickAvailableModel(data.model)
-  if (!modelId) {
+  const first = pickAvailableModel(data.model)
+  if (!first) {
     throw new NodeConfigError('No AI provider is configured. Add GEMINI_API_KEY, GROQ_API_KEY, OPENAI_API_KEY or ANTHROPIC_API_KEY.')
   }
+  // A model that is out of allowance or busy is not the end of the step: the next one that is set up takes over.
+  const skipped: string[] = []
+  let modelId = first
+  for (;;) {
+    try {
+      return await runAgentOn(modelId, data, inputs, userId)
+    } catch (err) {
+      // After an app action has started, running the step again on another model could repeat it. Stop and let the person decide.
+      if (!isModelOutOfRoom(err) || (err as any)?.toolsStarted) throw err
+      skipped.push(modelId)
+      const next = nextAvailableModel(data.model, skipped)
+      if (!next) throw new Error(`${modelErrorMessage(err)} Every model that is set up here is out of room.`)
+      modelId = next
+    }
+  }
+}
+
+async function runAgentOn(modelId: string, data: { model?: string, prompt?: string }, inputs: Record<string, any>, userId: string) {
 
   // Workflow AI steps use the same credits as chat, so a scheduled workflow cannot quietly use up the quota.
   let charge: { refund: () => Promise<void> }
@@ -234,6 +253,7 @@ async function runAgent(data: { model?: string, prompt?: string }, inputs: Recor
     abortSignal: AbortSignal.timeout(60_000)
   }).catch(async (err) => {
     if (!tracked.worked()) await charge.refund()
+    else if (err && typeof err === 'object') Object.assign(err, { toolsStarted: true })
     throw err
   })
 
