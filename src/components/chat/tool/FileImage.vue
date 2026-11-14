@@ -8,8 +8,10 @@ const props = defineProps<{ fileId: string, alt?: string }>()
 const url = ref('')
 const failed = ref(false)
 let objectUrl = ''
+let latest = 0 // each load gets a number; a load that is no longer the latest is thrown away
 
 watch(() => props.fileId, async (id) => {
+  const mine = ++latest
   if (objectUrl) URL.revokeObjectURL(objectUrl)
   objectUrl = ''
   url.value = ''
@@ -18,14 +20,16 @@ watch(() => props.fileId, async (id) => {
   try {
     const res = await fetch(`/api/files/${encodeURIComponent(id)}`)
     if (!res.ok) throw new Error('missing')
-    objectUrl = URL.createObjectURL(await res.blob())
+    const blob = await res.blob()
+    if (mine !== latest) return
+    objectUrl = URL.createObjectURL(blob)
     url.value = objectUrl
   } catch {
-    failed.value = true
+    if (mine === latest) failed.value = true
   }
 }, { immediate: true })
 
-onBeforeUnmount(() => { if (objectUrl) URL.revokeObjectURL(objectUrl) })
+onBeforeUnmount(() => { latest++; if (objectUrl) URL.revokeObjectURL(objectUrl) })
 </script>
 
 <template>

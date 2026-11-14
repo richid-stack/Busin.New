@@ -214,7 +214,8 @@ async function runAgent(data: { model?: string, prompt?: string }, inputs: Recor
     try {
       return await runAgentOn(modelId, data, inputs, userId)
     } catch (err) {
-      if (!isModelOutOfRoom(err)) throw err
+      // After an app action has started, running the step again on another model could repeat it. Stop and let the person decide.
+      if (!isModelOutOfRoom(err) || (err as any)?.toolsStarted) throw err
       skipped.push(modelId)
       const next = nextAvailableModel(data.model, skipped)
       if (!next) throw new Error(`${modelErrorMessage(err)} Every model that is set up here is out of room.`)
@@ -252,6 +253,7 @@ async function runAgentOn(modelId: string, data: { model?: string, prompt?: stri
     abortSignal: AbortSignal.timeout(60_000)
   }).catch(async (err) => {
     if (!tracked.worked()) await charge.refund()
+    else if (err && typeof err === 'object') Object.assign(err, { toolsStarted: true })
     throw err
   })
 

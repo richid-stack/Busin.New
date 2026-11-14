@@ -55,6 +55,14 @@ assert((await run(createFindPhotosTool('u1', happy, { PEXELS_API_KEY: 'pk' }), {
 assert(photoSourcesAvailable({ PEXELS_API_KEY: ' k ' }).join() === 'Pexels' && photoSourcesAvailable({}).length === 0, 'the available services follow the keys')
 assert((createFindPhotosTool('u1') as any).inputSchema.safeParse({ query: 'a' }).success === false, 'a one-letter query is refused')
 
+const longLinks: any = async (url: string) => json(url, { results: Array.from({ length: 10 }, (_, i) => ({
+  id: 'L' + i, description: 'a photo', alt_description: 'a photo', user: { name: 'Kofi', links: { html: 'https://unsplash.com/@kofi' } },
+  links: { html: 'https://unsplash.com/photos/L' + i + '/' + 'x'.repeat(300) }, urls: { regular: 'https://images.unsplash.com/photo-L' + i + '?w=1080&q=' + 'y'.repeat(300) }
+})) })
+const big: any = await run(createFindPhotosTool('u1', longLinks, { UNSPLASH_ACCESS_KEY: 'uk' }), { query: 'skyline', limit: 10 })
+assert(big.status === 'ok' && big.photos.length === big.count && big.count >= 1 && JSON.stringify(big).length <= 6_000, 'a big result drops whole photos to fit, and count matches')
+assert(big.photos.every((x: any) => x.url.startsWith('https://images.unsplash.com/photo-L') && !x.url.includes('[cut]') && !x.pageUrl.includes('[cut]')), 'no photo link is ever cut short')
+
 const trace = getLookupTrace({ input: { query: 'skyline' }, output: a } as any)
 assert(trace.count === 2 && trace.lines[0] === 'a calm skyline at dusk · Ama Boateng · Unsplash' && trace.query === 'skyline', 'the trace lists each photo with its photographer and service')
 assert(/find_photos/.test(fetchGuidance(['find_photos'])) && /credit/.test(fetchGuidance(['find_photos'])) && !/PHOTOS/.test(fetchGuidance(['find_icons'])), 'photo guidance appears only when the tool is there')
