@@ -101,10 +101,13 @@ await check('composio: run one no-sign-in tool for real', 'COMPOSIO_API_KEY', as
   const items: any[] = ((await res.json()) as any).items
   const noAuth = items.filter(t => t.no_auth === true || (t.auth_schemes ?? []).includes('NO_AUTH')).map(t => t.slug)
   const tried: string[] = []
-  for (const slug of noAuth.slice(0, 8)) {
+  const order = ['hackernews', 'composio_search', 'text_to_pdf', 'gleif']
+  const pick = order.filter(x => noAuth.includes(x))
+  for (const slug of pick) {
     const tools: any = await client.tools.getRawComposioTools({ toolkits: [slug], limit: 30 } as any)
     const list: any[] = Array.isArray(tools) ? tools : tools?.items ?? []
     // A tool that needs no input at all is the safest first try.
+    console.log(`  ${slug} tools:`, list.map(t => `${t.slug}[${(t.inputParameters?.required ?? []).join(',')}]`).slice(0, 12).join(' | '))
     const easy = list.find(t => !(t.inputParameters?.required?.length) && !/delete|create|update|send|post|write/i.test(t.slug))
     if (!easy) { tried.push(`${slug}: no tool without required input`); continue }
     const out: any = await client.tools.execute(easy.slug, { userId: 'keycheck-user', arguments: {}, dangerouslySkipVersionCheck: true } as any)
