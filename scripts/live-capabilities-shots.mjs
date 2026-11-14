@@ -86,7 +86,7 @@ const limitText = /free allowance|rate limit|busy right now|went wrong|try again
 const pageText = () => page.evaluate(() => document.body.innerText)
 
 /** Runs one scenario in a fresh chat with a model that has room. Tries again with the next model if the answer is only a limit message. */
-async function scenario(name, prompt, after, startUrl = BASE) {
+async function scenario(name, prompt, after, startUrl = BASE, finished = null) {
   if (!ONLY.includes(name)) return
   for (let attempt = 0; attempt < 3; attempt++) {
     const m = await pickModel()
@@ -101,6 +101,7 @@ async function scenario(name, prompt, after, startUrl = BASE) {
     const text = await pageText()
     const rows = await page.locator('button[aria-expanded]').count()
     if (limitText.test(text.slice(-1500)) && rows < 2) { note(`[${name}] ${m} answered with a limit message, moving on`); gone.add(m); continue }
+    if (finished && !finished(text)) { note(`[${name}] ${m} stopped before the real answer (probably ran out of room), moving on`); gone.add(m); continue }
     await shot(`${name}-1-closed`)
     const opened = await openRows()
     await sleep(600)
@@ -193,9 +194,9 @@ try {
 
   await scenario('hackernews', 'Use my connected apps to get the current top three stories on Hacker News and tell me their titles and links. This is a read only lookup.', async (text) => {
     note(`hackernews answer tail: ${redact(text.slice(-700))}`)
-    check(/hacker ?news|ycombinator|news\.ycombinator/i.test(text), '[hackernews] the trace or answer names Hacker News')
+    check(/news\.ycombinator\.com|item\?id=\d{6,}/i.test(text), '[hackernews] the answer has real Hacker News links')
     check(!/connect .*(hacker|app)|sign in to|authorize/i.test(text.slice(-900)), '[hackernews] it did not ask for a sign-in')
-  })
+  }, BASE, t => /news\.ycombinator\.com|item\?id=\d{6,}/i.test(t) || /sign in|connect/i.test(t.slice(-900)))
 
   await scenario('bigbuild', 'Build me a website for a bakery in Accra as a project with these files: index.html, menu.html, about.html, contact.html, styles.css, main.js, menu.js, cart.js, data/menu.json and README.md. The menu page reads data/menu.json and the cart is kept in the browser. Write every file now, then tell me in one sentence what you made.', async (text) => {
     const made = (text.match(/Created/g) || []).length
