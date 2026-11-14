@@ -22,3 +22,8 @@ assert(!has('hello there').includes('write_file'), 'a plain chat does not carry 
 assert(has('make it 15 percent', ['write_file']).includes('edit_project_file'), 'a follow-up keeps the project tools once the chat has used one')
 assert(!has('make it 15 percent').includes('edit_project_file'), 'and without that history it does not guess')
 assert(toolsUsedIn([{ parts: [{ type: 'text' }, { type: 'tool-write_file' }] }, { parts: [{ type: 'tool-weather' }] }, {}]).join() === 'write_file,weather', 'tools used earlier are read from the messages')
+
+const withPhotos: Record<string, number> = { ...all, fetch_file: 1, view_image: 2, find_photos: 3 }
+const photoTools = (text: string) => Object.keys(focusTools(withPhotos, { provider: 'groq', text }))
+assert(photoTools('Find photos of beaches').includes('find_photos') && photoTools('Get me a picture of Accra').includes('find_photos') && photoTools('save these images').includes('fetch_file'), 'photo, picture and image requests keep the photo tools, plural or not')
+assert(!photoTools('hello there').includes('find_photos'), 'a plain chat does not carry the photo tools')

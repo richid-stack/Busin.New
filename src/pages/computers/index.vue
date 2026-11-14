@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PageSkeleton from '../../components/state/PageSkeleton.vue'
+import FileImage from '../../components/chat/tool/FileImage.vue'
 import StateCard from '../../components/state/StateCard.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useBridge } from '../../composables/useBridge'
@@ -270,7 +271,7 @@ async function remove(c: ComputerItem) {
                   <p class="text-xs text-dimmed">Opens the page in a fresh, empty browser on that computer: no logins, nothing clicked or typed. Pages on your own computer work; private-network addresses do not.</p>
                   <p v-if="lookLine(c.id)" class="text-xs" :class="lookLine(c.id)!.tone === 'bad' ? 'text-error' : 'text-muted'" role="status">{{ lookLine(c.id)!.text }}</p>
                   <div v-if="lookResult(c.id)" class="space-y-2">
-                    <img :src="`/api/files/${encodeURIComponent(lookResult(c.id)!.fileId)}`" :alt="`Screenshot of ${lookResult(c.id)!.title || 'the page'}`" class="max-h-96 w-auto max-w-full rounded-lg border border-default">
+                    <FileImage :file-id="lookResult(c.id)!.fileId" :alt="`Screenshot of ${lookResult(c.id)!.title || 'the page'}`" class="max-h-96 w-auto max-w-full rounded-lg border border-default" />
                     <p class="text-xs text-muted">
                       <span class="text-highlighted">{{ lookResult(c.id)!.title || 'Untitled page' }}</span>
                       <template v-if="lookResult(c.id)!.status"> · answered {{ lookResult(c.id)!.status }}</template>

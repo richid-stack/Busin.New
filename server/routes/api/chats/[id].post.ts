@@ -18,6 +18,7 @@ import { createWebFetchTool } from '../../../utils/tools/webFetch'
 import { createFetchFileTool, createViewImageTool } from '../../../utils/tools/fetchFile'
 import { createDesignTokensTool, createLookAtPageTool } from '../../../utils/tools/lookAtPage'
 import { createFindFontsTool, createFindIconsTool } from '../../../utils/tools/findAssets'
+import { createFindPhotosTool } from '../../../utils/tools/findPhotos'
 import { createGithubReadTool } from '../../../utils/tools/githubRead'
 import { fetchGuidance } from '../../../services/design/guidance'
 import { createCheckSetupTool } from '../../../utils/tools/checkSetup'
@@ -65,10 +66,11 @@ import { MODELS } from '../../../../shared/utils/models'
 import { parseMyModelId } from '../../../../shared/modelProviders'
 import { resolveModel } from '../../../services/models/resolve'
 import { withPromptCache } from '../../../services/models/promptCache'
-import { DEFAULT_MODEL, availableModels, getLanguageModel, providerOf } from '../../../utils/models'
+import { DEFAULT_MODEL, availableModels, getLanguageModel, nextAvailableModel, providerOf } from '../../../utils/models'
+import { withModelFallback } from '../../../utils/modelFallback'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
-import { focusTools, toolsUsedIn } from '../../../services/models/focus'
+import { focusTools, leanParamsFor, toolsUsedIn } from '../../../services/models/focus'
 import { modelErrorMessage } from '../../../utils/modelError'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
@@ -255,6 +257,23 @@ export default defineHandler(async (event) => {
   let assistantFinishEvent: any = null
   let produced = false
 
+  // A model that runs out of allowance, is busy or is too small for the request hands the work to the next model that is set up,
+  // at any step of the reply. A model the person connected with their own key is never swapped.
+  let announce: ((from: string, to: string) => void) | null = null
+  const chatModel = ownKey
+    ? languageModel
+    : withModelFallback(languageModel, {
+      modelId,
+      next: skip => nextAvailableModel(modelId, skip),
+      make: getLanguageModel,
+      // A model with a small allowance gets only the tools the message is about, plus any already used in this reply.
+      adapt: (id, params) => leanParamsFor(id, params, Object.keys(setup.tools), userText, toolsUsedIn(messages)),
+      onSwitch: (from, to) => {
+        console.info(`[chat] ${from} is out of room, continuing on ${to}`)
+        announce?.(from, to)
+      }
+    })
+
   // Workflow and app-integration tools act on a person's account, so they exist only for signed-in users.
   // Skills the person chose to keep sit beside the built-in ones. They never replace a built-in one of the same name.
   const keptSkills = signedIn ? await listInstalledSkills(userId).then(list => list.map(installedAsSkill).filter(k => !skills.some(b => b.name === k.name))).catch((err) => { console.warn('Kept skills unavailable:', err?.message); return [] }) : []
@@ -292,7 +311,7 @@ export default defineHandler(async (event) => {
     ...mcpTools,
     // Only the standard assistant can offer to make an agent; an agent already is one.
     // Saving files and looking at images act on the person's own storage, so they need an account.
-    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), install_skill: createInstallSkillTool(userId, skills.map(b => b.name)), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
+    ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), find_photos: createFindPhotosTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), install_skill: createInstallSkillTool(userId, skills.map(b => b.name)), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
@@ -337,6 +356,7 @@ export default defineHandler(async (event) => {
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
+      announce = (from, to) => writer.write({ type: 'data-model-switch', data: { from, to }, transient: true })
       try {
         const instructionsText = `You are a knowledgeable and helpful AI assistant. ${session.data.user?.username ? `The user's name is ${session.data.user.username}.` : ''} Your goal is to provide clear, accurate, and well-structured responses.
 
@@ -405,7 +425,7 @@ ${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in too
         const result = streamText({
           abortSignal: event.req.signal,
           experimental_toolApprovalSecret: toolApprovalSecret(userId),
-          model: languageModel,
+          model: chatModel,
           maxRetries: 0,
           instructions: prompt.system,
           messages: prompt.messages,
@@ -436,6 +456,7 @@ ${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in too
           onChunk: () => { produced = true },
           onFinish: async (event) => {
             assistantFinishEvent = event
+            if (process.env.LIVE_DEBUG) console.info(`[chat] finished: ${event.finishReason}, ${event.steps?.length ?? '?'} step(s), ${modelId}`)
             if (signedIn) recordTokens(userId, event.totalUsage?.inputTokens ?? 0, event.totalUsage?.outputTokens ?? 0).catch(err => console.warn('[usage] token totals not recorded:', err?.message))
           }
         })

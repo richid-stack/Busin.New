@@ -5,6 +5,7 @@ import type { UIMessage } from 'ai'
 import { isPartStreaming, isToolStreaming } from '@nuxt/ui/utils/ai'
 import ChatComark from '../Comark'
 import ChatToolChart from '../tool/Chart.vue'
+import FileImage from '../tool/FileImage.vue'
 import ChatToolWeather from '../tool/Weather.vue'
 import ChatToolSources from '../tool/Sources.vue'
 import ChatToolPlan from '../tool/Plan.vue'
@@ -169,13 +170,12 @@ function isToolPart(part: any): boolean {
         icon="i-lucide-download"
         :chevron="getFileTrace(part).isImage || getFileTrace(part).error ? 'leading' : undefined"
       >
-        <img
+        <FileImage
           v-if="getFileTrace(part).isImage && getFileTrace(part).fileId"
-          :src="`/api/files/${getFileTrace(part).fileId}`"
+          :file-id="getFileTrace(part).fileId!"
           :alt="getFileTrace(part).name"
           class="max-h-48 rounded-lg border border-default"
-          loading="lazy"
-        >
+        />
         <p
           v-else-if="getFileTrace(part).error"
           class="text-sm text-muted"
@@ -191,13 +191,12 @@ function isToolPart(part: any): boolean {
         icon="i-lucide-eye"
         :chevron="getFileTrace(part).fileId || getFileTrace(part).error ? 'leading' : undefined"
       >
-        <img
+        <FileImage
           v-if="getFileTrace(part).fileId"
-          :src="`/api/files/${getFileTrace(part).fileId}`"
+          :file-id="getFileTrace(part).fileId!"
           :alt="getFileTrace(part).name"
           class="max-h-48 rounded-lg border border-default"
-          loading="lazy"
-        >
+        />
         <p
           v-else-if="getFileTrace(part).error"
           class="text-sm text-muted"
@@ -213,13 +212,12 @@ function isToolPart(part: any): boolean {
         icon="i-lucide-scan-eye"
         :chevron="getPageTrace(part).fileId || getPageTrace(part).error ? 'leading' : undefined"
       >
-        <img
+        <FileImage
           v-if="getPageTrace(part).fileId"
-          :src="`/api/files/${getPageTrace(part).fileId}`"
+          :file-id="getPageTrace(part).fileId!"
           :alt="getPageTrace(part).title || getPageTrace(part).source"
           class="w-full max-w-xl rounded-lg border border-default"
-          loading="lazy"
-        >
+        />
         <p
           v-else-if="getPageTrace(part).error"
           class="text-sm text-muted"
@@ -298,6 +296,32 @@ function isToolPart(part: any): boolean {
         :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
         :streaming="isToolStreaming(part)"
         icon="i-lucide-type"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
+        v-else-if="getToolName(part) === 'find_photos'"
+        :text="isToolStreaming(part) ? 'Looking for photos...' : getLookupTrace(part).failed ? 'Could not search photos' : 'Found photos'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-image"
         :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
       >
         <ul

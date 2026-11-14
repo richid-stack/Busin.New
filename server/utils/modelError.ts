@@ -6,6 +6,12 @@ const TOO_BIG = /\b413\b|request too large|reduce your message size|context leng
 const DAILY = /per ?day|daily|PerDay|requests per day|limit: \d+, model/i
 const LIMIT = /quota|RESOURCE_EXHAUSTED|\b429\b|rate[ -]?limit|\bI?O?TPM\b/i
 
+/** True when another model could do the job: this one is out of allowance, rate limited, busy, or cannot take the size. */
+export function isModelOutOfRoom(error: unknown): boolean {
+  const message = error instanceof Error ? `${error.message} ${String((error as { statusCode?: number }).statusCode ?? '')}` : String(error)
+  return TOO_BIG.test(message) || BUSY.test(message) || LIMIT.test(message)
+}
+
 export function modelErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   if (TOO_BIG.test(message)) {

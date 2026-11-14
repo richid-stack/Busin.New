@@ -1,5 +1,6 @@
 import { getFirebaseAuth, getFirebaseDb } from '../../utils/firebaseAdmin'
-import { needsYouEmail, renewalReminderEmail, sendEmail, taskFinishedEmail, workflowFailedEmail } from '../email/email'
+import { sendPushToUser } from '../push/push'
+import { approvalWaitingEmail, needsYouEmail, renewalReminderEmail, sendEmail, taskFinishedEmail, workflowFailedEmail } from '../email/email'
 import type { EmailMessage } from '../email/email'
 
 const SETTINGS = 'user_settings'
@@ -15,6 +16,8 @@ export interface NotifyDeps {
   /** Email and name of a person, if they have any. */
   contact: (userId: string) => Promise<{ email?: string, name?: string } | null>
   appUrl?: string
+  /** Sends an alert to the person's devices. Returns how many arrived. */
+  push?: (userId: string, alert: { title: string, body: string, url: string, tag?: string }) => Promise<number>
 }
 
 export const defaultNotifyDeps = (): NotifyDeps => ({
@@ -25,7 +28,8 @@ export const defaultNotifyDeps = (): NotifyDeps => ({
     const u = await getFirebaseAuth().getUser(userId).catch(() => null)
     return u ? { email: u.email || undefined, name: u.displayName || undefined } : null
   },
-  appUrl: process.env.APP_URL
+  appUrl: process.env.APP_URL,
+  push: (userId, alert) => sendPushToUser({ db: getFirebaseDb() }, userId, alert)
 })
 
 export async function getNotificationSettings(db: any, userId: string): Promise<NotificationSettings> {
@@ -127,42 +131,74 @@ export async function notifyTaskFinished(deps: NotifyDeps, task: FinishedTask): 
   if (task.status === 'cancelled') return false
   const took = task.startedAt && task.finishedAt ? new Date(task.finishedAt).getTime() - new Date(task.startedAt).getTime() : 0
   if (took < TASK_EMAIL_MIN_MS) return false
-  const settings = await getNotificationSettings(deps.db, task.userId)
-  if (!settings.emailTaskResults) return false
 
   const key = `task-finished__${task.id}`
   const logRef = deps.db.collection(LOG).doc(key)
   if ((await logRef.get()).exists) return false
-  const who = await deps.contact(task.userId)
-  if (!who?.email) return false
+  // Devices with alerts on hear about it first; the email follows only for people who kept those emails on.
+  const pushed = deps.push ? await deps.push(task.userId, { title: task.status === 'done' ? 'Your task is done' : 'Your task stopped', body: (task.outcome || task.goal).slice(0, 160), url: `/tasks/${encodeURIComponent(task.id)}`, tag: key }).catch(() => 0) : 0
+  const settings = await getNotificationSettings(deps.db, task.userId)
+  const who = settings.emailTaskResults ? await deps.contact(task.userId) : null
+  if (!who?.email) {
+    if (pushed) await logRef.set({ userId: task.userId, kind: 'task-finished', channel: 'push', createdAt: deps.now().toISOString() })
+    return pushed > 0
+  }
   const result = await deps.send({
     ...taskFinishedEmail({ name: who.name, goal: task.goal, outcome: task.outcome, status: task.status, appUrl: deps.appUrl, taskId: task.id }),
     to: who.email,
     idempotencyKey: key
   }).catch(() => ({ sent: false }))
-  if (!result.sent) return false
+  if (!result.sent && !pushed) return false
   await logRef.set({ userId: task.userId, kind: 'task-finished', createdAt: deps.now().toISOString() })
   return true
 }
 
 /** One email per wait when the assistant's browser is waiting for the person and they have not looked at it, unless they switched these off. */
 export async function notifyNeedsYou(deps: NotifyDeps, hold: { key: string, userId: string, kind: 'chat' | 'task', ref: string, label: string, createdAt: string, expiresAt: string }): Promise<boolean> {
-  const settings = await getNotificationSettings(deps.db, hold.userId)
-  if (!settings.emailNeedsYou) return false
-  // At most one email per page per ten minutes, even if the assistant keeps coming back to the same sign-in page.
+  // At most one alert per page per ten minutes, even if the assistant keeps coming back to the same sign-in page.
   const bucket = Math.floor(deps.now().getTime() / 600_000)
   const key = `needs-you__${hold.key.replace(/[^A-Za-z0-9_-]/g, '_')}__${bucket}`.slice(0, 200)
   const logRef = deps.db.collection(LOG).doc(key)
   if ((await logRef.get()).exists) return false
-  const who = await deps.contact(hold.userId)
-  if (!who?.email) return false
+  // A device with alerts on is told first, whatever the email settings say: that is the point of turning them on.
+  const pushed = deps.push ? await deps.push(hold.userId, { title: 'Your assistant needs you', body: hold.label, url: `/${hold.kind === 'task' ? 'tasks' : 'chat'}/${encodeURIComponent(hold.ref)}`, tag: key }).catch(() => 0) : 0
+  const settings = await getNotificationSettings(deps.db, hold.userId)
+  const who = settings.emailNeedsYou ? await deps.contact(hold.userId) : null
+  if (!who?.email) {
+    if (pushed) await logRef.set({ userId: hold.userId, kind: 'needs-you', channel: 'push', createdAt: deps.now().toISOString() })
+    return pushed > 0
+  }
   const minutesLeft = Math.max(1, Math.round((new Date(hold.expiresAt).getTime() - deps.now().getTime()) / 60_000))
   const result = await deps.send({
     ...needsYouEmail({ name: who.name, what: hold.label, kind: hold.kind, minutesLeft, appUrl: deps.appUrl, ref: hold.ref }),
     to: who.email,
     idempotencyKey: key
   }).catch(() => ({ sent: false }))
-  if (!result.sent) return false
+  if (!result.sent && !pushed) return false
   await logRef.set({ userId: hold.userId, kind: 'needs-you', createdAt: deps.now().toISOString() })
+  return true
+}
+
+export interface WaitingApproval { userId: string, workflowId: string, workflowName: string, runId: string, prompt?: string, chatId?: string }
+
+/**
+ * A workflow that paused for the owner's OK while nobody was watching (a schedule or a webhook started it). Devices with
+ * alerts on are told, and the email goes to people who kept "needs me" emails on. One alert per paused run.
+ */
+export async function notifyApprovalWaiting(deps: NotifyDeps, w: WaitingApproval): Promise<boolean> {
+  const key = `approval__${w.runId}`.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 200)
+  const logRef = deps.db.collection(LOG).doc(key)
+  if ((await logRef.get()).exists) return false
+  const url = w.chatId ? `/chat/${encodeURIComponent(w.chatId)}` : `/workflows/${encodeURIComponent(w.workflowId)}`
+  const pushed = deps.push ? await deps.push(w.userId, { title: 'Waiting for your OK', body: `${w.workflowName}${w.prompt ? `: ${w.prompt}` : ''}`, url, tag: key }).catch(() => 0) : 0
+  const settings = await getNotificationSettings(deps.db, w.userId)
+  const who = settings.emailNeedsYou ? await deps.contact(w.userId) : null
+  let emailed = false
+  if (who?.email) {
+    const result = await deps.send({ ...approvalWaitingEmail({ name: who.name, workflowName: w.workflowName, prompt: w.prompt, appUrl: deps.appUrl, chatId: w.chatId }), to: who.email, idempotencyKey: key }).catch(() => ({ sent: false }))
+    emailed = result.sent
+  }
+  if (!pushed && !emailed) return false
+  await logRef.set({ userId: w.userId, kind: 'approval-waiting', createdAt: deps.now().toISOString() })
   return true
 }
