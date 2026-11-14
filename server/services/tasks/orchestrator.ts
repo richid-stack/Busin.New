@@ -8,7 +8,7 @@ import type { ToolNote, VerifyContext } from './verify'
 import type { TaskToolContext } from './tools'
 import { BROWSER_LIMITS } from '../browser/model'
 import { finalStatus } from './status'
-import { isModelOutOfRoom, modelErrorMessage } from '../../utils/modelError'
+import { isModelOutOfRoom } from '../../utils/modelError'
 import { parseMyModelId } from '../../../shared/modelProviders'
 import { MODELS } from '../../../shared/utils/models'
 
@@ -110,7 +110,7 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
   } catch (err) {
     return await fail((err as Error)?.message || 'The chosen model is not available.')
   }
-  if (!chosen) return await fail('No AI model is configured on this server.')
+  if (!chosen) return await fail('No AI model is configured on this server. Connect your own on the Models page, or add a model key in the environment settings.')
 
   // Models that ran out of room during this run; the next attempt uses another.
   const skipped: string[] = []
@@ -217,7 +217,7 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
             }
           }
           await store.addEvent(task.id, 'error', 'The AI model stopped with an error. It will be tried again if attempts remain.')
-          if (attempt >= task.maxAttempts) return await settle(isModelOutOfRoom(err) ? `The AI model kept failing. ${modelErrorMessage(err)}` : 'The AI model kept failing. Try again in a moment.')
+          if (attempt >= task.maxAttempts) return await settle(isModelOutOfRoom(err) ? 'The AI model kept failing: every model set up here is out of room right now. Start the task again in a few minutes, or tomorrow if the daily allowance is used up. A model you connect on the Models page uses your own allowance.' : 'The AI model kept failing. Start the task again in a moment.')
           continue
         }
       }
@@ -233,7 +233,7 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
         if (!(await store.stillMine(task.id, lease))) return (await store.get(task.userId, task.id)) ?? task
         // Out of time while checking: what was not checked is said so, never counted as met.
         if (stopper.signal.aborted) return (await store.get(task.userId, task.id)) ?? task
-        return await settle('It ran out of time while checking the result.', err)
+        return await settle('It ran out of time while checking the result. Start the task again with a longer time limit, or ask for a smaller job.', err)
       }
       task = await store.update(task.id, lease, { criteria: checked })
       for (const c of checked) await store.addEvent(task.id, 'verify', `${c.status === 'met' ? 'Met' : c.status === 'unmet' ? 'Not met' : c.status === 'pending' ? 'Waiting for you' : 'Unsure'}: ${c.text}`, { criterion: c.id })
@@ -272,7 +272,7 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
   } catch (err: any) {
     if (err instanceof TaskError) return (await store.get(task.userId, task.id)) ?? task
     console.error('[task] failed:', err?.message)
-    return await fail('Something went wrong while running this task.')
+    return await fail('Something went wrong while running this task. Start it again; if it stops again, try a smaller job.')
   } finally {
     clearInterval(poll)
   }

@@ -2,7 +2,7 @@ import { generateText, isStepCount } from 'ai'
 import type { FirestoreWorkflow } from './firebase'
 import { executeIntegratedAction } from '../services/integrations/registry'
 import { getLanguageModel, nextAvailableModel, pickAvailableModel } from './models'
-import { isModelOutOfRoom, modelErrorMessage } from './modelError'
+import { isModelOutOfRoom } from './modelError'
 import { runSandboxedCode } from './sandbox'
 import { LOOP_LIMITS, NodeConfigError, loopCap, loopItems, mapWithConcurrency, runHttpNode, runSetNode, runWebFetchNode, spendOutbound } from './workflowNodes'
 import type { HttpConfig, NodeDeps, SetField, WebFetchConfig } from './workflowNodes'
@@ -218,7 +218,7 @@ async function runAgent(data: { model?: string, prompt?: string }, inputs: Recor
       if (!isModelOutOfRoom(err) || (err as any)?.toolsStarted) throw err
       skipped.push(modelId)
       const next = nextAvailableModel(data.model, skipped)
-      if (!next) throw new Error(`${modelErrorMessage(err)} Every model that is set up here is out of room.`)
+      if (!next) throw new Error('Every model set up here is out of room right now. Run the workflow again in a few minutes, or tomorrow if the daily allowance is used up. A model you connect on the Models page uses your own allowance.')
       modelId = next
     }
   }
