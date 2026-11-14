@@ -73,7 +73,7 @@ async function turn(token, model, text) {
     if (ev.type === 'tool-input-available') byCall.set(ev.toolCallId, { name: ev.toolName, input: ev.input })
     if (ev.type === 'tool-output-available') out.tools.push({ ...(byCall.get(ev.toolCallId) || {}), output: ev.output })
   }
-  return { ...out, chatId: chat.id }
+  return { ...out, started: byCall.size > 0, chatId: chat.id }
 }
 
 
@@ -88,6 +88,8 @@ async function ask(token, text, label) {
       if (gone.has(m)) continue
       const r = await turn(token, m, text)
       if (limited(r)) {
+        // An app action already started: asking again would repeat it (a second file, a second workflow run). Report it as incomplete.
+        if (r.started) { console.log(`  ${label}: ${m} ran out after an app action started; not asking again`); return { ...r, model: m, incomplete: true } }
         const why = (r.errors[0] || `status ${r.status}`).slice(0, 100).replace(/\s+/g, ' ')
         if (daily(r)) { gone.add(m); console.log(`  ${label}: ${m} is out for the day (${why}), dropped`) } else console.log(`  ${label}: ${m} is busy (${why}), next`)
         continue
