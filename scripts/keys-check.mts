@@ -86,6 +86,33 @@ await check('composio: list a user\'s connections', 'COMPOSIO_API_KEY', async ()
   return `${c.length} connections for the test user (a fresh user has none until someone signs in)`
 })
 
+await check('composio: which apps need no sign-in', 'COMPOSIO_API_KEY', async () => {
+  const res = await fetch('https://backend.composio.dev/api/v3/toolkits?limit=1000', { headers: { 'x-api-key': process.env.COMPOSIO_API_KEY!.trim() }, signal: AbortSignal.timeout(30_000) })
+  if (!res.ok) throw new Error(`responded ${res.status}`)
+  const j: any = await res.json()
+  const items: any[] = j.items ?? j
+  const noAuth = items.filter(t => t.no_auth === true || (t.auth_schemes ?? []).includes('NO_AUTH'))
+  console.log('  no-auth toolkits:', noAuth.map(t => `${t.slug}(${t.meta?.tools_count ?? '?'})`).slice(0, 40).join(', '))
+  return `${items.length} toolkits, ${noAuth.length} need no sign-in`
+})
+await check('composio: run one no-sign-in tool for real', 'COMPOSIO_API_KEY', async () => {
+  const client: any = getComposioClient()!
+  const res = await fetch('https://backend.composio.dev/api/v3/toolkits?limit=1000', { headers: { 'x-api-key': process.env.COMPOSIO_API_KEY!.trim() }, signal: AbortSignal.timeout(30_000) })
+  const items: any[] = ((await res.json()) as any).items
+  const noAuth = items.filter(t => t.no_auth === true || (t.auth_schemes ?? []).includes('NO_AUTH')).map(t => t.slug)
+  const tried: string[] = []
+  for (const slug of noAuth.slice(0, 8)) {
+    const tools: any = await client.tools.getRawComposioTools({ toolkits: [slug], limit: 30 } as any)
+    const list: any[] = Array.isArray(tools) ? tools : tools?.items ?? []
+    // A tool that needs no input at all is the safest first try.
+    const easy = list.find(t => !(t.inputParameters?.required?.length) && !/delete|create|update|send|post|write/i.test(t.slug))
+    if (!easy) { tried.push(`${slug}: no tool without required input`); continue }
+    const out: any = await client.tools.execute(easy.slug, { userId: 'keycheck-user', arguments: {}, dangerouslySkipVersionCheck: true } as any)
+    return `ran ${easy.slug}: ${out?.successful ? 'successful' : 'failed'}; ${JSON.stringify(out?.data ?? out?.error).slice(0, 140)}`
+  }
+  throw new Error(`no usable tool (${tried.join('; ')})`)
+})
+
 console.log('\n=== Real key check ===')
 for (const r of rows) console.log(`${r.status === 'ok' ? 'OK     ' : r.status === 'fail' ? 'FAILED ' : 'NO KEY '} ${r.name} — ${r.detail}`)
 const failed = rows.filter(r => r.status === 'fail').length
