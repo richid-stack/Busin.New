@@ -86,14 +86,14 @@ const limitText = /free allowance|rate limit|busy right now|went wrong|try again
 const pageText = () => page.evaluate(() => document.body.innerText)
 
 /** Runs one scenario in a fresh chat with a model that has room. Tries again with the next model if the answer is only a limit message. */
-async function scenario(name, prompt, after) {
+async function scenario(name, prompt, after, startUrl = BASE) {
   if (!ONLY.includes(name)) return
   for (let attempt = 0; attempt < 3; attempt++) {
     const m = await pickModel()
     if (!m) { check(false, `[${name}] a model had room`); return }
     note(`[${name}] using ${m}`)
     await page.evaluate(model => { try { localStorage.setItem('model', model) } catch {} }, m)
-    await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+    await page.goto(startUrl, { waitUntil: 'domcontentloaded' })
     await sleep(3500)
     await send(prompt)
     await waitForAnswer()
@@ -190,6 +190,36 @@ try {
       await shot('agent-5-list')
     } catch (e) { check(false, `[agent] save: ${redact(e.message).slice(0, 160)}`) }
   })
+
+  await scenario('hackernews', 'Use my connected apps to get the current top three stories on Hacker News and tell me their titles and links. This is a read only lookup.', async (text) => {
+    note(`hackernews answer tail: ${redact(text.slice(-700))}`)
+    check(/hacker ?news|ycombinator|news\.ycombinator/i.test(text), '[hackernews] the trace or answer names Hacker News')
+    check(!/connect .*(hacker|app)|sign in to|authorize/i.test(text.slice(-900)), '[hackernews] it did not ask for a sign-in')
+  })
+
+  await scenario('bigbuild', 'Build me a website for a bakery in Accra as a project with these files: index.html, menu.html, about.html, contact.html, styles.css, main.js, menu.js, cart.js, data/menu.json and README.md. The menu page reads data/menu.json and the cart is kept in the browser. Write every file now, then tell me in one sentence what you made.', async (text) => {
+    const made = (text.match(/Created/g) || []).length
+    check(made >= 9, `[bigbuild] about ten files created (${made})`)
+    try {
+      await page.getByRole('tab', { name: 'Preview' }).click({ timeout: 8000 }); await sleep(2500)
+      await shot('bigbuild-3-preview')
+      check(await page.frameLocator('iframe[title^="Preview of"]').locator('body *').count() > 3, '[bigbuild] the preview shows a page')
+    } catch (e) { check(false, `[bigbuild] preview: ${redact(e.message).slice(0, 140)}`) }
+  })
+
+  if (ONLY.includes('agentchat')) {
+    const mk = await api('/api/agents', { method: 'POST', body: JSON.stringify({ name: 'Polite reminders', description: 'Payment reminders for late clients', instructions: 'You write polite payment reminder messages to late-paying clients in Ghana. Always start the message with the words "Payment reminder:" and end it with the line "Thank you, Mensah Labs." Keep it under 90 words.', tools: [] }) })
+    const made = await mk.json().catch(() => ({}))
+    const agentId = made.id || made.agent?.id
+    check(!!agentId, '[agentchat] the agent was saved')
+    if (agentId) {
+      await scenario('agentchat', 'Client Kofi Asante owes GHS 1,200 for a logo design. It is 14 days late. Write the message.', async (text) => {
+        check(/Payment reminder:/.test(text), '[agentchat] the reply starts the way the agent was told to')
+        check(/Thank you, Mensah Labs\./.test(text), '[agentchat] the reply ends the way the agent was told to')
+        check(await page.getByText('Polite reminders').count() > 0, '[agentchat] the chat shows which agent is answering')
+      }, `${BASE}/?agent=${agentId}`)
+    }
+  }
 
   if (problems.length) process.exitCode = 1
 } catch (err) {
