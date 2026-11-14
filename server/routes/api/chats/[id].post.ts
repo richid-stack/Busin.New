@@ -70,7 +70,7 @@ import { DEFAULT_MODEL, availableModels, getLanguageModel, nextAvailableModel, p
 import { withModelFallback } from '../../../utils/modelFallback'
 import { enforceRateLimit, rateLimitSubject } from '../../../utils/rateLimit'
 import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../utils/limits'
-import { focusTools, toolsUsedIn } from '../../../services/models/focus'
+import { focusTools, leanParamsFor, toolsUsedIn } from '../../../services/models/focus'
 import { modelErrorMessage } from '../../../utils/modelError'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
@@ -266,6 +266,8 @@ export default defineHandler(async (event) => {
       modelId,
       next: skip => nextAvailableModel(modelId, skip),
       make: getLanguageModel,
+      // A model with a small allowance gets only the tools the message is about, plus any already used in this reply.
+      adapt: (id, params) => leanParamsFor(id, params, Object.keys(setup.tools), userText, toolsUsedIn(messages)),
       onSwitch: (from, to) => {
         console.info(`[chat] ${from} is out of room, continuing on ${to}`)
         announce?.(from, to)

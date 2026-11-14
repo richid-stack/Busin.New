@@ -11,6 +11,8 @@ export interface FallbackOptions {
   next: (skip: string[]) => string | null
   /** Builds the model for an id. */
   make: (id: string) => LanguageModel
+  /** Changes the call for the model it is moving to, for example to describe fewer tools to a model with a small allowance. */
+  adapt?: (modelId: string, params: any) => any
   /** Told when the work moves to another model. */
   onSwitch?: (from: string, to: string, error: unknown) => void
 }
@@ -44,7 +46,8 @@ export function withModelFallback(model: LanguageModel, opts: FallbackOptions): 
             opts.onSwitch?.(from, to, err)
             from = to
             const fallback = asModel(opts.make(to))
-            run = () => fallback.doStream(params)
+            const adapted = opts.adapt ? opts.adapt(to, params) : params
+            run = () => fallback.doStream(adapted)
           }
         }
       }

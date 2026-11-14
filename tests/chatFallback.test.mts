@@ -108,3 +108,28 @@ const run = async (model: any, tools: any = {}) => {
   const out = await run(model)
   assert(!bCalled && out.text.startsWith('half'), 'a reply that has started is never replayed on another model')
 }
+
+// 8. A model with a small allowance gets only the tools the message is about; a big one gets the call unchanged.
+{
+  const { leanParamsFor } = await import('../server/services/models/focus')
+  const names = ['calculator', 'weather', 'web_search', 'web_fetch', 'create_document', 'create_spreadsheet', 'write_file', 'workflow_create', 'integration_execute', 'find_photos']
+  const params = { prompt: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }], tools: names.map(name => ({ type: 'function', name })) }
+  const lean = leanParamsFor('groq/gpt-oss-120b', params, names, 'write me a proposal as a word document', [])
+  const got = lean.tools.map((t: any) => t.name)
+  assert(got.includes('create_document') && got.includes('web_search') && !got.includes('workflow_create') && !got.includes('write_file'), 'a small-allowance model gets the tools the message is about and not the rest')
+  assert(leanParamsFor('google/gemini-3.5-flash', params, names, 'write me a proposal', []).tools.length === names.length, 'a model with room gets every tool')
+  const mid = { ...params, prompt: [...params.prompt, { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'a', toolName: 'workflow_create', input: {} }] }, { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'a', toolName: 'workflow_create', output: { type: 'json', value: {} } }] }] }
+  assert(leanParamsFor('groq/gpt-oss-120b', mid, names, 'write me a proposal', []).tools.some((t: any) => t.name === 'workflow_create'), 'a tool already used in this reply stays described')
+
+  // End to end: the fallback model is really called with the smaller list.
+  let seenTools: string[] = []
+  const a = new MockLanguageModelV4({ doStream: async () => { throw quota() } })
+  const b = new MockLanguageModelV4({ doStream: async (o: any) => { seenTools = (o.tools ?? []).map((t: any) => t.name); return stream(textParts('ok')) } })
+  const models: any = { 'google/gemini-3.5-flash': a, 'groq/gpt-oss-120b': b }
+  const order = ['google/gemini-3.5-flash', 'groq/gpt-oss-120b']
+  const model = withModelFallback(a as any, { modelId: order[0]!, next: skip => order.find(id => !skip.includes(id)) ?? null, make: id => models[id], adapt: (id, p) => leanParamsFor(id, p, ['calculator', 'weather', 'web_search', 'web_fetch', 'workflow_create', 'create_document'], 'what is 12 percent of 80', []) })
+  const mk = (name: string) => tool({ description: name, inputSchema: z.object({}), execute: async () => ({}) })
+  const tools = { calculator: mk('c'), weather: mk('w'), web_search: mk('s'), web_fetch: mk('f'), workflow_create: mk('wf'), create_document: mk('d') }
+  const out = await run(model, tools)
+  assert(out.text === 'ok' && seenTools.includes('calculator') && !seenTools.includes('workflow_create') && !seenTools.includes('create_document'), 'the fallback model is called with the smaller tool list')
+}

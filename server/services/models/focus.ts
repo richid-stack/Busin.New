@@ -1,3 +1,5 @@
+import { providerOf } from '../../utils/models'
+
 // Some free model plans only take a few thousand tokens a minute (Groq's free plan: about 7,000). A full chat
 // here sends 15,000 to 20,000 once every tool is described, so those models would refuse every message.
 // For them we describe only the tools the message is about. Everything else stays one sentence away:
@@ -47,4 +49,13 @@ export function toolsUsedIn(messages: ReadonlyArray<{ parts?: ReadonlyArray<{ ty
   const names = new Set<string>()
   for (const m of messages) for (const part of m.parts ?? []) if (typeof part.type === 'string' && part.type.startsWith('tool-')) names.add(part.type.slice(5))
   return [...names]
+}
+
+/** The call as a small-allowance model should get it: fewer tools described. Other models get the call unchanged. */
+export function leanParamsFor(modelId: string, params: any, toolNames: string[], text: string, usedBefore: string[]) {
+  const provider = providerOf(modelId)
+  if (!provider || !Array.isArray(params?.tools) || !(SMALL_WINDOW_PROVIDERS as readonly string[]).includes(provider)) return params
+  const usedNow = (params.prompt ?? []).flatMap((m: any) => Array.isArray(m.content) ? m.content : []).filter((c: any) => c?.type === 'tool-call' || c?.type === 'tool-result').map((c: any) => c.toolName)
+  const keep = new Set(Object.keys(focusTools(Object.fromEntries(toolNames.map(n => [n, true])), { provider, text, used: [...usedBefore, ...usedNow] })))
+  return { ...params, tools: params.tools.filter((t: any) => keep.has(t.name)) }
 }
