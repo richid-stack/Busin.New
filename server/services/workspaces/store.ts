@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
-import { MAX_FILES, MAX_TOTAL_CHARS, MAX_WORKSPACES, WorkspaceError, fileInputSchema, fitText, workspaceInputSchema, workspacePatchSchema } from './profile'
+import { MAX_FILES, MAX_FILE_CHARS, MAX_TOTAL_CHARS, MAX_WORKSPACES, WorkspaceError, fileInputSchema, fitText, workspaceInputSchema, workspacePatchSchema } from './profile'
 import type { FileSource, Workspace, WorkspaceFile, WorkspaceFileInfo, WorkspaceInput, WorkspacePatch } from './profile'
 
 export const WORKSPACES = 'workspaces'
@@ -40,6 +40,15 @@ function fileFromDoc(id: string, data: Record<string, any>): WorkspaceFile {
 }
 
 export const toInfo = (f: WorkspaceFile): WorkspaceFileInfo => ({ id: f.id, workspaceId: f.workspaceId, name: f.name, source: f.source, ...(f.from ? { from: f.from } : {}), chars: f.chars, cut: f.cut, createdAt: f.createdAt })
+
+const oneLineName = (name: string) => name.replace(/\s+/g, ' ').trim()
+
+/** The rules for adding one more file, in plain words. */
+function room(existing: WorkspaceFile[], name: string, chars: number): void {
+  if (existing.length >= MAX_FILES) throw new WorkspaceError(`A workspace holds up to ${MAX_FILES} files. Remove one to add another.`, 409)
+  if (existing.some(f => f.name.toLowerCase() === name.toLowerCase())) throw new WorkspaceError('A file with that name is already here.', 409)
+  if (existing.reduce((n, f) => n + f.chars, 0) + chars > MAX_TOTAL_CHARS) throw new WorkspaceError('This workspace is out of space. Remove a file to make room.', 409)
+}
 
 export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => new Date()) {
   const ws = () => db.collection(WORKSPACES)
@@ -117,16 +126,19 @@ export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => ne
       return { files: files.map(toInfo), usedChars: files.reduce((n, f) => n + f.chars, 0), limitChars: MAX_TOTAL_CHARS, maxFiles: MAX_FILES }
     },
 
+    /** Says whether a file of this size can be added, with the same plain errors addFile gives. Used before anything else is changed. */
+    async assertRoom(userId: string, workspaceId: string, name: string, chars: number): Promise<void> {
+      await owned(userId, workspaceId)
+      room(await filesOf(userId, workspaceId), oneLineName(name), Math.min(chars, MAX_FILE_CHARS))
+    },
+
     async addFile(userId: string, workspaceId: string, raw: { name: string, text: string }, source: FileSource, from?: string): Promise<WorkspaceFileInfo> {
       await assertNotDeleting(userId, db)
       await owned(userId, workspaceId)
       const input = fileInputSchema.parse(raw)
       const existing = await filesOf(userId, workspaceId)
-      if (existing.length >= MAX_FILES) throw new WorkspaceError(`A workspace holds up to ${MAX_FILES} files. Remove one to add another.`, 409)
-      if (existing.some(f => f.name.toLowerCase() === input.name.toLowerCase())) throw new WorkspaceError('A file with that name is already here.', 409)
       const { text, cut } = fitText(input.text)
-      const used = existing.reduce((n, f) => n + f.chars, 0)
-      if (used + text.length > MAX_TOTAL_CHARS) throw new WorkspaceError('This workspace is out of space. Remove a file to make room.', 409)
+      room(existing, input.name, text.length)
       const id = randomUUID()
       const doc = { userId, workspaceId, name: input.name, source, ...(from ? { from } : {}), text, chars: text.length, cut, createdAt: now().toISOString() }
       await wf().doc(id).set(doc)

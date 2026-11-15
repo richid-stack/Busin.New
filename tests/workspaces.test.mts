@@ -4,6 +4,7 @@ import { createWorkspaceStore } from '../server/services/workspaces/store'
 import { createReadWorkspaceFileTool } from '../server/utils/tools/readWorkspaceFile'
 import { filterTools } from '../server/services/agents/profile'
 import { focusTools } from '../server/services/models/focus'
+import { importRepo, parseRepo } from '../server/services/workspaces/github'
 import { readFileSync } from 'node:fs'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
@@ -94,3 +95,30 @@ assert('read_workspace_file' in focusTools(all, { provider: 'groq', text: 'hello
 // ---- Account deletion covers them ----
 const account = readFileSync(new URL('../server/services/account/account.ts', import.meta.url), 'utf8')
 assert(/'workspaces', 'workspace_files'/.test(account), 'deleting an account deletes workspaces and their files')
+
+// ---- GitHub ----
+assert(JSON.stringify(parseRepo('https://github.com/vuejs/core/tree/main/docs')) === '{"owner":"vuejs","name":"core"}' && parseRepo('github.com/a/b.git').name === 'b' && parseRepo('a/b').owner === 'a', 'GitHub addresses are understood in every common form')
+assert((() => { try { parseRepo('https://example.com/a/b'); return false } catch { return true } })() && (() => { try { parseRepo('just words'); return false } catch { return true } })(), 'anything else is refused')
+const calls: string[] = []
+const fake: any = async (url: string) => {
+  calls.push(url)
+  const json = (o: unknown, status = 200) => ({ status, body: Buffer.from(JSON.stringify(o)) })
+  if (url.endsWith('/repos/o/r')) return json({ full_name: 'o/r', description: 'A tool', language: 'TypeScript' })
+  if (url.endsWith('/repos/o/r/contents')) return json([{ name: 'src', type: 'dir' }, { name: 'README.md', type: 'file' }])
+  if (url.endsWith('/repos/o/r/readme')) return json({ content: Buffer.from('# Hello\nUse it.').toString('base64') })
+  return json({}, 404)
+}
+const repo = await importRepo('https://github.com/o/r', fake, {})
+assert(repo.name === 'o-r.md' && repo.from === 'o/r' && repo.text.includes('About: A tool') && repo.text.includes('- src/') && repo.text.includes('# Hello'), 'a public repository becomes one text file')
+assert(calls.every(u => u.startsWith('https://api.github.com/repos/o/r')), 'only the GitHub API is called')
+let priv = ''
+try { await importRepo('o/secret', async () => ({ status: 404, body: Buffer.from('{}') }) as any, {}) } catch (e: any) { priv = e.message }
+assert(/not found/i.test(priv) && /public/i.test(priv), 'a private repository says so in plain words')
+
+// ---- Room check ----
+const s4 = createWorkspaceStore(createFakeFirestore() as any)
+const w4 = await s4.create('u1', { name: 'R' })
+await s4.addFile('u1', w4.id, { name: 'a README.md', text: 'x' }, 'reef', 'o/a')
+assert(await fails(s4.assertRoom('u1', w4.id, 'A  README.md', 5), 409) && await fails(s4.assertRoom('u2', w4.id, 'z.md', 5), 404), 'the room check refuses a duplicate name and a stranger')
+await s4.assertRoom('u1', w4.id, 'z.md', 5)
+assert((await s4.listFiles('u1', w4.id)).files[0]!.from === 'o/a', 'where a file came from is kept')
