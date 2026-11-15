@@ -6,6 +6,7 @@ import { $fetch } from 'ofetch'
 interface ChatData {
   id: string
   title?: string | null
+  workspaceId?: string | null
   createdAt: string | number | Date
 }
 
@@ -14,6 +15,7 @@ interface Chat {
   label: string
   to: string
   icon: string
+  workspaceId?: string
   createdAt: string
 }
 
@@ -26,6 +28,7 @@ export const useChats = createSharedComposable(() => {
       label: chat.title || 'Untitled',
       to: `/chat/${chat.id}`,
       icon: 'i-lucide-message-circle',
+      ...(chat.workspaceId ? { workspaceId: chat.workspaceId } : {}),
       createdAt: String(chat.createdAt)
     }) as Chat)).catch(error => {
       console.error(error)
@@ -52,7 +55,8 @@ export const useChats = createSharedComposable(() => {
     const oneWeekAgo = subDays(new Date(), 7)
     const oneMonthAgo = subMonths(new Date(), 1)
 
-    const newestFirst = [...(chats.value ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    // A chat inside a workspace lives on that workspace's page, so it does not crowd the history here.
+    const newestFirst = [...(chats.value ?? []).filter(c => !c.workspaceId)].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
     newestFirst.forEach((chat) => {
       const chatDate = new Date(chat.createdAt)
@@ -141,8 +145,12 @@ export const useChats = createSharedComposable(() => {
     return formattedGroups
   })
 
+  /** Chats that belong to a workspace; still found by search. */
+  const workspaceChats = computed(() => (chats.value ?? []).filter(c => c.workspaceId))
+
   return {
     groups,
+    workspaceChats,
     chats,
     fetchChats,
     updateChat,

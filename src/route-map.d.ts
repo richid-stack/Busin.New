@@ -227,6 +227,20 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false> },
       | never
     >,
+    '/workspaces/': RouteRecordInfo<
+      '/workspaces/',
+      '/workspaces',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/workspaces/[id]': RouteRecordInfo<
+      '/workspaces/[id]',
+      '/workspaces/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
   }
 
   /**
@@ -459,6 +473,22 @@ declare module 'vue-router/auto-routes' {
     'src/pages/workflows/[id].vue': {
       routes:
         | '/workflows/[id]'
+      views:
+        | never
+      pathParamNames:
+        | 'id'
+    }
+    'src/pages/workspaces/index.vue': {
+      routes:
+        | '/workspaces/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/workspaces/[id].vue': {
+      routes:
+        | '/workspaces/[id]'
       views:
         | never
       pathParamNames:
