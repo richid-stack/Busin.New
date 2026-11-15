@@ -148,6 +148,8 @@ try {
       await page.getByPlaceholder('Name the workspace').fill('Chiddymens Music')
       await page.getByRole('button', { name: 'Create workspace' }).click(); await sleep(4500)
       check(/\/workspaces\/[^/]+$/.test(page.url()), '[workspaces] creating one opens its page')
+      // The first visit to a new page can make the dev server re-bundle a library (a "504 Outdated Optimize Dep"); a reload picks it up.
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000)
       await shot('ws-2-empty-workspace')
       await page.goto(`${BASE}/workspaces`, { waitUntil: 'domcontentloaded' }); await sleep(3500)
       await page.getByRole('button', { name: /new workspace/i }).first().click(); await sleep(1000)
@@ -156,6 +158,7 @@ try {
       await page.getByPlaceholder('Name the workspace').click(); await sleep(400)
       await shot('ws-3-new-dialog')
       await page.getByRole('button', { name: 'Create workspace' }).click(); await sleep(4500)
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000)
       const list = await (await api('/api/workspaces')).json()
       const bakery = list.workspaces.find(w => w.name === 'Kofi Bakery')
       check(!!bakery, '[workspaces] the workspace is saved')
