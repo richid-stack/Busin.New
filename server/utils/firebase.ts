@@ -18,6 +18,8 @@ export interface FirestoreChat {
   visibility: 'public' | 'private'
   /** The saved agent this chat talks to, if the user picked one. */
   agentId?: string
+  /** The workspace this chat belongs to, if it was started in one. */
+  workspaceId?: string
   createdAt: Date
   updatedAt?: Date
 }
@@ -96,6 +98,7 @@ export async function getUserChats(userId: string): Promise<FirestoreChat[]> {
       title: data.title || '',
       userId: data.userId || userId,
       visibility: data.visibility || 'private',
+      ...(data.workspaceId ? { workspaceId: String(data.workspaceId) } : {}),
       createdAt: toDate(data.createdAt, new Date())!
     })
   })
@@ -140,6 +143,7 @@ export async function getChat(chatId: string): Promise<(FirestoreChat & { messag
     userId: data.userId || '',
     visibility: data.visibility || 'private',
     ...(data.agentId ? { agentId: String(data.agentId) } : {}),
+    ...(data.workspaceId ? { workspaceId: String(data.workspaceId) } : {}),
     createdAt: toDate(data.createdAt, new Date())!,
     messages
   }
@@ -151,6 +155,7 @@ export async function createChat(data: {
   userId: string
   visibility?: 'public' | 'private'
   agentId?: string
+  workspaceId?: string
   initialMessage?: string
   attachments?: Array<{ name?: string; contentType?: string; url: string }>
 }): Promise<FirestoreChat> {
@@ -166,6 +171,7 @@ export async function createChat(data: {
     userId: data.userId,
     visibility: 'private',
     ...(data.agentId ? { agentId: data.agentId } : {}),
+    ...(data.workspaceId ? { workspaceId: data.workspaceId } : {}),
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   })
