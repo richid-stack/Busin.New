@@ -39,11 +39,7 @@ function fileFromDoc(id: string, data: Record<string, any>): WorkspaceFile {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const toInfo = (file: WorkspaceFile): WorkspaceFileInfo => {
-  const { userId: _owner, ...rest } = file
-  return rest
-}
+export const toInfo = (f: WorkspaceFile): WorkspaceFileInfo => ({ id: f.id, workspaceId: f.workspaceId, name: f.name, source: f.source, ...(f.from ? { from: f.from } : {}), chars: f.chars, cut: f.cut, createdAt: f.createdAt })
 
 export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => new Date()) {
   const ws = () => db.collection(WORKSPACES)
