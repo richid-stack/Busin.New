@@ -249,39 +249,52 @@ try {
       note(`task ended: ${t?.status} ${String(t?.outcome || '').slice(0, 160)}`)
       check(t?.status === 'done' || t?.status === 'partial', `[task] it finished (${t?.status})`)
       if (t?.id) { await page.goto(`${BASE}/tasks/${t.id}`, { waitUntil: 'domcontentloaded' }); await sleep(5000); await shot('task-5-finished') }
-      if (t?.id && t.status === 'done') {
+    } catch (e) { check(false, `[task] start: ${redact(e.message).slice(0, 160)}`) }
+  })
+
+
+  // "Use this again" and the alerts row. The task is created straight through the API, so this check does not depend on a model deciding to propose one.
+  if (ONLY.includes('useagain')) {
+    try {
+      const made = await api('/api/tasks', { method: 'POST', body: JSON.stringify({ goal: 'Research the three largest mobile money providers in Ghana and write a one-page summary as a Word document.', criteria: [{ text: 'A Word file exists with one paragraph for each provider', kind: 'file', format: 'docx' }] }) })
+      const created = await made.json()
+      check(made.status < 300 && !!created.id, `[useagain] a task was created (${made.status})`)
+      const t = await poll(async () => (await (await api(`/api/tasks/${created.id}`)).json()).task, x => x && ['done', 'partial', 'failed', 'cancelled', 'needs_review'].includes(x.status), 9 * 60_000)
+      note(`useagain task ended: ${t?.status} ${String(t?.outcome || '').slice(0, 160)}`)
+      await page.goto(`${BASE}/tasks/${created.id}`, { waitUntil: 'domcontentloaded' }); await sleep(5000); await shot('useagain-1-task')
+      if (t?.status === 'done') {
         // "Use this again": run it again, schedule it, keep it as an agent.
-        check(await page.getByText('Use this again').count() > 0, '[task] the "Use this again" box shows on a finished task')
+        check(await page.getByText('Use this again').count() > 0, '[useagain] the "Use this again" box shows on a finished task')
         await shot('task-6-use-again')
         await page.getByRole('button', { name: /save as agent/i }).first().click({ timeout: 6000 }); await sleep(1200)
-        check(await page.locator('[role="group"][aria-label="Save as an agent"]').count() === 1, '[task] the save-as-agent card opens (gradient approval style)')
+        check(await page.locator('[role="group"][aria-label="Save as an agent"]').count() === 1, '[useagain] the save-as-agent card opens (gradient approval style)')
         await shot('task-7-save-as-agent')
         await page.getByRole('button', { name: /^save agent$/i }).first().click({ timeout: 6000 }); await sleep(3500)
         const agents = await (await api('/api/agents')).json()
         const list = Array.isArray(agents) ? agents : agents.agents || []
-        check(list.some(a => String(a.instructions).includes(String(t.goal).slice(0, 30))), `[task] the agent was saved from the task (${list.map(a => a.name).join(', ').slice(0, 120)})`)
+        check(list.some(a => String(a.instructions).includes(String(t.goal).slice(0, 30))), `[useagain] the agent was saved from the task (${list.map(a => a.name).join(', ').slice(0, 120)})`)
         await shot('task-8-agent-saved')
         const before = (await (await api('/api/tasks')).json())
         const beforeIds = new Set((Array.isArray(before) ? before : before.tasks || []).map(x => x.id))
         await page.getByRole('button', { name: /run again/i }).first().click({ timeout: 6000 }); await sleep(5000)
-        check(/\/tasks\/[^/]+$/.test(page.url()) && !page.url().endsWith(t.id), '[task] Run again starts a new task and opens it')
+        check(/\/tasks\/[^/]+$/.test(page.url()) && !page.url().endsWith(t.id), '[useagain] Run again starts a new task and opens it')
         const after = (await (await api('/api/tasks')).json())
         const fresh = (Array.isArray(after) ? after : after.tasks || []).find(x => !beforeIds.has(x.id))
-        check(!!fresh && fresh.goal === t.goal, '[task] the new task has the same goal')
+        check(!!fresh && fresh.goal === t.goal, '[useagain] the new task has the same goal')
         if (fresh) { await api(`/api/tasks/${fresh.id}/cancel`, { method: 'POST' }).catch(() => {}) }
         await page.goto(`${BASE}/tasks/${t.id}`, { waitUntil: 'domcontentloaded' }); await sleep(4000)
         await page.getByRole('button', { name: /^schedule$/i }).first().click({ timeout: 6000 }); await sleep(3500)
         const filled = await page.locator('textarea').first().inputValue().catch(() => '')
-        check(/\/tasks$/.test(page.url()) && filled.startsWith(String(t.goal).slice(0, 20)), `[task] Schedule opens the form with the task filled in (${filled.slice(0, 50)})`)
+        check(/\/tasks$/.test(page.url()) && filled.startsWith(String(t.goal).slice(0, 20)), `[useagain] Schedule opens the form with the task filled in (${filled.slice(0, 50)})`)
         await shot('task-9-schedule-filled')
-      } else if (t?.id) { note('[task] not "done", so the Use this again box is correctly hidden') }
+      } else { check(await page.getByText('Use this again').count() === 0, `[useagain] the box is hidden when the task is ${t?.status}`) }
       // Settings: the alerts row.
       await page.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
       check(await page.getByText('Alerts on this device').count() > 0, '[settings] the "Alerts on this device" row is there')
       await page.getByText('Alerts on this device').first().scrollIntoViewIfNeeded().catch(() => {}); await sleep(600)
       await shot('settings-alerts')
-    } catch (e) { check(false, `[task] start: ${redact(e.message).slice(0, 160)}`) }
-  })
+    } catch (e) { check(false, `[useagain] ${redact(e.message).slice(0, 200)}`) }
+  }
 
   await scenario('agent', 'Suggest an agent I can keep for writing polite payment reminder messages to late-paying clients in Ghana. Keep it simple.', async () => {
     check(await page.getByText('Save agent').count() > 0, '[agent] the proposal card with a Save button is shown')
