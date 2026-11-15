@@ -121,7 +121,7 @@ try {
   const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true, displayName: 'Richie' }) })
   token = (await r.json()).idToken
   if (!token) throw new Error('The sign-in emulator gave no token')
-  for (const u of ['/src/pages/chat/%5Bid%5D.vue', '/src/pages/index.vue', '/src/pages/tasks/%5Bid%5D.vue', '/src/pages/workflows/%5Bid%5D.vue', '/src/pages/agents/index.vue']) { try { await fetch(`${BASE}${u}`) } catch {} }
+  for (const u of ['/src/pages/chat/%5Bid%5D.vue', '/src/pages/index.vue', '/src/pages/tasks/%5Bid%5D.vue', '/src/pages/workflows/%5Bid%5D.vue', '/src/pages/agents/index.vue', '/src/pages/workspaces/index.vue', '/src/pages/workspaces/%5Bid%5D.vue']) { try { await fetch(`${BASE}${u}`) } catch {} }
   browser = await chromium.launch()
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: 'dark', acceptDownloads: true })
   page = await ctx.newPage()
@@ -134,6 +134,73 @@ try {
   await page.getByPlaceholder('••••••••').fill(password)
   await page.getByRole('button', { name: /^sign in$/i }).last().click()
   await sleep(6000)
+
+
+  /** Workspaces: the screens as a person uses them, then a real chat inside one that has to open a file to answer. */
+  const openMenu = async (loc) => { await loc.focus(); await page.keyboard.press('Enter'); await sleep(700) }
+  if (ONLY.includes('workspaces')) {
+    try {
+      await page.goto(`${BASE}/workspaces`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
+      await shot('ws-1-empty-list')
+      // An empty workspace shows the lighthouse.
+      await page.getByRole('button', { name: /new workspace/i }).first().click(); await sleep(1000)
+      await page.getByPlaceholder('Name the workspace').fill('Chiddymens Music')
+      await page.getByRole('button', { name: 'Create workspace' }).click(); await sleep(4500)
+      check(/\/workspaces\/[^/]+$/.test(page.url()), '[workspaces] creating one opens its page')
+      await shot('ws-2-empty-workspace')
+      await page.goto(`${BASE}/workspaces`, { waitUntil: 'domcontentloaded' }); await sleep(3500)
+      await page.getByRole('button', { name: /new workspace/i }).first().click(); await sleep(1000)
+      await page.getByPlaceholder('Name the workspace').fill('Kofi Bakery')
+      await page.getByPlaceholder(/Describe the client/).fill('Warm, short replies. Prices are in GHS. Never promise delivery outside Accra.')
+      await page.getByPlaceholder('Name the workspace').click(); await sleep(400)
+      await shot('ws-3-new-dialog')
+      await page.getByRole('button', { name: 'Create workspace' }).click(); await sleep(4500)
+      const list = await (await api('/api/workspaces')).json()
+      const bakery = list.workspaces.find(w => w.name === 'Kofi Bakery')
+      check(!!bakery, '[workspaces] the workspace is saved')
+      // Typed text as a file.
+      await openMenu(page.getByRole('button', { name: 'Add', exact: true }))
+      await shot('ws-4-add-menu')
+      await page.getByRole('menuitem', { name: 'Add text content' }).click(); await sleep(900)
+      await page.getByPlaceholder('Payment terms').fill('Price list')
+      await page.getByPlaceholder('Paste or type here').fill('Kofi Bakery price list. Sourdough loaf: GHS 38. Butter croissant: GHS 15. Delivery within Accra: GHS 12. We close at 6pm on Sundays.')
+      await shot('ws-5-text-dialog')
+      await page.getByRole('button', { name: 'Add', exact: true }).last().click(); await sleep(3500)
+      // A public GitHub repository.
+      await openMenu(page.getByRole('button', { name: 'Add', exact: true }))
+      await page.getByRole('menuitem', { name: 'GitHub' }).click(); await sleep(900)
+      await page.getByPlaceholder('github.com/owner/name').fill('github.com/octocat/Hello-World')
+      await page.getByRole('button', { name: 'Look' }).click(); await sleep(6000)
+      await page.getByText('README', { exact: false }).first().click().catch(() => {}); await sleep(600)
+      await shot('ws-6-github-picker')
+      await page.getByRole('button', { name: /^Add 1 file/ }).click().catch(() => {}); await sleep(6000)
+      await page.getByRole('button', { name: /pin/i }).first().click().catch(() => {}); await sleep(1500)
+      await shot('ws-7-filled-workspace')
+      const detail = await (await api(`/api/workspaces/${bakery.id}`)).json()
+      check(detail.files.length >= 1 && detail.files.some(f => f.name === 'Price list'), `[workspaces] the typed file is stored (${detail.files.map(f => f.name).join(', ')})`)
+      check(detail.files.some(f => f.source === 'github'), '[workspaces] the GitHub file is stored')
+      // The plus menu on the home page lists workspaces; the sidebar shows the pinned one.
+      await page.goto(BASE, { waitUntil: 'domcontentloaded' }); await sleep(4500)
+      await openMenu(page.locator('#home-attach-btn'))
+      await page.getByRole('menuitem', { name: /^Workspace/ }).focus().catch(() => {}); await page.keyboard.press('ArrowRight'); await sleep(700)
+      await shot('ws-8-plus-menu')
+      await page.keyboard.press('Escape'); await page.keyboard.press('Escape')
+      await page.goto(`${BASE}/workspaces`, { waitUntil: 'domcontentloaded' }); await sleep(4000)
+      await shot('ws-9-list-with-pinned')
+      // A real chat inside it that has to open the file.
+      await scenario('workspaces', 'What does a sourdough loaf cost, and what is the delivery fee? Check the workspace files, then answer in one sentence.', async (text) => {
+        check(/38/.test(text) && /12/.test(text), '[workspaces] the answer has the prices from the file')
+        check(/Read file|Price list/i.test(text), '[workspaces] the trace shows the file being read')
+        check(/Kofi Bakery/.test(text), '[workspaces] the chat header shows its workspace')
+        await openMenu(page.locator('#chat-attach-btn'))
+        await page.getByRole('menuitem', { name: /^Workspace/ }).focus().catch(() => {}); await page.keyboard.press('ArrowRight'); await sleep(700)
+        await shot('ws-10-chat-plus-menu')
+        await page.keyboard.press('Escape'); await page.keyboard.press('Escape')
+        const chats = await (await api('/api/chats')).json()
+        check((Array.isArray(chats) ? chats : chats.chats || []).some(c => c.workspaceId === bakery.id), '[workspaces] the chat is stored inside the workspace')
+      }, `${BASE}/workspaces/${bakery.id}`, t => /GHS|38/.test(t))
+    } catch (e) { check(false, `[workspaces] ${redact(e.message).slice(0, 200)}`) }
+  }
 
   await scenario('photos', 'Find me three photos of kente cloth, save the best one to my files, look at it, and tell me in one sentence what it shows and who took it.', async (text) => {
     check(/Found photos|Found \d+ photo/i.test(text) || await page.getByText(/photos/i).count() > 0, '[photos] the trace shows the photo search')

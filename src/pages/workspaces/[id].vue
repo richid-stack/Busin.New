@@ -270,7 +270,7 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
             <template #footer>
               <div class="flex items-center gap-2 pt-1">
                 <UDropdownMenu :items="plusItems" :content="{ align: 'start', side: 'bottom' }">
-                  <UButton icon="i-lucide-plus" class="rounded-full" variant="soft" color="primary" size="sm" aria-label="Add" />
+                  <UButton icon="i-lucide-plus" class="rounded-full" variant="soft" color="primary" size="sm" aria-label="Add files" />
                 </UDropdownMenu>
                 <input ref="fileInput" type="file" multiple class="hidden" :accept="ATTACH_ACCEPT" @change="onInputChange">
                 <ModelSelect v-if="!agent?.model" />
