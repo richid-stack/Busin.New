@@ -126,6 +126,7 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: 'dark', acceptDownloads: true })
   page = await ctx.newPage()
   page.on('pageerror', e => note(`page error: ${redact(e.message).slice(0, 200)}`))
+  page.on('console', m => { if (m.type() === 'error' || /\[Vue warn\]/.test(m.text())) note(`console ${m.type()}: ${redact(m.text()).slice(0, 300)}`) })
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120_000 })
   await sleep(6000)
   await page.getByRole('button', { name: /sign in|log in|get started/i }).first().click({ timeout: 20_000 })
