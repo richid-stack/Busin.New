@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { isToolStreaming } from '@nuxt/ui/utils/ai'
 import { useAgents } from '../../../composables/useAgents'
 import { useFirebaseAuth } from '../../../composables/useFirebaseAuth'
+import Reveal from '../../state/Reveal.vue'
 import type { AgentInput } from '../../../types/agents'
 
 const props = defineProps<{ invocation: any }>()
@@ -87,7 +88,9 @@ async function save() {
           <UIcon :name="showInstructions ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5" />
           Read its instructions
         </button>
-        <p v-if="showInstructions" class="mt-2 text-xs text-muted leading-relaxed whitespace-pre-line border-l border-default pl-3">{{ draft.instructions }}</p>
+        <Reveal>
+          <p v-if="showInstructions" class="mt-2 text-xs text-muted leading-relaxed whitespace-pre-line border-l border-default pl-3">{{ draft.instructions }}</p>
+        </Reveal>
       </div>
 
       <p v-if="output.dropped?.length" class="text-xs text-muted">

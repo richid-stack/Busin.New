@@ -4,6 +4,7 @@ import type { UIMessage } from 'ai'
 import { isReasoningUIPart, isToolUIPart, isTextUIPart, getToolName } from 'ai'
 import { getSources, getSearchQuery } from '../../utils/tool'
 import { getFaviconUrl, getDomain } from '../../utils/url'
+import Reveal from '../state/Reveal.vue'
 
 const props = defineProps<{
   message: UIMessage
@@ -110,12 +111,14 @@ function toggleDetails(index: number) {
                     :icon="expandedDetails[idx] ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
                     @click="toggleDetails(idx)"
                   />
-                  <div
-                    v-if="expandedDetails[idx]"
-                    class="mt-2 p-2.5 bg-muted/20 border border-default rounded text-xs text-muted font-mono whitespace-pre-wrap max-h-48 overflow-y-auto"
-                  >
-                    {{ part.text }}
-                  </div>
+                  <Reveal>
+                    <div
+                      v-if="expandedDetails[idx]"
+                      class="mt-2 p-2.5 bg-muted/20 border border-default rounded text-xs text-muted font-mono whitespace-pre-wrap max-h-48 overflow-y-auto"
+                    >
+                      {{ part.text }}
+                    </div>
+                  </Reveal>
                 </div>
               </div>
 
@@ -203,22 +206,24 @@ function toggleDetails(index: number) {
                     :icon="expandedDetails[idx] ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
                     @click="toggleDetails(idx)"
                   />
-                  <div
-                    v-if="expandedDetails[idx]"
-                    class="mt-2 p-2.5 bg-muted/20 border border-default rounded text-xs text-muted font-mono whitespace-pre-wrap max-h-48 overflow-y-auto"
-                  >
-                    <div class="font-semibold text-default mb-1">
-                      Input:
-                    </div>
-                    <pre>{{ JSON.stringify(part.input, null, 2) }}</pre>
+                  <Reveal>
                     <div
-                      v-if="part.output"
-                      class="font-semibold text-default mt-2 mb-1"
+                      v-if="expandedDetails[idx]"
+                      class="mt-2 p-2.5 bg-muted/20 border border-default rounded text-xs text-muted font-mono whitespace-pre-wrap max-h-48 overflow-y-auto"
                     >
-                      Output:
+                      <div class="font-semibold text-default mb-1">
+                        Input:
+                      </div>
+                      <pre>{{ JSON.stringify(part.input, null, 2) }}</pre>
+                      <div
+                        v-if="part.output"
+                        class="font-semibold text-default mt-2 mb-1"
+                      >
+                        Output:
+                      </div>
+                      <pre v-if="part.output">{{ JSON.stringify(part.output, null, 2) }}</pre>
                     </div>
-                    <pre v-if="part.output">{{ JSON.stringify(part.output, null, 2) }}</pre>
-                  </div>
+                  </Reveal>
                 </div>
               </div>
 

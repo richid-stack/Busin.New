@@ -7,6 +7,8 @@ One set of rules, so the app feels like one product. The numbers follow common p
 - Buttons give a little (scale 0.97) when pressed and spring back.
 - A page arrives with a short rise and fade (`.page-host > *`). It is a plain CSS animation, not a Vue `<Transition>`: a transition that waits for the old page to leave left async pages blank in testing.
 - `.rise-in`, `.pop` and `.show-late` are there for things inside a page. A like or star pops only for the person's own press, not for every liked item when a page loads.
+- **Two standard motions (picked from the Motion Lab).** *Unfold*: menus, popovers and pickers are hinged on the edge nearest their button and swing open flat (260 ms in, 120 ms out) with a soft shade that lifts as they settle; side menus use a short scale instead. *Slide out*: anything that opens in the flow of the page is drawn downward from its top edge and pushes what is below it (200 ms in, 120 ms out). That covers the Explore group, accordions and trace details (Nuxt UI's `collapsible-*` and `accordion-*` keyframes are redefined in `main.css`), and `<Reveal>` (`src/components/state/Reveal.vue`) does the same for things that come and go with `v-if`.
+- Rules: motion shows where something came from, starts at the thing that was touched, is under 200 ms in the app, closes faster than it opens, and never runs on first paint. Staggers, turns and big reveals belong on the landing page.
 - With "reduce motion" on, everything becomes instant. Spinners keep turning, because they tell the person something is happening.
 
 ## States (`src/components/state/`)
