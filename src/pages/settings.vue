@@ -8,6 +8,7 @@ import { useUserSession } from '../composables/useUserSession'
 import { useAccount } from '../composables/useAccount'
 import { useBilling } from '../composables/useBilling'
 import { useBrowserWhere } from '../composables/useBrowserWhere'
+import { usePushAlerts } from '../composables/usePushAlerts'
 
 import LobbyVoiceSettings from '../components/settings/LobbyVoiceSettings.vue'
 
@@ -22,6 +23,7 @@ const { user, loggedIn, clearSession } = useUserSession()
 const { usage, usageError, loadingUsage, fetchUsage, downloadExport } = useAccount()
 const { browserWhere, fetchBrowserWhere, setBrowserWhere } = useBrowserWhere()
 const { billing, billingFailed, notifications, fetchBilling, startCheckout, fetchNotifications, saveNotifications } = useBilling()
+const { availability: alertsAvailability, on: alertsOn, busy: alertsBusy, error: alertsError, testSent, enable: enableAlerts, disable: disableAlerts, sendTest } = usePushAlerts()
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
@@ -85,6 +87,16 @@ async function setNotification(key: 'emailRenewals' | 'emailWorkflowFailures' | 
     toast.add({ title: 'Could not change that', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
   }
 }
+
+// ---- Alerts on this device ----
+const alertsCannot = computed(() => alertsAvailability.value === 'unsupported' || alertsAvailability.value === 'needs-install')
+const alertsHint = computed(() => ({
+  'needs-install': 'On iPhone and iPad, add OpenLobs to your Home Screen first (Share, then Add to Home Screen), open it from there, then turn this on.',
+  unsupported: 'This browser cannot show alerts.',
+  blocked: 'Alerts are blocked in this browser. Allow them in the site settings, then turn this on.',
+  ready: ''
+})[alertsAvailability.value])
+const setAlerts = (value: boolean) => (value ? enableAlerts() : disableAlerts())
 
 // ---- Assistant browser ----
 async function setOnComputer(value: boolean) {
@@ -342,6 +354,25 @@ const LINKS = [
         <section aria-labelledby="s-notifications">
           <h2 id="s-notifications" class="text-sm font-semibold text-highlighted mb-3">Notifications</h2>
           <div class="rounded-2xl border border-default bg-default divide-y divide-default">
+            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-highlighted">Alerts on this device</p>
+                <p class="text-xs text-muted leading-snug">A pop-up on this phone or computer when a task is done, the assistant is waiting for you, or a workflow needs your OK. Works even when OpenLobs is closed.</p>
+                <button
+                  v-if="alertsOn"
+                  type="button"
+                  class="mt-1.5 text-xs text-primary hover:underline underline-offset-2 rounded focus-visible:outline-2 focus-visible:outline-primary"
+                  @click="sendTest"
+                >
+                  Send a test alert
+                </button>
+                <p v-if="testSent === 'sent'" class="mt-1 text-xs text-dimmed" role="status">Sent. It should arrive in a moment.</p>
+                <p v-else-if="testSent === 'none'" class="mt-1 text-xs text-warning" role="status">No device is signed up for alerts yet.</p>
+                <p v-if="alertsError" class="mt-1 text-xs text-error" role="alert">{{ alertsError }}</p>
+                <p v-else-if="alertsHint" class="mt-1 text-xs text-dimmed leading-snug">{{ alertsHint }}</p>
+              </div>
+              <USwitch :model-value="alertsOn" :loading="alertsBusy" :disabled="alertsBusy || alertsCannot" aria-label="Alerts on this device" @update:model-value="setAlerts(Boolean($event))" />
+            </div>
             <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
               <div>
                 <p class="text-sm font-medium text-highlighted">Pro plan ending</p>
