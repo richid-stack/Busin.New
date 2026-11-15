@@ -4,7 +4,7 @@ import { createWorkspaceStore } from '../server/services/workspaces/store'
 import { createReadWorkspaceFileTool } from '../server/utils/tools/readWorkspaceFile'
 import { filterTools } from '../server/services/agents/profile'
 import { focusTools } from '../server/services/models/focus'
-import { importRepo, parseRepo } from '../server/services/workspaces/github'
+import { importPaths, importRepo, listRepo, parseRepo } from '../server/services/workspaces/github'
 import { readFileSync } from 'node:fs'
 
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
@@ -122,3 +122,27 @@ await s4.addFile('u1', w4.id, { name: 'a README.md', text: 'x' }, 'reef', 'o/a')
 assert(await fails(s4.assertRoom('u1', w4.id, 'A  README.md', 5), 409) && await fails(s4.assertRoom('u2', w4.id, 'z.md', 5), 404), 'the room check refuses a duplicate name and a stranger')
 await s4.assertRoom('u1', w4.id, 'z.md', 5)
 assert((await s4.listFiles('u1', w4.id)).files[0]!.from === 'o/a', 'where a file came from is kept')
+
+// ---- Picking folders ----
+const raw: string[] = []
+const fake2: any = async (url: string) => {
+  const json = (o: unknown, status = 200) => ({ status, body: Buffer.from(JSON.stringify(o)) })
+  if (url.endsWith('/repos/o/r')) return json({ default_branch: 'main' })
+  if (url.includes('/git/trees/main')) return json({ tree: [
+    { type: 'blob', path: 'README.md', size: 100 }, { type: 'blob', path: 'docs/a.md', size: 300 }, { type: 'blob', path: 'docs/deep/b.md', size: 200 },
+    { type: 'blob', path: 'logo.png', size: 9999 }, { type: 'blob', path: 'node_modules/x/index.js', size: 5000 }, { type: 'blob', path: 'package-lock.json', size: 7000 },
+    { type: 'blob', path: 'src/app.ts', size: 400 }, { type: 'tree', path: 'docs' }
+  ] })
+  if (url.startsWith('https://raw.githubusercontent.com/o/r/main/')) { raw.push(url); return { status: 200, body: Buffer.from(`text of ${url.split('/main/')[1]}`) } }
+  return json({}, 404)
+}
+const listed = await listRepo('o/r', fake2, {})
+assert(listed.repo === 'o/r' && listed.entries.map(e => `${e.name}:${e.dir}:${e.bytes}:${e.files}`).join() === 'docs:true:500:2,src:true:400:1,README.md:false:100:1', 'folders first, with the readable text each holds; images, builds and lock files are left out')
+const picked = await importPaths('o/r', ['docs'], fake2, {})
+assert(picked.name === 'o-r (docs).md' && picked.text.includes('=== docs/a.md ===\ntext of docs/a.md') && picked.text.includes('=== docs/deep/b.md ===') && !picked.text.includes('src/app.ts') && raw.every(u => u.includes('/main/docs/')), 'a folder is read file by file from raw GitHub, and only what was picked')
+let none = ''
+try { await importPaths('o/r', [], fake2, {}) } catch (e: any) { none = e.message }
+assert(/at least one/i.test(none), 'nothing picked is refused')
+let nothing = ''
+try { await importPaths('o/r', ['logo.png'], fake2, {}) } catch (e: any) { nothing = e.message }
+assert(/readable/i.test(nothing), 'a pick with nothing readable says so')
