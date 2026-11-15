@@ -363,9 +363,10 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
           </div>
         </aside>
       </div>
-    </template>
 
-    <WorkspaceForm v-model:open="formOpen" :workspace="workspace" @done="(w) => { workspace = w }" />
-    <WorkspaceAddDialogs v-if="workspace" v-model:kind="addKind" :workspace-id="id" :used-chars="usedChars" :limit-chars="limitChars" @added="load" />
+      <!-- Inside the body: a panel given loose children shows only those and drops its header and body. -->
+      <WorkspaceForm v-model:open="formOpen" :workspace="workspace" @done="(w) => { workspace = w }" />
+      <WorkspaceAddDialogs v-if="workspace" v-model:kind="addKind" :workspace-id="id" :used-chars="usedChars" :limit-chars="limitChars" @added="load" />
+    </template>
   </UDashboardPanel>
 </template>
