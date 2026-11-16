@@ -9,6 +9,7 @@ import type { CriterionStatus, TaskArtifact, TaskEventItem, TaskItem } from '../
 import { duration, timeAgo } from '../../utils/taskTime'
 import ChatToolApproval from '../../components/chat/tool/Approval.vue'
 import ChatToolBrowserView from '../../components/chat/tool/BrowserView.vue'
+import UseAgain from '../../components/tasks/UseAgain.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -290,6 +291,12 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
             {{ downloadError }}
           </p>
         </section>
+
+        <!-- A job that worked can be run again, put on a schedule or kept as an agent. -->
+        <UseAgain
+          v-if="task.status === 'done'"
+          :task="task"
+        />
 
         <section
           v-if="task.result"

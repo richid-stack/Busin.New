@@ -57,6 +57,65 @@ const items = computed(() => [...pinnedItems.value, ...(groups.value?.flatMap((g
   }))]
 }) ?? [])])
 
+// Everyday places stay in view. Setup pages sit under "Explore", which remembers if it was open
+// and opens by itself when you are on one of those pages.
+const MORE_PATHS = ['/agents', '/memory', '/models', '/integrations', '/computers', '/reef']
+const MORE_KEY = 'openlobs.sidebar.more'
+const onMorePage = (path: string) => MORE_PATHS.some(p => path === p || path.startsWith(`${p}/`))
+const readMore = () => {
+  try { return localStorage.getItem(MORE_KEY) === '1' } catch { return false }
+}
+// The menu keeps a list of the groups that are open; "more" is ours.
+const openGroups = ref<string[]>(readMore() || onMorePage(route.path) ? ['more'] : [])
+// Motion is only for a change the person (or a page they opened) caused, never for the first paint.
+const exploreMoved = ref(false)
+watch(openGroups, (groups) => {
+  exploreMoved.value = true
+  try { localStorage.setItem(MORE_KEY, groups.includes('more') ? '1' : '0') } catch { /* private window: it just will not be remembered */ }
+})
+watch(() => route.path, (path) => {
+  if (onMorePage(path) && !openGroups.value.includes('more')) openGroups.value = [...openGroups.value, 'more']
+})
+
+const navItems = computed(() => [{
+  label: 'New chat',
+  to: '/',
+  kbds: ['meta', 'o'],
+  icon: 'i-lucide-circle-plus'
+}, {
+  label: 'Search',
+  icon: 'i-lucide-search',
+  kbds: ['meta', 'k'],
+  onSelect: () => {
+    searchOpen.value = true
+  }
+}, {
+  label: 'Workspaces',
+  to: '/workspaces',
+  icon: 'i-lucide-folders'
+}, {
+  label: 'Tasks',
+  to: '/tasks',
+  icon: 'i-lucide-list-checks'
+}, {
+  label: 'Workflow Studio',
+  to: '/workflows',
+  icon: 'i-lucide-workflow'
+}, {
+  label: 'Explore',
+  value: 'more',
+  icon: 'i-lucide-compass',
+  class: exploreMoved.value ? 'explore-trigger explore-live' : 'explore-trigger',
+  children: [
+    { label: 'Agents', to: '/agents', icon: 'i-lucide-bot' },
+    { label: 'Memory', to: '/memory', icon: 'i-lucide-brain' },
+    { label: 'Models', to: '/models', icon: 'i-lucide-cpu' },
+    { label: 'Integrations', to: '/integrations', icon: 'i-lucide-blocks' },
+    { label: 'Computers', to: '/computers', icon: 'i-lucide-monitor-smartphone' },
+    { label: 'The Reef', to: '/reef', icon: 'i-lucide-waves' }
+  ]
+}])
+
 function getChatActions(item: { id: string, label: string }): DropdownMenuItem[][] {
   return [[
     {
@@ -113,55 +172,8 @@ defineShortcuts({
 
       <template #default="{ collapsed }">
         <UNavigationMenu
-          :items="[{
-            label: 'New chat',
-            to: '/',
-            kbds: ['meta', 'o'],
-            icon: 'i-lucide-circle-plus'
-          }, {
-            label: 'Search',
-            icon: 'i-lucide-search',
-            kbds: ['meta', 'k'],
-            onSelect: () => {
-              searchOpen = true
-            }
-          }, {
-            label: 'Workspaces',
-            to: '/workspaces',
-            icon: 'i-lucide-folders'
-          }, {
-            label: 'Agents',
-            to: '/agents',
-            icon: 'i-lucide-bot'
-          }, {
-            label: 'Memory',
-            to: '/memory',
-            icon: 'i-lucide-brain'
-          }, {
-            label: 'Tasks',
-            to: '/tasks',
-            icon: 'i-lucide-list-checks'
-          }, {
-            label: 'Computers',
-            to: '/computers',
-            icon: 'i-lucide-monitor-smartphone'
-          }, {
-            label: 'Workflow Studio',
-            to: '/workflows',
-            icon: 'i-lucide-workflow'
-          }, {
-            label: 'Integrations',
-            to: '/integrations',
-            icon: 'i-lucide-blocks'
-          }, {
-            label: 'Models',
-            to: '/models',
-            icon: 'i-lucide-cpu'
-          }, {
-            label: 'The Reef',
-            to: '/reef',
-            icon: 'i-lucide-waves'
-          }]"
+          v-model="openGroups"
+          :items="navItems"
           :collapsed="collapsed"
           orientation="vertical"
         >

@@ -2,7 +2,7 @@
 import PageSkeleton from '../../components/state/PageSkeleton.vue'
 import StateCard from '../../components/state/StateCard.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTasks } from '../../composables/useTasks'
 import { useTaskSchedules } from '../../composables/useTaskSchedules'
 import TaskWhen from '../../components/tasks/TaskWhen.vue'
@@ -15,13 +15,14 @@ import type { CriterionKind } from '../../types/tasks'
 import { timeAgo } from '../../utils/taskTime'
 
 const router = useRouter()
+const route = useRoute()
 const { openAuthModal } = useFirebaseAuth()
 const { loggedIn } = useUserSession()
-const { tasks, loading, loaded, unauthorized, loadError, fetchTasks, createTask } = useTasks()
+const { tasks, loading, loaded, unauthorized, loadError, fetchTasks, createTask, getTask } = useTasks()
 
 const { schedules, fetchSchedules, createSchedule } = useTaskSchedules()
 const hasSchedules = computed(() => schedules.value.length > 0)
-onMounted(() => { fetchTasks(); fetchSchedules() })
+onMounted(() => { fetchTasks(); fetchSchedules(); prefill() })
 watch(loggedIn, () => { fetchTasks(); fetchSchedules() })
 
 // While anything is running, keep the list fresh.
@@ -54,6 +55,24 @@ const createError = ref<string | null>(null)
 const addCriterion = () => { if (criteria.value.length < 8) criteria.value.push({ text: '', kind: 'check', format: 'any', url: '' }) }
 const removeCriterion = (i: number) => criteria.value.splice(i, 1)
 const canStart = computed(() => goal.value.trim().length >= 10 && !creating.value)
+
+/** "Schedule" on a finished task arrives here with that task's goal and checks filled in. */
+async function prefill() {
+  const from = typeof route.query.from === 'string' ? route.query.from : ''
+  if (!from) return
+  try {
+    const { task } = await getTask(from)
+    goal.value = task.goal
+    criteria.value = task.criteria.slice(0, 8).map(c => ({ text: c.text, kind: c.kind, format: c.format ?? 'any', url: c.url ?? '' }))
+    useBrowser.value = task.tools.includes('browser')
+    scheduled.value = route.query.schedule === '1'
+    title.value = ''
+  } catch {
+    // The task is gone or not yours: the form just opens empty.
+  } finally {
+    router.replace({ path: '/tasks' })
+  }
+}
 
 async function start() {
   if (!canStart.value) return
