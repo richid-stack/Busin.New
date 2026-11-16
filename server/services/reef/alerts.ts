@@ -28,7 +28,8 @@ interface NewAlert { to: string, type: AlertType, actor: Alert['actor'] & { user
 /** Records an alert for someone. Never throws: an alert that cannot be saved must not stop the like or follow it is about. */
 export async function notify(db: TaskDb, a: NewAlert, at: string): Promise<void> {
   try {
-    const id = `${a.type}__${a.actor.handle}__${a.unique ?? a.targetId}`
+    // A project is named "owner/name", and a slash is not allowed inside a document name.
+    const id = `${a.type}__${a.actor.handle}__${a.unique ?? a.targetId}`.replaceAll('/', '~')
     // Only what a page shows: never the actor's account id.
     const actor = { handle: a.actor.handle, name: a.actor.name, verified: a.actor.verified, official: a.actor.official }
     await db.collection(ALERTS).doc(`${a.to}__${id}`).set({ userId: a.to, type: a.type, actor, targetType: a.targetType, targetId: a.targetId, preview: a.preview.slice(0, 120), read: false, createdAt: at })

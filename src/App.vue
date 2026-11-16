@@ -4,8 +4,10 @@ import { useHead } from '@unhead/vue'
 import { useColorMode } from '@vueuse/core'
 import PendingScreen from './components/state/PendingScreen.vue'
 import { useOnlineNotice } from './composables/useOnlineNotice'
+import { useAppearance } from './composables/useAppearance'
 
 useOnlineNotice()
+useAppearance() // puts the saved look (accent, text size, chat width, motion) on the page before anything is drawn
 const colorMode = useColorMode()
 const themeColor = computed(() => colorMode.value === 'dark' ? '#09090b' : '#fafafa')
 

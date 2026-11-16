@@ -185,6 +185,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/skills': RouteRecordInfo<
+      '/skills',
+      '/skills',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/tasks/': RouteRecordInfo<
       '/tasks/',
       '/tasks',
@@ -216,6 +223,20 @@ declare module 'vue-router/auto-routes' {
     '/workflows/[id]': RouteRecordInfo<
       '/workflows/[id]',
       '/workflows/:id',
+      { id: ParamValue<true> },
+      { id: ParamValue<false> },
+      | never
+    >,
+    '/workspaces/': RouteRecordInfo<
+      '/workspaces/',
+      '/workspaces',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/workspaces/[id]': RouteRecordInfo<
+      '/workspaces/[id]',
+      '/workspaces/:id',
       { id: ParamValue<true> },
       { id: ParamValue<false> },
       | never
@@ -409,6 +430,14 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
+    'src/pages/skills.vue': {
+      routes:
+        | '/skills'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
     'src/pages/tasks/index.vue': {
       routes:
         | '/tasks/'
@@ -444,6 +473,22 @@ declare module 'vue-router/auto-routes' {
     'src/pages/workflows/[id].vue': {
       routes:
         | '/workflows/[id]'
+      views:
+        | never
+      pathParamNames:
+        | 'id'
+    }
+    'src/pages/workspaces/index.vue': {
+      routes:
+        | '/workspaces/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/workspaces/[id].vue': {
+      routes:
+        | '/workspaces/[id]'
       views:
         | never
       pathParamNames:

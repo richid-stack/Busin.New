@@ -3,9 +3,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
 import { useChats } from './useChats'
 import { useCsrf } from './useCsrf'
+import { useWorkspaces } from './useWorkspaces'
+import { chatMenu, chatToMarkdown, exportFileName } from '../utils/chatMenu'
+import type { ChatMenuChat } from '../utils/chatMenu'
 
 const ModalRename = defineAsyncComponent(() => import('../components/ModalRename.vue'))
 const ModalConfirm = defineAsyncComponent(() => import('../components/ModalConfirm.vue'))
+const ModalShareChat = defineAsyncComponent(() => import('../components/chat/ModalShareChat.vue'))
 
 export function useChatActions() {
   const route = useRoute()
@@ -13,7 +17,8 @@ export function useChatActions() {
   const toast = useToast()
   const overlay = useOverlay()
   const { csrf, headerName } = useCsrf()
-  const { updateChat, removeChat } = useChats()
+  const { updateChat, removeChat, fetchChats } = useChats()
+  const { workspaces, linkChat, fetchWorkspaces, loaded: workspacesLoaded } = useWorkspaces()
 
   const renameModal = overlay.create(ModalRename)
   const deleteModal = overlay.create(ModalConfirm, {
@@ -87,8 +92,86 @@ export function useChatActions() {
     }
   }
 
+  async function pinChat(id: string, pinned: boolean): Promise<boolean> {
+    updateChat(id, { pinned })
+    try {
+      await $fetch(`/api/chats/pin/${id}`, { method: 'PATCH', headers: { [headerName]: csrf() }, body: { pinned } })
+      return true
+    } catch {
+      updateChat(id, { pinned: !pinned })
+      toast.add({ description: pinned ? 'Could not pin the chat' : 'Could not unpin the chat', icon: 'i-lucide-alert-circle', color: 'error' })
+      return false
+    }
+  }
+
+  /** Puts a chat in a workspace, moves it to another, or (null) takes it out. */
+  async function moveChat(id: string, workspaceId: string | null): Promise<boolean> {
+    const previous = useChats().chats.value.find(c => c.id === id)?.workspaceId
+    try {
+      await linkChat(id, { workspaceId })
+      await fetchChats()
+      const name = workspaces.value.find(w => w.id === workspaceId)?.name
+      toast.add({ description: workspaceId ? `Moved to ${name ?? 'the workspace'}` : 'Removed from the workspace', icon: 'i-lucide-folder', actions: [{ label: 'Undo', color: 'neutral', variant: 'outline', onClick: () => { moveChat(id, previous ?? null) } }] })
+      return true
+    } catch {
+      toast.add({ description: 'Could not move the chat', icon: 'i-lucide-alert-circle', color: 'error' })
+      return false
+    }
+  }
+
+  function shareChat(id: string, visibility: 'public' | 'private', onChange?: (v: 'public' | 'private') => void) {
+    overlay.create(ModalShareChat, {
+      props: {
+        chatId: id,
+        visibility,
+        onChange: (v: 'public' | 'private') => { updateChat(id, { visibility: v }); onChange?.(v) }
+      }
+    }).open()
+  }
+
+  async function exportChat(id: string, title: string): Promise<boolean> {
+    try {
+      const chat = await $fetch<{ title?: string, messages: Array<{ role: string, parts?: Array<{ type?: string, text?: string }> }> }>(`/api/chats/${id}`)
+      const text = chatToMarkdown(chat.title || title, chat.messages ?? [])
+      const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = exportFileName(chat.title || title)
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      return true
+    } catch {
+      toast.add({ description: 'Could not export the chat', icon: 'i-lucide-alert-circle', color: 'error' })
+      return false
+    }
+  }
+
+  /**
+   * The three-dot menu for one chat. It knows where the chat lives, so a chat in a workspace
+   * offers Move and Remove, and one outside offers Add.
+   */
+  function menuFor(chat: ChatMenuChat & { label: string, visibility?: 'public' | 'private' }, after?: { onVisibility?: (v: 'public' | 'private') => void, onRenamed?: (title: string) => void }) {
+    if (!workspacesLoaded.value) fetchWorkspaces()
+    return chatMenu(chat, workspaces.value.map(w => ({ id: w.id, name: w.name })), {
+      pin: pinned => { pinChat(chat.id, pinned) },
+      share: () => shareChat(chat.id, chat.visibility ?? 'private', after?.onVisibility),
+      rename: async () => { const t = await renameChat(chat.id, chat.label === 'Untitled' ? '' : chat.label); if (t) after?.onRenamed?.(t) },
+      moveTo: (workspaceId) => { moveChat(chat.id, workspaceId) },
+      removeFromWorkspace: () => { moveChat(chat.id, null) },
+      exportChat: () => { exportChat(chat.id, chat.label) },
+      remove: () => { deleteChat(chat.id) }
+    })
+  }
+
   return {
     renameChat,
-    deleteChat
+    deleteChat,
+    pinChat,
+    moveChat,
+    shareChat,
+    exportChat,
+    menuFor
   }
 }

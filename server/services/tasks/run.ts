@@ -4,7 +4,8 @@ import { runInspection } from '../inspect/inspect'
 import { defaultProvider } from '../inspect/screenshot'
 import { chargeUsage } from '../usage/usage'
 import { modelCost } from '../usage/plans'
-import { getLanguageModel, pickAvailableModel } from '../../utils/models'
+import { getLanguageModel, nextAvailableModel, pickAvailableModel } from '../../utils/models'
+import { isModelOutOfRoom } from '../../utils/modelError'
 import { parseMyModelId } from '../../../shared/modelProviders'
 import { resolveModel } from '../models/resolve'
 import { runTask } from './orchestrator'
@@ -20,16 +21,16 @@ import { modelJudge, verifyCriteria } from './verify'
 
 /** The real parts a task runs with. Tests swap them for fakes through `runTask` directly. */
 export function liveDeps(store: TaskStore = taskStore()): RunDeps {
-  const pick = async (modelId: string | null, userId: string) => {
+  const pick = async (modelId: string | null, userId: string, skip: string[] = []) => {
     // The person's own model runs on their own key: never swapped for another, and it costs no credits.
     if (modelId && parseMyModelId(modelId)) return { id: modelId, model: (await resolveModel(userId, modelId)).model }
-    const id = pickAvailableModel(modelId)
+    const id = skip.length ? nextAvailableModel(modelId, skip) : pickAvailableModel(modelId)
     return id ? { id, model: getLanguageModel(id) } : null
   }
   return {
     store,
     tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null, task.model),
-    model: task => pick(task.model, task.userId),
+    model: (task, skip) => pick(task.model, task.userId, skip),
     costOf: id => (parseMyModelId(id) ? 0 : modelCost(id)),
     charge: chargeUsage,
     verify: async (criteria, ctx, task) => {
@@ -38,8 +39,20 @@ export function liveDeps(store: TaskStore = taskStore()): RunDeps {
         inspect: input => runInspection(input, { provider: defaultProvider(), save: i => fileStore().save(i) }),
         judgeCheck: async (input) => {
           if (!chosen) return { status: 'unsure', reason: 'No AI model is available to judge this.', fix: '' }
-          const charge = await chargeUsage(task.userId, parseMyModelId(chosen.id) ? 0 : modelCost(chosen.id))
-          try { return await modelJudge(chosen.model, { generate: generateObject })(input) } catch (err) { await charge.refund(); throw err }
+          // The judge is a model call like any other: when this one is out of allowance, the next one that is set up judges instead.
+          const skip: string[] = []
+          let judge: typeof chosen = chosen
+          for (;;) {
+            const charge = await chargeUsage(task.userId, parseMyModelId(judge.id) ? 0 : modelCost(judge.id))
+            try { return await modelJudge(judge.model, { generate: generateObject })(input) } catch (err) {
+              await charge.refund()
+              if (!isModelOutOfRoom(err) || parseMyModelId(judge.id)) throw err
+              skip.push(judge.id)
+              const next = await pick(task.model, task.userId, skip).catch(() => null)
+              if (!next || skip.includes(next.id)) throw err
+              judge = next
+            }
+          }
         }
       })
     }

@@ -4,14 +4,17 @@ import { z } from 'zod'
 import { useUserSession } from '../../utils/session'
 import { createChat } from '../../utils/firebase'
 import { getAgent } from '../../services/agents/store'
+import { workspaceStore } from '../../services/workspaces/store'
 import { enforceRateLimit, rateLimitSubject } from '../../utils/rateLimit'
 import { MAX_INPUT_CHARS, allowAnonymousChat, assertNewChatMessage } from '../../utils/limits'
 
 export default defineHandler(async (event) => {
   const session = await useUserSession(event)
 
-  const { input, attachments, agentId } = await readValidatedBody(event, z.object({
+  const { input, attachments, agentId, workspaceId, ghost } = await readValidatedBody(event, z.object({
+    ghost: z.boolean().optional(),
     agentId: z.string().min(1).max(128).optional(),
+    workspaceId: z.string().min(1).max(128).optional(),
     input: z.string().max(MAX_INPUT_CHARS).optional().default(''),
     attachments: z.array(z.object({
       name: z.string().max(255).optional(),
@@ -28,10 +31,29 @@ export default defineHandler(async (event) => {
   enforceRateLimit(event, 'chat-create', rateLimitSubject(event, signedIn ? userId : undefined), signedIn ? 60 : 20, 10 * 60_000)
   assertNewChatMessage(input, attachments)
 
+  // Ghost mode is for a plain chat: no workspace (its notes and memory would leak in) and no saved agent.
+  if (ghost && (workspaceId || agentId)) {
+    throw new HTTPError({ statusCode: 400, statusMessage: 'Ghost mode is only for a plain chat.' })
+  }
+  if (ghost && !signedIn) {
+    throw new HTTPError({ statusCode: 401, statusMessage: 'Sign in to use ghost mode.' })
+  }
+
   // An agent is the signed-in owner's own; anything else is refused rather than quietly ignored.
   if (agentId) {
     const agent = signedIn ? await getAgent(agentId) : null
     if (!agent || agent.userId !== userId) throw new HTTPError({ statusCode: 404, statusMessage: 'Agent not found' })
+  }
+
+  // The same for a workspace. A chat started in one takes its agent from the workspace unless one was picked.
+  let chatAgentId = agentId
+  if (workspaceId) {
+    const workspace = signedIn ? await workspaceStore().get(userId, workspaceId) : null
+    if (!workspace) throw new HTTPError({ statusCode: 404, statusMessage: 'Workspace not found' })
+    if (!chatAgentId && workspace.agentId) {
+      const agent = await getAgent(workspace.agentId)
+      if (agent && agent.userId === userId) chatAgentId = agent.id
+    }
   }
 
   const initialTitle = input && input.trim()
@@ -41,10 +63,14 @@ export default defineHandler(async (event) => {
   const chat = await createChat({
     userId,
     title: initialTitle,
-    agentId,
+    agentId: chatAgentId,
+    workspaceId,
+    ghost,
     initialMessage: input,
     attachments
   })
+
+  if (workspaceId) await workspaceStore().touch(userId, workspaceId)
 
   if (!chat) {
     throw new HTTPError({ statusCode: 500, statusMessage: 'Failed to create chat' })

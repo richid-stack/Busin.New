@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { isToolStreaming } from '@nuxt/ui/utils/ai'
+import Reveal from '../../state/Reveal.vue'
 
 type Defect = { id: string, severity: 'blocker' | 'major' | 'minor', area: string, problem: string, fix: string }
 type Output = {
@@ -108,6 +109,7 @@ const showImage = ref(false)
       />
     </button>
 
+    <Reveal>
     <div
       v-if="open"
       class="border-t border-default px-4 py-3"
@@ -176,5 +178,6 @@ const showImage = ref(false)
         The screenshot is no longer available.
       </p>
     </div>
+    </Reveal>
   </div>
 </template>

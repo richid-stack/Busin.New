@@ -3,11 +3,15 @@ import StateCard from '../components/state/StateCard.vue'
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useColorMode } from '@vueuse/core'
+import { useAppearance } from '../composables/useAppearance'
+import { ACCENTS } from '../utils/appearance'
+import type { Appearance } from '../utils/appearance'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { useUserSession } from '../composables/useUserSession'
 import { useAccount } from '../composables/useAccount'
 import { useBilling } from '../composables/useBilling'
 import { useBrowserWhere } from '../composables/useBrowserWhere'
+import { usePushAlerts } from '../composables/usePushAlerts'
 
 import LobbyVoiceSettings from '../components/settings/LobbyVoiceSettings.vue'
 
@@ -22,6 +26,7 @@ const { user, loggedIn, clearSession } = useUserSession()
 const { usage, usageError, loadingUsage, fetchUsage, downloadExport } = useAccount()
 const { browserWhere, fetchBrowserWhere, setBrowserWhere } = useBrowserWhere()
 const { billing, billingFailed, notifications, fetchBilling, startCheckout, fetchNotifications, saveNotifications } = useBilling()
+const { availability: alertsAvailability, on: alertsOn, busy: alertsBusy, error: alertsError, testSent, enable: enableAlerts, disable: disableAlerts, sendTest } = usePushAlerts()
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
@@ -86,6 +91,16 @@ async function setNotification(key: 'emailRenewals' | 'emailWorkflowFailures' | 
   }
 }
 
+// ---- Alerts on this device ----
+const alertsCannot = computed(() => alertsAvailability.value === 'unsupported' || alertsAvailability.value === 'needs-install')
+const alertsHint = computed(() => ({
+  'needs-install': 'On iPhone and iPad, add OpenLobs to your Home Screen first (Share, then Add to Home Screen), open it from there, then turn this on.',
+  unsupported: 'This browser cannot show alerts.',
+  blocked: 'Alerts are blocked in this browser. Allow them in the site settings, then turn this on.',
+  ready: ''
+})[alertsAvailability.value])
+const setAlerts = (value: boolean) => (value ? enableAlerts() : disableAlerts())
+
 // ---- Assistant browser ----
 async function setOnComputer(value: boolean) {
   try {
@@ -143,6 +158,12 @@ async function deleteAccount() {
   router.push('/')
 }
 
+const { appearance, reset: resetAppearance } = useAppearance()
+const appearanceRows: Array<{ key: keyof Appearance, title: string, hint: string, options: Array<{ value: string, label: string }> }> = [
+  { key: 'text', title: 'Text size', hint: 'For chats and pages.', options: [{ value: 'small', label: 'Small' }, { value: 'default', label: 'Default' }, { value: 'large', label: 'Large' }] },
+  { key: 'width', title: 'Chat width', hint: 'Wider fits tables and code better.', options: [{ value: 'narrow', label: 'Narrow' }, { value: 'standard', label: 'Standard' }, { value: 'wide', label: 'Wide' }] },
+  { key: 'motion', title: 'Motion', hint: 'Full unfolds and slides. Reduced makes everything instant. System follows your device.', options: [{ value: 'system', label: 'System' }, { value: 'full', label: 'Full' }, { value: 'reduced', label: 'Reduced' }] }
+]
 const modes = [
   { value: 'light', label: 'Light', icon: 'i-lucide-sun' },
   { value: 'dark', label: 'Dark', icon: 'i-lucide-moon' },
@@ -152,6 +173,7 @@ const modes = [
 const LINKS = [
   { to: '/memory', icon: 'i-lucide-brain', title: 'Memory', detail: 'Notes OpenLobs keeps about you. Add, edit, or switch memory off.' },
   { to: '/agents', icon: 'i-lucide-bot', title: 'Agents', detail: 'Your saved agents, what each can use, and which skills they follow.' },
+  { to: '/skills', icon: 'i-lucide-book-open-text', title: 'Skills', detail: 'Skills you chose to keep, ready in every chat.' },
   { to: '/integrations', icon: 'i-lucide-blocks', title: 'Connected apps', detail: 'Connect or disconnect Google, Microsoft, Slack and more.' },
   { to: '/integrations/mcp', icon: 'i-lucide-plug', title: 'MCP servers', detail: 'Tools from servers you add, each approved by you first.' },
   { to: '/workflows', icon: 'i-lucide-workflow', title: 'Workflows', detail: 'Automations and their schedules.' }
@@ -300,25 +322,69 @@ const LINKS = [
 
         <!-- Appearance -->
         <section aria-labelledby="s-appearance">
-          <h2 id="s-appearance" class="text-sm font-semibold text-highlighted mb-3">Appearance</h2>
-          <div class="rounded-2xl border border-default bg-default p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-highlighted">Theme</p>
-              <p class="text-xs text-muted">Colours can also be changed from your name menu in the sidebar.</p>
+          <h2 id="s-appearance" class="text-sm font-semibold text-highlighted mb-1">Appearance</h2>
+          <p class="text-xs text-muted">How OpenLobs looks on this device.</p>
+          <div class="mt-3 divide-y divide-default">
+            <div class="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Theme</p>
+                <p class="text-xs text-muted">System follows your phone or computer.</p>
+              </div>
+              <div class="flex gap-1.5" role="group" aria-label="Theme">
+                <UButton
+                  v-for="m in modes"
+                  :key="m.value"
+                  :label="m.label"
+                  :icon="m.icon"
+                  size="sm"
+                  color="neutral"
+                  :variant="colorMode === m.value ? 'solid' : 'subtle'"
+                  :aria-pressed="colorMode === m.value"
+                  @click="colorMode = m.value"
+                />
+              </div>
             </div>
-            <div class="flex gap-1.5" role="group" aria-label="Theme">
-              <UButton
-                v-for="m in modes"
-                :key="m.value"
-                :label="m.label"
-                :icon="m.icon"
-                size="sm"
-                color="neutral"
-                :variant="colorMode === m.value ? 'solid' : 'subtle'"
-                :aria-pressed="colorMode === m.value"
-                @click="colorMode = m.value"
-              />
+
+            <div class="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Accent colour</p>
+                <p class="text-xs text-muted">Buttons, links and the focus ring.</p>
+              </div>
+              <div class="flex gap-2" role="group" aria-label="Accent colour">
+                <button
+                  v-for="a in ACCENTS"
+                  :key="a.value"
+                  type="button"
+                  class="size-7 rounded-full ring-offset-2 ring-offset-default transition-shadow focus-visible:outline-2 focus-visible:outline-primary"
+                  :class="[a.swatch, appearance.accent === a.value ? 'ring-2 ring-highlighted' : 'hover:ring-2 hover:ring-accented']"
+                  :aria-label="a.label"
+                  :aria-pressed="appearance.accent === a.value"
+                  @click="appearance.accent = a.value"
+                />
+              </div>
             </div>
+
+            <div v-for="row in appearanceRows" :key="row.key" class="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p class="text-sm font-medium text-highlighted">{{ row.title }}</p>
+                <p class="text-xs text-muted">{{ row.hint }}</p>
+              </div>
+              <div class="flex gap-1.5" role="group" :aria-label="row.title">
+                <UButton
+                  v-for="o in row.options"
+                  :key="o.value"
+                  :label="o.label"
+                  size="sm"
+                  color="neutral"
+                  :variant="appearance[row.key] === o.value ? 'solid' : 'subtle'"
+                  :aria-pressed="appearance[row.key] === o.value"
+                  @click="(appearance as Record<string, string>)[row.key] = o.value"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="pt-1">
+            <UButton label="Back to the defaults" color="neutral" variant="link" size="xs" class="px-0" @click="resetAppearance" />
           </div>
         </section>
 
@@ -341,6 +407,25 @@ const LINKS = [
         <section aria-labelledby="s-notifications">
           <h2 id="s-notifications" class="text-sm font-semibold text-highlighted mb-3">Notifications</h2>
           <div class="rounded-2xl border border-default bg-default divide-y divide-default">
+            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-highlighted">Alerts on this device</p>
+                <p class="text-xs text-muted leading-snug">A pop-up on this phone or computer when a task is done, the assistant is waiting for you, or a workflow needs your OK. Works even when OpenLobs is closed.</p>
+                <button
+                  v-if="alertsOn"
+                  type="button"
+                  class="mt-1.5 text-xs text-primary hover:underline underline-offset-2 rounded focus-visible:outline-2 focus-visible:outline-primary"
+                  @click="sendTest"
+                >
+                  Send a test alert
+                </button>
+                <p v-if="testSent === 'sent'" class="mt-1 text-xs text-dimmed" role="status">Sent. It should arrive in a moment.</p>
+                <p v-else-if="testSent === 'none'" class="mt-1 text-xs text-warning" role="status">No device is signed up for alerts yet.</p>
+                <p v-if="alertsError" class="mt-1 text-xs text-error" role="alert">{{ alertsError }}</p>
+                <p v-else-if="alertsHint" class="mt-1 text-xs text-dimmed leading-snug">{{ alertsHint }}</p>
+              </div>
+              <USwitch :model-value="alertsOn" :loading="alertsBusy" :disabled="alertsBusy || alertsCannot" aria-label="Alerts on this device" @update:model-value="setAlerts(Boolean($event))" />
+            </div>
             <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
               <div>
                 <p class="text-sm font-medium text-highlighted">Pro plan ending</p>

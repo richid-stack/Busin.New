@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useChats } from '../composables/useChats'
+import { useWorkspaces } from '../composables/useWorkspaces'
 import { useUserSession } from '../composables/useUserSession'
 import { useChatActions } from '../composables/useChatActions'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
@@ -13,25 +14,45 @@ import PendingScreen from '../components/state/PendingScreen.vue'
 const router = useRouter()
 const route = useRoute()
 const { loggedIn, fetchSession } = useUserSession()
-const { groups, fetchChats } = useChats()
-const { renameChat, deleteChat } = useChatActions()
+const { groups, pinnedChats, workspaceChats, fetchChats } = useChats()
+const { pinned, loaded: workspacesLoaded, fetchWorkspaces } = useWorkspaces()
+const { menuFor } = useChatActions()
 const { openAuthModal } = useFirebaseAuth()
 
 onMounted(() => {
   fetchSession()
   fetchChats()
+  if (loggedIn.value) fetchWorkspaces()
 })
 
 const sidebarOpen = ref(false)
 const searchOpen = ref(false)
 
-watch(loggedIn, () => {
+watch(loggedIn, (signedIn) => {
   fetchChats()
+  if (signedIn && !workspacesLoaded.value) fetchWorkspaces()
 
   sidebarOpen.value = false
 })
 
-const items = computed(() => groups.value?.flatMap((group) => {
+// Pinned workspaces and pinned chats sit above the history, under one "Pinned" label.
+const pinnedItems = computed(() => (pinned.value.length || pinnedChats.value.length)
+  ? [{ label: 'Pinned', type: 'label' as const },
+      ...pinned.value.map(w => ({
+        label: w.name,
+        to: `/workspaces/${w.id}`,
+        icon: 'i-lucide-folder',
+        active: route.path === `/workspaces/${w.id}`
+      })),
+      ...pinnedChats.value.map(item => ({
+        ...item,
+        slot: 'chat' as const,
+        icon: undefined,
+        class: item.label === 'Untitled' ? 'text-muted' : ''
+      }))]
+  : [])
+
+const items = computed(() => [...pinnedItems.value, ...(groups.value?.flatMap((group) => {
   return [{
     label: group.label,
     type: 'label' as const
@@ -41,23 +62,65 @@ const items = computed(() => groups.value?.flatMap((group) => {
     icon: undefined,
     class: item.label === 'Untitled' ? 'text-muted' : ''
   }))]
-}))
+}) ?? [])])
 
-function getChatActions(item: { id: string, label: string }): DropdownMenuItem[][] {
-  return [[
-    {
-      label: 'Rename',
-      icon: 'i-lucide-pencil',
-      onSelect: () => renameChat(item.id, item.label === 'Untitled' ? '' : item.label)
-    }
-  ], [
-    {
-      label: 'Delete',
-      icon: 'i-lucide-trash',
-      color: 'error' as const,
-      onSelect: () => deleteChat(item.id)
-    }
-  ]]
+// Everyday places stay in view. Setup pages sit under "Explore", which remembers if it was open
+// and opens by itself when you are on one of those pages.
+const MORE_PATHS = ['/agents', '/memory', '/models', '/integrations', '/computers', '/reef']
+const MORE_KEY = 'openlobs.sidebar.more'
+const onMorePage = (path: string) => MORE_PATHS.some(p => path === p || path.startsWith(`${p}/`))
+const readMore = () => {
+  try { return localStorage.getItem(MORE_KEY) === '1' } catch { return false }
+}
+// The menu keeps a list of the groups that are open; "more" is ours.
+const openGroups = ref<string[]>(readMore() || onMorePage(route.path) ? ['more'] : [])
+watch(openGroups, (groups) => {
+  try { localStorage.setItem(MORE_KEY, groups.includes('more') ? '1' : '0') } catch { /* private window: it just will not be remembered */ }
+})
+watch(() => route.path, (path) => {
+  if (onMorePage(path) && !openGroups.value.includes('more')) openGroups.value = [...openGroups.value, 'more']
+})
+
+const navItems = computed(() => [{
+  label: 'New chat',
+  to: '/',
+  kbds: ['meta', 'o'],
+  icon: 'i-lucide-circle-plus'
+}, {
+  label: 'Search',
+  icon: 'i-lucide-search',
+  kbds: ['meta', 'k'],
+  onSelect: () => {
+    searchOpen.value = true
+  }
+}, {
+  label: 'Workspaces',
+  to: '/workspaces',
+  icon: 'i-lucide-folders'
+}, {
+  label: 'Tasks',
+  to: '/tasks',
+  icon: 'i-lucide-list-checks'
+}, {
+  label: 'Workflow Studio',
+  to: '/workflows',
+  icon: 'i-lucide-workflow'
+}, {
+  label: 'Explore',
+  value: 'more',
+  icon: 'i-lucide-compass',
+  children: [
+    { label: 'Agents', to: '/agents', icon: 'i-lucide-bot' },
+    { label: 'Memory', to: '/memory', icon: 'i-lucide-brain' },
+    { label: 'Models', to: '/models', icon: 'i-lucide-cpu' },
+    { label: 'Integrations', to: '/integrations', icon: 'i-lucide-blocks' },
+    { label: 'Computers', to: '/computers', icon: 'i-lucide-monitor-smartphone' },
+    { label: 'The Reef', to: '/reef', icon: 'i-lucide-waves' }
+  ]
+}])
+
+function getChatActions(item: { id: string, label: string, pinned?: boolean, workspaceId?: string, visibility?: 'public' | 'private' }): DropdownMenuItem[][] {
+  return menuFor(item)
 }
 
 defineShortcuts({
@@ -99,51 +162,8 @@ defineShortcuts({
 
       <template #default="{ collapsed }">
         <UNavigationMenu
-          :items="[{
-            label: 'New chat',
-            to: '/',
-            kbds: ['meta', 'o'],
-            icon: 'i-lucide-circle-plus'
-          }, {
-            label: 'Search',
-            icon: 'i-lucide-search',
-            kbds: ['meta', 'k'],
-            onSelect: () => {
-              searchOpen = true
-            }
-          }, {
-            label: 'Agents',
-            to: '/agents',
-            icon: 'i-lucide-bot'
-          }, {
-            label: 'Memory',
-            to: '/memory',
-            icon: 'i-lucide-brain'
-          }, {
-            label: 'Tasks',
-            to: '/tasks',
-            icon: 'i-lucide-list-checks'
-          }, {
-            label: 'Computers',
-            to: '/computers',
-            icon: 'i-lucide-monitor-smartphone'
-          }, {
-            label: 'Workflow Studio',
-            to: '/workflows',
-            icon: 'i-lucide-workflow'
-          }, {
-            label: 'Integrations',
-            to: '/integrations',
-            icon: 'i-lucide-blocks'
-          }, {
-            label: 'Models',
-            to: '/models',
-            icon: 'i-lucide-cpu'
-          }, {
-            label: 'The Reef',
-            to: '/reef',
-            icon: 'i-lucide-waves'
-          }]"
+          v-model="openGroups"
+          :items="navItems"
           :collapsed="collapsed"
           orientation="vertical"
         >
@@ -176,7 +196,7 @@ defineShortcuts({
         >
           <template #chat-trailing="{ item }">
             <UDropdownMenu
-              :items="getChatActions(item as { id: string, label: string })"
+              :items="getChatActions(item as { id: string, label: string, pinned?: boolean, workspaceId?: string, visibility?: 'public' | 'private' })"
               :content="{ align: 'end' }"
             >
               <UButton
@@ -222,7 +242,7 @@ defineShortcuts({
           to: '/',
           icon: 'i-lucide-circle-plus'
         }]
-      }, ...groups]"
+      }, ...groups, ...(workspaceChats.length ? [{ id: 'in-workspaces', label: 'In workspaces', items: workspaceChats }] : [])]"
     />
 
     <div class="page-host flex-1 flex min-w-0 h-full overflow-hidden">

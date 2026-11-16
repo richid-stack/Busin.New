@@ -22,6 +22,8 @@ assert(await throws(() => open(sealed, 'other-purpose'), /could not be decrypted
 const parts = sealed.split('.')
 assert(await throws(() => open([parts[0], parts[1], parts[2], Buffer.from('tampered').toString('base64url')].join('.'), 'mcp-token'), /could not be decrypted/), 'a tampered secret is refused')
 assert(await throws(() => open('garbage', 'mcp-token'), /not readable/), 'garbage is refused')
+assert(Buffer.from(parts[2]!, 'base64url').length === 16, 'a sealed secret carries the full 16-byte tag')
+assert(await throws(() => open([parts[0], parts[1], Buffer.from(parts[2]!, 'base64url').subarray(0, 4).toString('base64url'), parts[3]].join('.'), 'mcp-token'), /not readable/), 'a secret with a shortened tag is refused')
 
 // ---- Tool definitions ----
 const tool = { name: 'create_issue', description: 'Create an issue', inputSchema: { type: 'object', properties: { title: { type: 'string' }, body: { type: 'string' } }, required: ['title'] } }

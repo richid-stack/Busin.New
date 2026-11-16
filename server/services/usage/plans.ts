@@ -36,6 +36,9 @@ const MODEL_COST: Record<string, number> = {
   'groq/gpt-oss-120b': 2
 }
 
+/** Credits one plan in the cloud box costs. A box costs real money to run, so it counts for more than a message. Tunable from the environment. */
+export const cloudPlanCost = () => num(process.env.USAGE_CLOUD_PLAN_COST, 5)
+
 export const modelCost = (modelId: string | null | undefined) => (modelId && MODEL_COST[modelId]) || 1
 
 export const dayKey = (now: Date) => now.toISOString().slice(0, 10)

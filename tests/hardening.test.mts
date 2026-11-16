@@ -15,6 +15,8 @@ const parsed = parseSearchResults(html)
 assert(parsed.sources[0]?.url === 'https://example.com/a' && parsed.sources[0]?.title === 'Example & A', 'search parser decodes redirect urls and titles')
 assert(parsed.snippets[0] === 'A snippet here', 'search parser extracts snippets')
 assert(parseSearchResults('<html></html>').sources.length === 0, 'empty page yields no sources')
+const twice = parseSearchResults('<a class="result__a" href="https://example.com/b">Use &amp;lt;b&amp;gt; &amp;amp; more</a>')
+assert(twice.sources[0]?.title === 'Use &lt;b&gt; &amp; more', 'a title is decoded once, not twice')
 
 const headers = new Map<string, string>()
 const fakeEvent: any = { res: { headers: { set: (k: string, v: string) => headers.set(k, v) } } }

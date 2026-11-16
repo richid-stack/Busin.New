@@ -2,7 +2,7 @@
 import PageSkeleton from '../../components/state/PageSkeleton.vue'
 import StateCard from '../../components/state/StateCard.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTasks } from '../../composables/useTasks'
 import { useTaskSchedules } from '../../composables/useTaskSchedules'
 import TaskWhen from '../../components/tasks/TaskWhen.vue'
@@ -13,15 +13,17 @@ import { useUserSession } from '../../composables/useUserSession'
 import { TASK_STATUS } from '../../types/tasks'
 import type { CriterionKind } from '../../types/tasks'
 import { timeAgo } from '../../utils/taskTime'
+import StatusChip from '../../components/tasks/StatusChip.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { openAuthModal } = useFirebaseAuth()
 const { loggedIn } = useUserSession()
-const { tasks, loading, loaded, unauthorized, loadError, fetchTasks, createTask } = useTasks()
+const { tasks, loading, loaded, unauthorized, loadError, fetchTasks, createTask, getTask } = useTasks()
 
 const { schedules, fetchSchedules, createSchedule } = useTaskSchedules()
 const hasSchedules = computed(() => schedules.value.length > 0)
-onMounted(() => { fetchTasks(); fetchSchedules() })
+onMounted(() => { fetchTasks(); fetchSchedules(); prefill() })
 watch(loggedIn, () => { fetchTasks(); fetchSchedules() })
 
 // While anything is running, keep the list fresh.
@@ -54,6 +56,24 @@ const createError = ref<string | null>(null)
 const addCriterion = () => { if (criteria.value.length < 8) criteria.value.push({ text: '', kind: 'check', format: 'any', url: '' }) }
 const removeCriterion = (i: number) => criteria.value.splice(i, 1)
 const canStart = computed(() => goal.value.trim().length >= 10 && !creating.value)
+
+/** "Schedule" on a finished task arrives here with that task's goal and checks filled in. */
+async function prefill() {
+  const from = typeof route.query.from === 'string' ? route.query.from : ''
+  if (!from) return
+  try {
+    const { task } = await getTask(from)
+    goal.value = task.goal
+    criteria.value = task.criteria.slice(0, 8).map(c => ({ text: c.text, kind: c.kind, format: c.format ?? 'any', url: c.url ?? '' }))
+    useBrowser.value = task.tools.includes('browser')
+    scheduled.value = route.query.schedule === '1'
+    title.value = ''
+  } catch {
+    // The task is gone or not yours: the form just opens empty.
+  } finally {
+    router.replace({ path: '/tasks' })
+  }
+}
 
 async function start() {
   if (!canStart.value) return
@@ -294,20 +314,15 @@ async function start() {
           >
             Your tasks
           </h2>
-          <ul class="divide-y divide-default rounded-2xl border border-default overflow-hidden">
+          <ul class="divide-y divide-default">
             <li
               v-for="t in tasks"
               :key="t.id"
             >
               <RouterLink
                 :to="`/tasks/${t.id}`"
-                class="flex items-start gap-3 px-4 py-3.5 hover:bg-elevated/60 transition-colors"
+                class="flex items-center gap-4 px-3 py-3.5 rounded-lg hover:bg-elevated/60 transition-colors"
               >
-                <span
-                  class="mt-1.5 size-2 shrink-0 rounded-full"
-                  :class="TASK_STATUS[t.status].dot"
-                  aria-hidden="true"
-                />
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-medium text-highlighted flex items-center gap-1.5 min-w-0">
                     <UIcon
@@ -318,11 +333,12 @@ async function start() {
                     />
                     <span class="truncate">{{ t.goal }}</span>
                   </p>
-                  <p class="text-xs text-muted mt-0.5 truncate">
-                    {{ t.outcome || TASK_STATUS[t.status].label }}
+                  <p v-if="t.outcome" class="text-xs text-muted mt-0.5 truncate">
+                    {{ t.outcome }}
                   </p>
                 </div>
-                <span class="text-xs text-dimmed shrink-0 mt-0.5">{{ timeAgo(t.createdAt) }}</span>
+                <StatusChip :label="TASK_STATUS[t.status].label" :tone="TASK_STATUS[t.status].tone" />
+                <span class="hidden sm:block w-20 text-right text-xs text-dimmed shrink-0">{{ timeAgo(t.createdAt) }}</span>
               </RouterLink>
             </li>
           </ul>

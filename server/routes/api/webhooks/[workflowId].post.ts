@@ -71,7 +71,7 @@ export default defineHandler(async (event) => {
   inputMap['webhook'] = payload
   inputMap['trigger'] = payload
 
-  const { run, result } = await executeAndRecordRun(workflow, inputMap, workflow.userId)
+  const { run, result } = await executeAndRecordRun(workflow, inputMap, workflow.userId, { background: true })
 
   return {
     success: result.status !== 'failed',

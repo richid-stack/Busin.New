@@ -8,7 +8,7 @@ export class ConnectorError extends Error {
   constructor(message: string, readonly kind: 'invalid' | 'auth' | 'limit' | 'upstream' | 'network' = 'invalid', readonly maybeSent = false) { super(message) }
 }
 
-// eslint-disable-next-line no-control-regex
+ 
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/
 
 const range = (d: ParamDef) => d.min !== undefined && d.max !== undefined ? `between ${d.min} and ${d.max}` : d.min !== undefined ? `at least ${d.min}` : `at most ${d.max}`

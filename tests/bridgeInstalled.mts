@@ -72,6 +72,8 @@ try {
   const pj = await server.store.getJob('winuser', pingPaused.id)
   assert(pj.status === 'failed' && /paused/.test(pj.error), 'while paused, the installed Bridge refuses everything')
   await runCmd(path.join(appDir, 'bridge.cmd'), ['resume'])
+  // A job is only saved for a computer OpenLobs knows is not paused, so wait until the Bridge has said it resumed.
+  await waitFor('the Bridge to report that it resumed', async () => (await server.store.listDevices('winuser'))[0]!.paused === false, 60_000)
   const pingBack = await server.store.enqueue('winuser', dev.id, 'ping')
   await waitFor('the resumed ping', async () => ['done', 'failed'].includes((await server.store.getJob('winuser', pingBack.id)).status), 60_000)
   assert((await server.store.getJob('winuser', pingBack.id)).status === 'done', 'after resuming, it answers again')

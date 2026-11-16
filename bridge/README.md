@@ -1,10 +1,10 @@
 # OpenLobs Bridge
 
-A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.5: it can answer a ping, look at web pages, let OpenLobs use a browser, and work on spreadsheets in one folder, each only if you allow it.** It is the base for later steps (other apps).
+A small program that connects a computer to OpenLobs so OpenLobs can ask it to do approved things. **Version 0.6: it can answer a ping, look at web pages, let OpenLobs use a browser, work on spreadsheets in one folder, and run approved commands in one folder, each only if you allow it.** It is the base for later steps (other apps).
 
 ## What it will and will not do
 
-- It only **calls out** to your OpenLobs address. It opens no port and runs no commands. The only programs it starts are your browser (for a browser job you allowed) and, for spreadsheet work you allowed, Microsoft Excel or LibreOffice, driven by two fixed scripts that nothing from OpenLobs is ever written into (`sheets/engine.ts`; `process.ts` is the single place that starts a program).
+- It only **calls out** to your OpenLobs address. It opens no port. The programs it starts are your browser (for a browser job you allowed), for spreadsheet work you allowed Microsoft Excel or LibreOffice driven by two fixed scripts that nothing from OpenLobs is ever written into (`sheets/engine.ts`; `process.ts` starts these), and, only with the **run** permission, the programs on a short fixed list (node, npm, python, git and similar) in the one folder you chose, each step approved by you first (`run.ts` starts these; see the run section below).
 - It has a fixed list of jobs (`HANDLERS` in `core.ts`). A job not on the list is refused on this computer even if the server sends it.
 - It says what it is doing, can be stopped with Ctrl+C, and stops by itself if you disconnect it in OpenLobs.
 - The token that proves this computer's identity is stored in a file only your user can read (`%APPDATA%\OpenLobsBridge\config.json` on Windows, `~/.openlobs-bridge/config.json` elsewhere).
@@ -46,6 +46,18 @@ On Windows the Bridge shows a small icon by the clock: green when connected, ora
 ### Spreadsheets (Excel)
 
 `bridge allow excel --folder "C:\Users\you\Documents\OpenLobs"` (on Windows, leave out `--folder` to pick the folder in a window; the Start menu entry "Allow spreadsheet work in one folder" does this). OpenLobs can then list the `.xlsx`/`.csv` files in that folder (one level of sub-folders), read their sheets, headers and first rows, and save a **new copy** with changes made from a fixed list of steps: fill formulas, set cells, clean text and numbers, sort, summarize into a new sheet (live formulas), format, add a chart, rename/add/delete sheets, optionally save a PDF.
+
+### Running commands you approve (permission `run`)
+
+`bridge allow run --folder "C:\Users\you\Documents\OpenLobs projects"` lets OpenLobs look at the files in that one folder and, **only after you approve a plan in the chat**, run commands there. The folder must be a project folder, not your whole home folder or a system folder.
+
+- **Allowed programs:** `npm` (install, ci, uninstall, run, test, ls, init -y), `pnpm`/`yarn` (install, add, remove, run, test; not on Windows yet), `pip` (install, uninstall, list, show, freeze; only inside a Python environment in the folder), `node` and `python` (run a file from the folder, `python -m venv`, pytest), `git` (status, log, diff, init, add, commit, branch, checkout -b, clone over https; never push, pull or config). Anything else is refused.
+- **No shell.** Arguments are passed as a list, so a pipe, `&&` or `$(...)` is never read as a second command. The same rulebook (`shared/runPlan.ts`) is applied on the server and again here.
+- **Packages install with their setup code switched off** unless the plan says otherwise for that step and you approve it. Python packages go into an environment inside the folder, never into your computer.
+- **Clean environment:** tokens, keys and other apps' settings are not passed to the program. `.env`, key files and similar are never listed, read or added to git, and anything that looks like a key is hidden in what comes back.
+- **Limits:** each command has a time limit (2 minutes, 3 for installs), one command runs at a time, only the end of the output is kept, and the stop button in the chat (or pausing the Bridge) ends the program and everything it started.
+- **What this does not do:** a program you approve (a script, a test run, a package's setup code) runs with the same access as your own account. The folder is where it starts and the only place OpenLobs looks, not a wall around the program. Read each plan before approving. Stronger isolation is what the cloud box (phase 4, part 2) is for.
+
 
 - The original is never changed, an existing file is never replaced (a number is added to the name), and nothing outside the chosen folder can be reached: `..`, other drives, network paths and shortcuts that lead out are refused here, on this computer.
 - A file that has charts, pivot tables, pictures or macros is not copied through unless the person agreed to lose them.

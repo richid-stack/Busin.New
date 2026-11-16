@@ -48,14 +48,14 @@ export interface NewTask {
   maxMinutes?: number
 }
 
-export const TASK_STATUS: Record<TaskStatus, { label: string, dot: string, working: boolean }> = {
-  queued: { label: 'Waiting', dot: 'bg-neutral-400', working: true },
-  running: { label: 'Working', dot: 'bg-primary animate-pulse', working: true },
-  needs_you: { label: 'Needs you', dot: 'bg-warning animate-pulse', working: false },
-  verifying: { label: 'Checking', dot: 'bg-primary animate-pulse', working: true },
-  needs_review: { label: 'Needs your review', dot: 'bg-warning', working: false },
-  done: { label: 'Done', dot: 'bg-success', working: false },
-  partial: { label: 'Partly done', dot: 'bg-warning', working: false },
-  failed: { label: 'Not done', dot: 'bg-error', working: false },
-  cancelled: { label: 'Cancelled', dot: 'bg-neutral-400', working: false }
+export const TASK_STATUS: Record<TaskStatus, { label: string, tone: 'quiet' | 'calm' | 'needs' | 'failed', working: boolean }> = {
+  queued: { label: 'Waiting', tone: 'quiet', working: true },
+  running: { label: 'Working', tone: 'quiet', working: true },
+  needs_you: { label: 'Needs you', tone: 'needs', working: false },
+  verifying: { label: 'Checking', tone: 'quiet', working: true },
+  needs_review: { label: 'Needs your review', tone: 'needs', working: false },
+  done: { label: 'Done', tone: 'calm', working: false },
+  partial: { label: 'Partly done', tone: 'calm', working: false },
+  failed: { label: 'Not done', tone: 'failed', working: false },
+  cancelled: { label: 'Cancelled', tone: 'quiet', working: false }
 }

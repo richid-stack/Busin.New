@@ -47,7 +47,7 @@ export const LIMITS = {
 }
 
 /** Tool groups a task may use. Groups that act in a person's accounts or reach outside servers are not offered yet. */
-export const TASK_TOOL_GROUPS = ['web', 'read_files', 'create_files', 'inspect', 'utilities', 'browser'] as const
+export const TASK_TOOL_GROUPS = ['web', 'read_files', 'create_files', 'inspect', 'utilities', 'browser', 'save_files', 'study_sites', 'read_code'] as const
 export const DEFAULT_TASK_GROUPS: string[] = ['web', 'create_files', 'inspect', 'utilities']
 
 const text = (min: number, max: number, what: string) => z.string().transform(s => s.replace(/\r\n/g, '\n').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim())

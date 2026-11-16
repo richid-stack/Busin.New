@@ -21,7 +21,7 @@ export const LIMITS = {
 
 /** Removes control characters (keeps line breaks and tabs) and trims. Used on every string that goes into a file. */
 export function clean(value: string): string {
-  // eslint-disable-next-line no-control-regex
+   
   return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').replace(/\r\n?/g, '\n')
 }
 

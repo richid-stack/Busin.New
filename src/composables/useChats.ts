@@ -6,6 +6,9 @@ import { $fetch } from 'ofetch'
 interface ChatData {
   id: string
   title?: string | null
+  workspaceId?: string | null
+  pinned?: boolean
+  visibility?: 'public' | 'private'
   createdAt: string | number | Date
 }
 
@@ -14,6 +17,9 @@ interface Chat {
   label: string
   to: string
   icon: string
+  workspaceId?: string
+  pinned?: boolean
+  visibility: 'public' | 'private'
   createdAt: string
 }
 
@@ -26,6 +32,9 @@ export const useChats = createSharedComposable(() => {
       label: chat.title || 'Untitled',
       to: `/chat/${chat.id}`,
       icon: 'i-lucide-message-circle',
+      ...(chat.workspaceId ? { workspaceId: chat.workspaceId } : {}),
+      ...(chat.pinned ? { pinned: true } : {}),
+      visibility: chat.visibility === 'public' ? 'public' : 'private',
       createdAt: String(chat.createdAt)
     }) as Chat)).catch(error => {
       console.error(error)
@@ -52,7 +61,8 @@ export const useChats = createSharedComposable(() => {
     const oneWeekAgo = subDays(new Date(), 7)
     const oneMonthAgo = subMonths(new Date(), 1)
 
-    const newestFirst = [...(chats.value ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    // A chat inside a workspace lives on that workspace's page, so it does not crowd the history here.
+    const newestFirst = [...(chats.value ?? []).filter(c => !c.workspaceId && !c.pinned)].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
     newestFirst.forEach((chat) => {
       const chatDate = new Date(chat.createdAt)
@@ -141,8 +151,16 @@ export const useChats = createSharedComposable(() => {
     return formattedGroups
   })
 
+  /** Chats the person pinned (outside workspaces), newest first. A pinned chat in a workspace stays on that workspace's page. */
+  const pinnedChats = computed(() => [...(chats.value ?? []).filter(c => c.pinned && !c.workspaceId)].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+
+  /** Chats that belong to a workspace; still found by search. */
+  const workspaceChats = computed(() => (chats.value ?? []).filter(c => c.workspaceId))
+
   return {
     groups,
+    pinnedChats,
+    workspaceChats,
     chats,
     fetchChats,
     updateChat,

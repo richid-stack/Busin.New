@@ -11,6 +11,9 @@ on:
       - 'tests/bridge*'
       - 'tests/helpers/**'
       - 'server/services/bridge/**'
+      - 'shared/runPlan.ts'
+      - 'tests/runPlan.test.mts'
+      - 'tests/runOnComputer.test.mts'
       - '.github/workflows/bridge-windows.yml'
   workflow_dispatch:
     inputs:
@@ -59,6 +62,13 @@ jobs:
           node scripts/ci-capture.mjs "bridgeProgram.test" npx tsx tests/bridgeProgram.test.mts
           node scripts/ci-capture.mjs "bridgeSheets.test" npx tsx tests/bridgeSheets.test.mts
           node scripts/ci-capture.mjs "bridgeTray.test" npx tsx tests/bridgeTray.test.mts
+
+      - name: Run-commands tests on Windows (real node, real npm, real folders)
+        run: |
+          node scripts/ci-capture.mjs "runPlan.test" npx tsx tests/runPlan.test.mts
+          node scripts/ci-capture.mjs "bridgeRun.test" npx tsx tests/bridgeRun.test.mts
+          node scripts/ci-capture.mjs "bridgeRunJobs.test" npx tsx tests/bridgeRunJobs.test.mts
+          node scripts/ci-capture.mjs "runOnComputer.test" npx tsx tests/runOnComputer.test.mts
 
       - name: Build the app folder
         shell: pwsh
