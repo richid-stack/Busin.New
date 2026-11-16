@@ -227,7 +227,6 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
         </template>
         <template #right>
           <UButton v-if="workspace" icon="i-lucide-pin" :color="workspace.pinned ? 'primary' : 'neutral'" variant="ghost" :aria-label="workspace.pinned ? 'Unpin' : 'Pin'" @click="patch({ pinned: !workspace.pinned })" />
-          <UColorModeButton />
         </template>
       </UDashboardNavbar>
     </template>
