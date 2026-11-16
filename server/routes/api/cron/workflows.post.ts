@@ -21,7 +21,7 @@ export default defineHandler(async (event) => {
   return await runDueWorkflows({
     store: createFirestoreScheduleStore(),
     run: async (workflow, input) => {
-      const { run } = await executeAndRecordRun(workflow as any, input, workflow.userId)
+      const { run } = await executeAndRecordRun(workflow as any, input, workflow.userId, { background: true })
       if (run.status === 'failed') {
         // An email is a courtesy: it never changes how the run is recorded.
         await notifyWorkflowFailure(defaultNotifyDeps(), failureInfoFromRun(workflow as any, run)).catch(err => console.warn('[notify] Workflow failure email not sent:', err?.message))

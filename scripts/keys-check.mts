@@ -111,7 +111,8 @@ await check('composio: run one no-sign-in tool for real', 'COMPOSIO_API_KEY', as
     const easy = list.find(t => !(t.inputParameters?.required?.length) && !/delete|create|update|send|post|write/i.test(t.slug))
     if (!easy) { tried.push(`${slug}: no tool without required input`); continue }
     const out: any = await client.tools.execute(easy.slug, { userId: 'keycheck-user', arguments: {}, dangerouslySkipVersionCheck: true } as any)
-    return `ran ${easy.slug}: ${out?.successful ? 'successful' : 'failed'}; ${JSON.stringify(out?.data ?? out?.error).slice(0, 140)}`
+    if (!out?.successful) throw new Error(`${easy.slug} did not succeed: ${JSON.stringify(out?.error ?? out?.data).slice(0, 140)}`)
+    return `ran ${easy.slug}: successful; ${JSON.stringify(out?.data).slice(0, 140)}`
   }
   throw new Error(`no usable tool (${tried.join('; ')})`)
 })

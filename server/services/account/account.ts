@@ -14,7 +14,7 @@ import { readSpec } from '../artifacts/store'
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'artifacts', 'artifact_versions', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'artifacts', 'artifact_versions', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings', 'push_subscriptions'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings', 'voice_settings'] as const
 /** Nested data that goes with its parent document. */
@@ -22,7 +22,7 @@ const NESTED: Record<string, string[]> = { chats: ['messages', 'votes'], workflo
 
 export const EXPORT_FORMAT = 1
 
-const LEGACY_SECRETS = ['accessToken', 'refreshToken', 'token', 'apiKey', 'secret', 'credentials', 'sealed', 'sealedToken', 'password']
+const LEGACY_SECRETS = ['p256dh', 'auth', 'accessToken', 'refreshToken', 'token', 'apiKey', 'secret', 'credentials', 'sealed', 'sealedToken', 'password']
 const SECRET_HEADER = /authorization|cookie|token|secret|key|password|signature/i
 
 const URL_SECRET = /([?&;](?:[\w-]*(?:key|token|secret|password|passwd|sig|signature|auth|credential)[\w-]*|code)=)[^&\s"'<>#]+/gi

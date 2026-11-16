@@ -1,6 +1,7 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import { CRITERION_KINDS, DEFAULT_TASK_GROUPS, FILE_FORMATS, taskInputSchema } from '../../services/tasks/model'
+import { describeEstimate, estimateTaskCredits } from '../../services/tasks/estimate'
 import { withToolLimits } from './limits'
 
 /** Shows the person a draft task they can start with one click. It starts nothing itself: tasks spend credits in the background. */
@@ -24,10 +25,12 @@ export const createProposeTaskTool = (userId: string) => tool({
       const extra = [...(useBrowser ? ['browser'] : []), ...(alsoUse ?? [])]
       const parsed = taskInputSchema.safeParse({ ...rest, ...(extra.length ? { tools: [...DEFAULT_TASK_GROUPS, ...extra] } : {}) })
       if (!parsed.success) return { status: 'failed' as const, error: `${parsed.error.issues[0]?.message ?? 'The draft is not valid.'} Fix the draft and try again.` }
+      const estimate = estimateTaskCredits({ criteria: parsed.data.criteria, model: parsed.data.model, maxAttempts: parsed.data.maxAttempts })
       return {
         status: 'proposed' as const,
         draft: { goal: parsed.data.goal, criteria: parsed.data.criteria, ...(extra.length ? { tools: parsed.data.tools } : {}) },
-        note: 'The user sees a card with a Start button. Nothing runs until they press it. Say in one sentence what you drafted and that it uses credits when it runs. Do not claim it has started.'
+        estimate: { ...estimate, text: describeEstimate(estimate) },
+        note: 'The user sees a card with a Start button and what it will cost in credits. Nothing runs until they press it. Say in one sentence what you drafted. Do not claim it has started.'
       }
     }
   )

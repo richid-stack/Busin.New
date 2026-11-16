@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import { assertNotDeleting, isDeleting } from '../services/account/tombstone'
+import { defaultNotifyDeps, notifyApprovalWaiting } from '../services/notifications/notify'
 import { executeWorkflowDAG, type WorkflowRunResult } from './workflowEngine'
 import {
   saveWorkflowRun,
@@ -22,7 +23,7 @@ export async function postApprovalCard(
   ownerId: string,
   workflow: FirestoreWorkflow,
   run: FirestoreWorkflowRun
-) {
+): Promise<string> {
   await assertNotDeleting(ownerId)
   const chats = await getUserChats(ownerId)
   let chat = chats.find(c => c.title === APPROVALS_CHAT_TITLE)
@@ -50,13 +51,16 @@ export async function postApprovalCard(
     ],
     createdAt: new Date()
   })
+  return chat.id
 }
 
 /** Executes a workflow, records the run, and raises an approval card if it paused. */
 export async function executeAndRecordRun(
   workflow: FirestoreWorkflow,
   input: Record<string, any> | undefined,
-  userId: string
+  userId: string,
+  /** True when nobody is watching (a schedule or a webhook started it): a pause for approval then alerts the owner. */
+  options: { background?: boolean } = {}
 ): Promise<{ run: FirestoreWorkflowRun, result: WorkflowRunResult }> {
   // Nothing runs for an account that is being deleted: the steps could call out and spend credits for a person who is leaving.
   if (await isDeleting(userId)) throw new Error('This account is being deleted.')
@@ -77,11 +81,16 @@ export async function executeAndRecordRun(
 
   if (result.status === 'waiting_approval') {
     // Approval requests go to the workflow owner, even for webhook-triggered runs.
-    await postApprovalCard(workflow.userId, workflow, run).catch(async (err) => {
+    const chatId = await postApprovalCard(workflow.userId, workflow, run).catch(async (err) => {
       console.warn('[workflow] Failed to post approval card:', err)
       // The run is still approvable from the studio; record that the chat card never arrived.
       await updateWorkflowRun(workflow.id, run.id, { approvalData: { ...(run.approvalData || {}), cardDeliveryFailed: true } }).catch(() => {})
+      return undefined
     })
+    if (options.background) {
+      await notifyApprovalWaiting(defaultNotifyDeps(), { userId: workflow.userId, workflowId: workflow.id, workflowName: String(workflow.title || 'Workflow'), runId: run.id, prompt: run.approvalPrompt, chatId })
+        .catch(err => console.warn('[notify] Approval alert not sent:', err?.message))
+    }
   }
 
   return { run, result }
