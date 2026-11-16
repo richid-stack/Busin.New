@@ -18,7 +18,7 @@ export interface ToolGroup { id: string, label: string, detail: string, tools: s
 export const TOOL_GROUPS: ToolGroup[] = [
   { id: 'web', label: 'Search the web and read pages', detail: 'Finds current information and reads the pages you point it to.', tools: ['web_search', 'web_fetch'] },
   { id: 'read_files', label: 'Read attached files', detail: 'Opens PDFs, Word files, spreadsheets and text you attach.', tools: ['read_document'] },
-  { id: 'save_files', label: 'Save files and look at images', detail: 'Downloads a file or photo from a link you give it, and looks at images to judge them.', tools: ['fetch_file', 'view_image'] },
+  { id: 'save_files', label: 'Save files and look at images', detail: 'Downloads a file or photo from a link you give it, finds free stock photos with their licence, and looks at images to judge them.', tools: ['fetch_file', 'view_image', 'find_photos'] },
   { id: 'study_sites', label: 'Study designs', detail: 'Looks at live pages like a person would, reads the colours and fonts they use, and finds free icons and fonts to build with.', tools: ['look_at_page', 'design_tokens', 'find_icons', 'find_fonts'] },
   { id: 'more_skills', label: 'Find skills online', detail: 'Looks for a skill on GitHub when none fits, opens one for a chat, or keeps one in your list, only after you approve it.', tools: ['find_skill', 'load_external_skill', 'install_skill'] },
   { id: 'setup_check', label: 'Check what is connected', detail: 'Before a job, checks which of your apps, tool servers and computers are ready and what is missing. Connects nothing.', tools: ['check_setup'] },

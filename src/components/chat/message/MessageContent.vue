@@ -319,6 +319,32 @@ function isToolPart(part: any): boolean {
         </p>
       </UChatTool>
       <UChatTool
+        v-else-if="getToolName(part) === 'find_photos'"
+        :text="isToolStreaming(part) ? 'Looking for photos...' : getLookupTrace(part).failed ? 'Could not search photos' : 'Found photos'"
+        :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"
+        :streaming="isToolStreaming(part)"
+        icon="i-lucide-image"
+        :chevron="getLookupTrace(part).lines.length || getLookupTrace(part).error ? 'leading' : undefined"
+      >
+        <ul
+          v-if="getLookupTrace(part).lines.length"
+          class="flex flex-col gap-0.5 text-sm text-muted"
+        >
+          <li
+            v-for="line in getLookupTrace(part).lines"
+            :key="line"
+          >
+            {{ line }}
+          </li>
+        </ul>
+        <p
+          v-else-if="getLookupTrace(part).error"
+          class="text-sm text-muted"
+        >
+          {{ getLookupTrace(part).error }}
+        </p>
+      </UChatTool>
+      <UChatTool
         v-else-if="getToolName(part) === 'github_read'"
         :text="isToolStreaming(part) ? 'Reading the project...' : getLookupTrace(part).failed ? 'Could not read the project' : 'Read the project'"
         :suffix="[getLookupTrace(part).query, getLookupTrace(part).count !== undefined ? `${getLookupTrace(part).count} found` : undefined].filter(Boolean).join(' · ') || undefined"

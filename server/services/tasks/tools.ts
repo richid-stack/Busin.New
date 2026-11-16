@@ -15,6 +15,7 @@ import { browserKey } from '../browser/service'
 import { createFetchFileTool, createViewImageTool } from '../../utils/tools/fetchFile'
 import { createDesignTokensTool, createLookAtPageTool } from '../../utils/tools/lookAtPage'
 import { createFindFontsTool, createFindIconsTool } from '../../utils/tools/findAssets'
+import { createFindPhotosTool } from '../../utils/tools/findPhotos'
 import { createGithubReadTool } from '../../utils/tools/githubRead'
 import { createCommunitySearchTool } from '../../utils/tools/communitySearch'
 import { allowedToolNames } from './registry'
@@ -37,6 +38,7 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
     design_tokens: createDesignTokensTool(userId),
     find_icons: createFindIconsTool(userId),
     find_fonts: createFindFontsTool(userId),
+    find_photos: createFindPhotosTool(userId),
     github_read: createGithubReadTool(userId),
     community_search: createCommunitySearchTool(userId),
     create_document: createDocumentTool(userId),

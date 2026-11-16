@@ -35,6 +35,7 @@ export const CAPABILITIES: Capability[] = [
   cap('design_tokens', 'Read a page\'s design', 'read', 20_000, []),
   cap('find_icons', 'Find icons', 'read', 10_000, []),
   cap('find_fonts', 'Find fonts', 'read', 10_000, []),
+  cap('find_photos', 'Find photos', 'read', 10_000, []),
   cap('github_read', 'Read a GitHub project', 'read', 30_000, []),
   cap('community_search', 'Search the Reef', 'read', 10_000, []),
   cap('check_setup', 'Check what is connected', 'read', 20_000, []),

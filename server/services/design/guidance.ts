@@ -23,6 +23,12 @@ export function fetchGuidance(tools: string[]): string {
 - If the user likes a look and asks you to remember it, use remember with one line: the site, and the palette, fonts and feel in a few words. Offer once at the end of a design job; never save without a yes.`)
   }
 
+  if (has('find_photos')) {
+    parts.push(`**PHOTOS:**
+- Use find_photos for real photos instead of linking to pictures from memory. Search with plain words that say what the photo shows, then keep the ones you use with fetch_file and look at them with view_image before they go into the work.
+- Say where each photo is from. Where the licence asks for credit (Unsplash does), put the credit line near the photo or at the end of the work.`)
+  }
+
   if (has('find_icons', 'find_fonts')) {
     parts.push(`**ICONS AND FONTS:**
 - Use find_icons and find_fonts instead of drawing icons or guessing font names. Use one icon set per design and at most two font families.
