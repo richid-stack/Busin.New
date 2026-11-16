@@ -337,6 +337,115 @@ try {
     }
   }
 
+  // Chat menus, pinning, moving between workspaces, export, ghost mode, mono chips, Appearance. Chats and workspaces are made through the API (no model needed).
+  if (ONLY.includes('chatui')) {
+    const J = async (r) => r.json().catch(() => ({}))
+    const mkChat = async (body) => { const r = await api('/api/chats', { method: 'POST', body: JSON.stringify(body) }); return { status: r.status, body: await J(r) } }
+    const menuLabels = async () => (await page.locator('[role="menuitem"]').allInnerTexts()).map(t => t.trim()).filter(Boolean)
+    try {
+      const wsA = await J(await api('/api/workspaces', { method: 'POST', body: JSON.stringify({ name: 'UI test bakery' }) }))
+      const wsB = await J(await api('/api/workspaces', { method: 'POST', body: JSON.stringify({ name: 'UI test shop sign' }) }))
+      check(!!wsA.id && !!wsB.id, '[chatui] two workspaces were made')
+      const loose = await mkChat({ input: 'Weekly payment reminders for the bakery' })
+      check(loose.status < 300 && !!loose.body.id, `[chatui] a plain chat was made (${loose.status})`)
+      const inWs = await mkChat({ input: 'Reply to the supplier in Kumasi', workspaceId: wsA.id })
+      check(inWs.status < 300 && !!inWs.body.id, '[chatui] a chat was made inside a workspace')
+      check((await J(await api('/api/chats'))).find(c => c.id === inWs.body.id)?.workspaceId === wsA.id, '[chatui] the list says it is in that workspace')
+
+      // Server: pin / unpin
+      const pin = await api(`/api/chats/pin/${loose.body.id}`, { method: 'PATCH', body: JSON.stringify({ pinned: true }) })
+      check(pin.status === 200, `[chatui] pin works (${pin.status})`)
+      let list = await J(await api('/api/chats'))
+      check(list.find(c => c.id === loose.body.id)?.pinned === true, '[chatui] the chat list says it is pinned')
+      const unpin = await api(`/api/chats/pin/${loose.body.id}`, { method: 'PATCH', body: JSON.stringify({ pinned: false }) })
+      list = await J(await api('/api/chats'))
+      check(unpin.status === 200 && !list.find(c => c.id === loose.body.id)?.pinned, '[chatui] unpin works')
+
+      // Sidebar menu for a chat in no workspace
+      await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
+      const row = page.locator('a', { hasText: 'Weekly payment reminders' }).first()
+      await row.hover(); await sleep(400)
+      await row.locator('[aria-label="Chat actions"]').click({ timeout: 6000, force: true }); await sleep(900)
+      let labels = await menuLabels()
+      note(`sidebar menu: ${labels.join(' | ')}`)
+      check(['Pin', 'Share', 'Rename', 'Add to workspace', 'Export', 'Delete'].every(l => labels.includes(l)) && !labels.includes('Remove from workspace'), '[chatui] a chat outside any workspace offers Add to workspace and no Remove')
+      await shot('chatui-1-sidebar-menu')
+      await page.getByRole('menuitem', { name: 'Pin', exact: true }).click(); await sleep(1800)
+      check(await page.getByText('Pinned', { exact: true }).count() > 0, '[chatui] Pin puts the chat under a Pinned heading in the sidebar')
+      await shot('chatui-2-pinned')
+
+      // Workspace page: plain rows and the in-workspace menu
+      await page.goto(`${BASE}/workspaces/${wsA.id}`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
+      const wrow = page.locator('li', { hasText: 'Reply to the supplier in Kumasi' }).first()
+      check(await wrow.count() > 0, '[chatui] the workspace page lists its chat as a plain row')
+      await wrow.hover(); await sleep(300)
+      await wrow.getByRole('button', { name: 'Chat options' }).click({ timeout: 6000, force: true }); await sleep(900)
+      labels = await menuLabels()
+      note(`workspace row menu: ${labels.join(' | ')}`)
+      check(labels.includes('Remove from workspace') && labels.includes('Move to workspace') && !labels.includes('Add to workspace'), '[chatui] a chat in a workspace offers Move and Remove, never Add')
+      await shot('chatui-3-workspace-menu')
+      // Export download
+      const dl = page.waitForEvent('download', { timeout: 10000 }).catch(() => null)
+      await page.getByRole('menuitem', { name: 'Export', exact: true }).click()
+      const file = await dl
+      check(!!file && /\.md$/.test(file.suggestedFilename()), `[chatui] Export downloads a Markdown file (${file?.suggestedFilename?.()})`)
+      // Remove from workspace
+      await wrow.hover(); await sleep(300)
+      await wrow.getByRole('button', { name: 'Chat options' }).click({ timeout: 6000, force: true }); await sleep(700)
+      await page.getByRole('menuitem', { name: 'Remove from workspace' }).click(); await sleep(3000)
+      list = await J(await api('/api/chats'))
+      check(!list.find(c => c.id === inWs.body.id)?.workspaceId, '[chatui] Remove from workspace takes the chat out')
+      await shot('chatui-4-removed')
+
+      // Chat header: three dots, no colour switch
+      await page.goto(`${BASE}/chat/${loose.body.id}`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
+      check(await page.getByRole('button', { name: 'Chat options' }).count() === 1, '[chatui] the chat header has the three-dot menu')
+      check(await page.locator('header button:has(.i-lucide-sun), header button:has(.i-lucide-moon)').count() === 0, '[chatui] the light/dark switch is gone from the chat header')
+      await page.getByRole('button', { name: 'Chat options' }).click(); await sleep(900)
+      note(`header menu: ${(await menuLabels()).join(' | ')}`)
+      await shot('chatui-5-header-menu')
+      await page.keyboard.press('Escape'); await sleep(300)
+
+      // Ghost mode
+      const ghost = await mkChat({ ghost: true, input: 'A private question' })
+      check(ghost.status < 300 && !!ghost.body.id, `[chatui] a ghost chat was made (${ghost.status})`)
+      list = await J(await api('/api/chats'))
+      check(!list.some(c => c.id === ghost.body.id), '[chatui] a ghost chat is not in the history')
+      check((await mkChat({ ghost: true, workspaceId: wsA.id, input: 'x' })).status === 400, '[chatui] ghost mode refuses a workspace')
+      check((await api(`/api/chats/pin/${ghost.body.id}`, { method: 'PATCH', body: JSON.stringify({ pinned: true }) })).status === 400, '[chatui] a ghost chat cannot be pinned')
+      await page.goto(`${BASE}/chat/${ghost.body.id}`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
+      check(await page.getByText('Ghost mode', { exact: true }).count() > 0 && await page.getByRole('button', { name: 'Chat options' }).count() === 0, '[chatui] a ghost chat shows the Ghost mode label and no menu')
+      await shot('chatui-6-ghost-chat')
+      await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' }); await sleep(4000)
+      const after = await api(`/api/chats/${ghost.body.id}`)
+      check(after.status === 404, `[chatui] the ghost chat is gone after leaving (${after.status})`)
+      await page.getByRole('button', { name: 'Ghost mode' }).click(); await sleep(500)
+      await shot('chatui-7-home-ghost')
+
+      // Settings > Appearance
+      await page.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
+      await page.getByRole('heading', { name: 'Appearance' }).scrollIntoViewIfNeeded().catch(() => {})
+      await page.getByRole('button', { name: 'Violet' }).click({ timeout: 6000 }); await page.getByRole('button', { name: 'Large' }).click(); await page.getByRole('button', { name: 'Narrow' }).click(); await page.getByRole('button', { name: 'Reduced' }).click(); await sleep(500)
+      const attrs = await page.evaluate(() => ['data-accent', 'data-text', 'data-width', 'data-motion'].map(a => document.documentElement.getAttribute(a)).join(','))
+      check(attrs === 'violet,large,narrow,reduced', `[chatui] Appearance sets the page (${attrs})`)
+      await shot('chatui-8-appearance')
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(4000)
+      const kept = await page.evaluate(() => document.documentElement.getAttribute('data-accent'))
+      check(kept === 'violet', `[chatui] the choice is kept after a reload (${kept})`)
+      await page.getByRole('button', { name: 'Back to the defaults' }).click().catch(() => {}); await sleep(300)
+
+      // Tasks with mono chips (any task made by an earlier scenario)
+      const tl = await J(await api('/api/tasks'))
+      const tasks = Array.isArray(tl) ? tl : tl.tasks || []
+      if (tasks.length) {
+        await page.goto(`${BASE}/tasks`, { waitUntil: 'domcontentloaded' }); await sleep(5000); await shot('chatui-9-tasks')
+        await page.goto(`${BASE}/tasks/${tasks[0].id}`, { waitUntil: 'domcontentloaded' }); await sleep(5000); await shot('chatui-10-task')
+      }
+      for (const c of [loose.body.id, inWs.body.id]) await api(`/api/chats/${c}`, { method: 'DELETE' }).catch(() => {})
+      for (const w of [wsA.id, wsB.id]) await api(`/api/workspaces/${w}`, { method: 'DELETE' }).catch(() => {})
+    } catch (e) { check(false, `[chatui] ${redact(e.message).slice(0, 220)}`) }
+  }
+
   if (problems.length) process.exitCode = 1
 } catch (err) {
   note(`FAILED: ${redact(err?.message || err)}`)

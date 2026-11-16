@@ -7,11 +7,13 @@ import { useCsrf } from '../../composables/useCsrf'
 const props = defineProps<{
   chatId: string
   visibility: 'public' | 'private'
+  /** Called after the setting changed (or was put back), so the page and the list show the same thing. */
+  onChange?: (visibility: 'public' | 'private') => void
 }>()
 
-const emit = defineEmits<{
-  'update:visibility': [visibility: 'public' | 'private']
-}>()
+const emit = defineEmits<{ close: [boolean] }>()
+
+const current = ref(props.visibility)
 
 const toast = useToast()
 const { csrf, headerName } = useCsrf()
@@ -19,7 +21,7 @@ const clipboard = useClipboard()
 
 const loading = ref(false)
 
-const isShared = computed(() => props.visibility === 'public')
+const isShared = computed(() => current.value === 'public')
 const shareUrl = computed(() => `${window.location.origin}/chat/${props.chatId}`)
 
 const options = [
@@ -38,11 +40,12 @@ const options = [
 ]
 
 async function updateVisibility(value: 'public' | 'private') {
-  if (value === props.visibility) return
+  if (value === current.value) return
 
   loading.value = true
-  const previous = props.visibility
-  emit('update:visibility', value)
+  const previous = current.value
+  current.value = value
+  props.onChange?.(value)
 
   try {
     await $fetch(`/api/chats/visibility/${props.chatId}`, {
@@ -51,7 +54,8 @@ async function updateVisibility(value: 'public' | 'private') {
       body: { visibility: value }
     })
   } catch {
-    emit('update:visibility', previous)
+    current.value = previous
+    props.onChange?.(previous)
     toast.add({
       description: 'Failed to update visibility',
       icon: 'i-lucide-alert-circle',
@@ -77,16 +81,8 @@ function copyLink() {
   <UModal
     :title="isShared ? 'Chat shared' : 'Share chat'"
     :description="isShared ? 'Anyone with the link can view this chat.' : 'Only you can view this chat.'"
-    close
+    @update:open="(open: boolean) => { if (!open) emit('close', true) }"
   >
-    <UTooltip text="Share chat">
-      <UButton
-        color="neutral"
-        variant="ghost"
-        icon="i-lucide-share"
-        aria-label="Share chat"
-      />
-    </UTooltip>
 
     <template #body>
       <div class="flex flex-col gap-0.5 rounded-lg ring ring-default p-1">
@@ -94,7 +90,7 @@ function copyLink() {
           v-for="option in options"
           :key="option.value"
           :disabled="loading"
-          :data-selected="option.value === visibility"
+          :data-selected="option.value === current"
           class="flex items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-elevated/50 disabled:opacity-50 data-[selected=true]:bg-elevated/50"
           @click="updateVisibility(option.value)"
         >
@@ -113,9 +109,9 @@ function copyLink() {
           </div>
 
           <UIcon
-            v-if="visibility === option.value"
-            name="i-lucide-circle-check"
-            class="size-5 text-primary shrink-0"
+            v-if="current === option.value"
+            name="i-lucide-check"
+            class="size-4.5 text-highlighted shrink-0"
           />
         </button>
       </div>

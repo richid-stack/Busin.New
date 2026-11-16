@@ -21,7 +21,7 @@ import PromptAttachments from '../../components/PromptAttachments.vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatMessageContent from '../../components/chat/message/MessageContent.vue'
 import ChatMessageActions from '../../components/chat/message/MessageActions.vue'
-import ChatVisibility from '../../components/chat/ChatVisibility.vue'
+import { useChatActions } from '../../composables/useChatActions'
 import ChatTitle from '../../components/chat/ChatTitle.vue'
 import PromptWaves from '../../components/lobby/PromptWaves.vue'
 import DictateButton from '../../components/lobby/DictateButton.vue'
@@ -80,6 +80,31 @@ async function relink(link: { workspaceId?: string | null, agentId?: string | nu
   }
 }
 const visibility = ref<'public' | 'private'>(data?.visibility ?? 'private')
+const isGhost = computed(() => Boolean((data as any)?.ghost))
+const { menuFor } = useChatActions()
+// The chat list is the one source for where this chat lives and whether it is pinned, so the sidebar and this menu agree.
+const listed = computed(() => chats.value.find(c => c.id === data?.id))
+watch(() => listed.value?.workspaceId ?? null, (id) => { workspaceId.value = id })
+const chatMenuItems = computed(() => menuFor({
+  id: data!.id,
+  label: title.value || 'Untitled',
+  pinned: Boolean(listed.value?.pinned),
+  workspaceId: workspaceId.value,
+  visibility: visibility.value
+}, {
+  onVisibility: (v) => { visibility.value = v },
+  onRenamed: (t) => { title.value = t }
+}))
+
+// Ghost mode: the chat goes when the person leaves. A closed tab is caught on the server by a sweep.
+function dropGhost() {
+  if (!isGhost.value || !isOwner.value || !data?.id) return
+  fetch(`/api/chats/${data.id}`, { method: 'DELETE', keepalive: true, headers: { [headerName]: csrf() } }).catch(() => {})
+}
+if (isGhost.value) {
+  onMounted(() => window.addEventListener('pagehide', dropGhost))
+  onBeforeUnmount(() => { window.removeEventListener('pagehide', dropGhost); dropGhost() })
+}
 const title = ref<string | null>(data?.title ?? null)
 
 watch(() => chats.value.find(c => c.id === data?.id)?.label, (label) => {
@@ -472,17 +497,32 @@ function handleTextAction(action: string, selectedText: string) {
           </nav>
         </template>
 
-        <ChatVisibility
-          v-if="isOwner"
-          :chat-id="data!.id"
-          :visibility="visibility"
-          @update:visibility="visibility = $event"
-        />
+        <span
+          v-if="isGhost"
+          class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted ring-1 ring-inset ring-default"
+          title="Not saved and not remembered. Deleted when you leave."
+        >
+          <UIcon name="i-lucide-ghost" class="size-3.5" />
+          Ghost mode
+        </span>
+        <UDropdownMenu
+          v-else-if="isOwner"
+          :items="chatMenuItems"
+          :content="{ align: 'end', side: 'bottom' }"
+          :ui="{ content: 'w-56' }"
+        >
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-ellipsis"
+            aria-label="Chat options"
+          />
+        </UDropdownMenu>
       </Navbar>
     </template>
 
     <template #body>
-      <UContainer class="flex-1 flex flex-col gap-4 sm:gap-6">
+      <UContainer class="chat-width flex-1 flex flex-col gap-4 sm:gap-6">
         <UChatMessages
           should-auto-scroll
           :messages="messages"

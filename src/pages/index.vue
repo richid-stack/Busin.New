@@ -30,6 +30,8 @@ const { openAuthModal, authReady, isAuthenticated } = useFirebaseAuth()
 const { attachments, processing, onInputChange, remove, clear, toApiAttachments } = usePromptAttachments()
 
 const input = ref('')
+// Ghost mode: this chat is not saved in the history, not added to memory, and goes when you leave.
+const ghost = ref(false)
 const loading = ref(false)
 const dictation = useDictation(input)
 
@@ -141,14 +143,14 @@ async function createChat(prompt: string) {
       headers: { [headerName]: csrf() },
       body: {
         input: prompt,
-        agentId: agentId.value ?? undefined,
-        workspaceId: workspaceId.value ?? undefined,
+        // A ghost chat is a plain chat: no workspace and no saved agent come with it.
+        ...(ghost.value ? { ghost: true } : { agentId: agentId.value ?? undefined, workspaceId: workspaceId.value ?? undefined }),
         attachments: attachments.value.length > 0 ? await toApiAttachments() : undefined
       }
     })
 
     clear()
-    fetchChats()
+    if (!ghost.value) fetchChats()
     if (chat?.id) {
       router.push(`/chat/${chat.id}`)
     }
@@ -240,7 +242,19 @@ async function startAutomation(prompt: string) {
     :ui="{ body: 'p-0 sm:p-0' }"
   >
     <template #header>
-      <Navbar />
+      <Navbar>
+        <UTooltip :text="ghost ? 'Ghost mode is on. Nothing is saved or remembered.' : 'Ghost mode: nothing saved or remembered'">
+          <UButton
+            icon="i-lucide-ghost"
+            :label="ghost ? 'Ghost mode' : undefined"
+            color="neutral"
+            :variant="ghost ? 'subtle' : 'ghost'"
+            aria-label="Ghost mode"
+            :aria-pressed="ghost"
+            @click="ghost = !ghost"
+          />
+        </UTooltip>
+      </Navbar>
     </template>
 
     <template #body>
@@ -253,11 +267,12 @@ async function startAutomation(prompt: string) {
         />
 
         <div v-else class="text-center space-y-2">
+          <UIcon v-if="ghost" name="i-lucide-ghost" class="mx-auto block size-8 text-muted" />
           <h1 class="text-3xl sm:text-4xl text-default font-semibold tracking-tight">
-            {{ greeting }}
+            {{ ghost ? 'Ghost mode' : greeting }}
           </h1>
           <p class="text-muted text-sm sm:text-base max-w-lg mx-auto">
-            What would you like to automate today? Type a request or select a template to build an intelligent workflow.
+            {{ ghost ? 'Nothing here is saved or added to your memory. It is gone when you leave this page.' : 'What would you like to get done today? Ask, or describe something to build.' }}
           </p>
         </div>
 
@@ -325,31 +340,29 @@ async function startAutomation(prompt: string) {
           <UButton icon="i-lucide-x" size="xs" color="neutral" variant="ghost" class="shrink-0" aria-label="Dismiss suggestion" @click="dismissedHint = agentHint.id" />
         </div>
 
-        <!-- Proactive Automations -->
-        <div v-if="!guestMessage" class="mt-8">
-          <div class="flex items-center gap-2 mb-4 px-2 text-sm font-medium text-default">
-            <UIcon name="i-lucide-sparkles" class="size-4 text-primary" />
-            Suggested Workflows
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
+        <!-- Starting points: plain rows, no cards -->
+        <div v-if="!guestMessage && !ghost">
+          <p class="mb-1 px-3 text-xs font-medium text-muted">
+            Start from
+          </p>
+          <ul class="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-4">
+            <li
               v-for="automation in proactiveAutomations"
               :key="automation.title"
-              type="button"
-              class="group relative flex flex-col items-start p-5 bg-elevated border border-default rounded-2xl hover:border-primary/50 hover:shadow-lg focus-visible:border-primary/50 focus-visible:outline-2 focus-visible:outline-primary/30 transition-all cursor-pointer text-left"
-              @click="startAutomation(automation.prompt)"
             >
-              <div class="p-2.5 rounded-xl border border-default shadow-sm mb-4 group-hover:scale-105 transition-transform">
-                <UIcon :name="automation.icon" class="size-5" />
-              </div>
-              <h3 class="text-sm font-semibold text-default mb-1">{{ automation.title }}</h3>
-              <p class="text-xs text-muted leading-relaxed">{{ automation.description }}</p>
-
-              <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
-                <UIcon name="i-lucide-arrow-right" class="size-4 text-primary" />
-              </div>
-            </button>
-          </div>
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-elevated/60 focus-visible:bg-elevated/60 focus-visible:outline-2 focus-visible:outline-primary/30"
+                @click="startAutomation(automation.prompt)"
+              >
+                <UIcon :name="automation.icon" class="size-4.5 shrink-0 text-muted" />
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-medium text-highlighted">{{ automation.title }}</span>
+                  <span class="block truncate text-xs text-muted">{{ automation.description }}</span>
+                </span>
+              </button>
+            </li>
+          </ul>
         </div>
       </UContainer>
     </template>

@@ -15,6 +15,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { useWorkspaces } from '../../composables/useWorkspaces'
 import { useAgents } from '../../composables/useAgents'
 import { useChats } from '../../composables/useChats'
+import { useChatActions } from '../../composables/useChatActions'
 import { useCsrf } from '../../composables/useCsrf'
 import { useUserSession } from '../../composables/useUserSession'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
@@ -36,6 +37,7 @@ const { openAuthModal } = useFirebaseAuth()
 const { fetchWorkspaces, updateWorkspace, removeWorkspace, detail, addUpload, removeFile, messageOf, loaded: listLoaded } = useWorkspaces()
 const { agents, loaded: agentsLoaded, fetchAgents } = useAgents()
 const { chats, fetchChats } = useChats()
+const { menuFor } = useChatActions()
 const { attachments, processing, onInputChange, remove, clear, toApiAttachments } = usePromptAttachments()
 
 const id = computed(() => String(route.params.id))
@@ -225,7 +227,6 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
         </template>
         <template #right>
           <UButton v-if="workspace" icon="i-lucide-pin" :color="workspace.pinned ? 'primary' : 'neutral'" variant="ghost" :aria-label="workspace.pinned ? 'Unpin' : 'Pin'" @click="patch({ pinned: !workspace.pinned })" />
-          <UColorModeButton />
         </template>
       </UDashboardNavbar>
     </template>
@@ -288,19 +289,30 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
             </template>
           </UChatPrompt>
 
-          <div v-if="rows.length" class="mt-8">
-            <div class="mb-2 text-sm font-medium text-highlighted">Chats</div>
-            <div class="overflow-hidden rounded-2xl border border-default bg-elevated/50">
-              <RouterLink
-                v-for="c in rows"
-                :key="c.id"
-                :to="c.to"
-                class="flex items-center justify-between gap-4 border-t border-default px-4 py-3 transition-colors first:border-t-0 hover:bg-elevated"
-              >
-                <span class="truncate text-sm text-default">{{ c.label }}</span>
-                <span class="shrink-0 text-xs text-muted">{{ whenUsed(c.createdAt) }}</span>
-              </RouterLink>
-            </div>
+          <div v-if="rows.length" class="mt-9">
+            <div class="mb-1 px-3 text-xs font-medium text-muted">Recents</div>
+            <ul>
+              <li v-for="c in rows" :key="c.id" class="group relative">
+                <RouterLink
+                  :to="c.to"
+                  class="flex items-center gap-4 rounded-lg py-3 pl-3 pr-12 transition-colors hover:bg-elevated/60 focus-visible:bg-elevated/60"
+                >
+                  <UIcon v-if="c.pinned" name="i-lucide-pin" class="size-3.5 shrink-0 text-dimmed" />
+                  <span class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ c.label }}</span>
+                  <span class="shrink-0 text-xs text-muted">{{ whenUsed(c.createdAt) }}</span>
+                </RouterLink>
+                <UDropdownMenu :items="menuFor(c)" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }">
+                  <UButton
+                    icon="i-lucide-ellipsis"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    aria-label="Chat options"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                  />
+                </UDropdownMenu>
+              </li>
+            </ul>
           </div>
           <div v-else-if="isEmpty" class="mt-8 flex flex-col items-center text-center text-muted">
             <WorkspaceArt class="w-full max-w-xl" />
@@ -308,59 +320,57 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
           </div>
         </div>
 
-        <aside class="space-y-3">
-          <div class="rounded-2xl border border-default bg-elevated/50">
-            <div class="flex items-center gap-3 px-4 py-3.5">
-              <UIcon name="i-lucide-sticky-note" class="size-4.5 text-muted" />
-              <span class="text-sm font-medium text-highlighted">Instructions</span>
-              <UButton :label="workspace.instructions ? 'Edit' : 'Add'" color="neutral" variant="ghost" size="xs" class="ml-auto" @click="formOpen = true" />
+        <aside class="divide-y divide-default text-sm">
+          <section class="pb-5">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-highlighted">Instructions</span>
+              <UButton :label="workspace.instructions ? 'Edit' : 'Add'" color="neutral" variant="ghost" size="xs" @click="formOpen = true" />
             </div>
-            <p v-if="workspace.instructions" class="border-t border-default px-4 py-3 text-sm leading-relaxed text-muted"><span class="line-clamp-3 whitespace-pre-line">{{ workspace.instructions }}</span></p>
-          </div>
+            <p v-if="workspace.instructions" class="mt-1 leading-relaxed text-muted"><span class="line-clamp-3 whitespace-pre-line">{{ workspace.instructions }}</span></p>
+            <p v-else class="mt-1 text-muted">Rules every chat here follows.</p>
+          </section>
 
-          <div class="rounded-2xl border border-default bg-elevated/50">
-            <div class="flex items-center gap-3 px-4 py-3.5">
-              <UIcon name="i-lucide-files" class="size-4.5 text-muted" />
-              <span class="text-sm font-medium text-highlighted">Files</span>
-              <UDropdownMenu :items="addItems" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }" class="ml-auto">
+          <section class="py-5">
+            <div class="flex items-center justify-between">
+              <span class="font-medium text-highlighted">Files</span>
+              <UDropdownMenu :items="addItems" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }">
                 <UButton icon="i-lucide-plus" label="Add" color="neutral" variant="ghost" size="xs" :loading="uploading" :disabled="files.length >= maxFiles" />
               </UDropdownMenu>
               <input ref="uploadInput" type="file" multiple class="hidden" accept=".pdf,.docx,.txt,.md,.markdown,.csv,.json,text/plain,text/markdown,text/csv,application/pdf" @change="onUpload">
             </div>
-            <template v-if="files.length">
-              <div v-for="f in files" :key="f.id" class="group flex items-center gap-3 border-t border-default px-4 py-2.5 text-sm">
-                <UIcon :name="fileIcon(f)" class="size-4 shrink-0 text-muted" />
-                <span class="truncate text-default" :title="f.cut ? 'Only the start of this file is kept' : f.name">{{ f.name }}</span>
+            <ul v-if="files.length" class="mt-1">
+              <li v-for="f in files" :key="f.id" class="group flex items-center gap-2.5 py-1.5 text-muted">
+                <UIcon :name="fileIcon(f)" class="size-4 shrink-0" />
+                <span class="truncate" :title="f.cut ? 'Only the start of this file is kept' : f.name">{{ f.name }}</span>
                 <span class="ml-auto shrink-0 text-xs text-dimmed group-hover:hidden group-focus-within:hidden">{{ sizeLabel(f.chars) }}</span>
                 <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" class="ml-auto hidden shrink-0 group-hover:inline-flex group-focus-within:inline-flex" :aria-label="`Remove ${f.name}`" @click="dropFile(f)" />
-              </div>
-              <div class="border-t border-default px-4 py-2.5 text-xs text-muted">The assistant opens a file only when a chat needs it.</div>
-            </template>
-          </div>
+              </li>
+            </ul>
+            <p v-if="files.length" class="mt-1 text-xs text-dimmed">The assistant opens a file only when a chat needs it.</p>
+            <p v-else class="mt-1 text-muted">Add files once and every chat here can use them.</p>
+          </section>
 
-          <div class="rounded-2xl border border-default bg-elevated/50">
-            <div class="flex items-center gap-3 px-4 py-3.5">
-              <UIcon name="i-lucide-brain" class="size-4.5 text-muted" />
-              <div class="min-w-0">
-                <div class="text-sm font-medium text-highlighted">Memory</div>
+          <section class="py-5">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="font-medium text-highlighted">Memory</div>
                 <div class="text-xs text-muted">Use my notes here</div>
               </div>
-              <USwitch v-model="memoryOn" class="ml-auto" aria-label="Use my notes in this workspace" />
+              <USwitch v-model="memoryOn" aria-label="Use my notes in this workspace" />
             </div>
-          </div>
+          </section>
 
-          <div class="rounded-2xl border border-default bg-elevated/50">
-            <div class="flex items-center gap-3 px-4 py-3.5">
-              <UIcon name="i-lucide-bot" class="size-4.5 text-muted" />
+          <section class="pt-5">
+            <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <div class="text-sm font-medium text-highlighted">Agent</div>
+                <div class="font-medium text-highlighted">Agent</div>
                 <div class="truncate text-xs text-muted">{{ agent?.name ?? 'Standard assistant' }}</div>
               </div>
-              <UDropdownMenu :items="agentItems" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }" class="ml-auto">
+              <UDropdownMenu :items="agentItems" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }">
                 <UButton label="Change" color="neutral" variant="ghost" size="xs" trailing-icon="i-lucide-chevron-down" />
               </UDropdownMenu>
             </div>
-          </div>
+          </section>
         </aside>
       </div>
 

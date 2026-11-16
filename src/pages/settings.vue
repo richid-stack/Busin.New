@@ -3,6 +3,9 @@ import StateCard from '../components/state/StateCard.vue'
 import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useColorMode } from '@vueuse/core'
+import { useAppearance } from '../composables/useAppearance'
+import { ACCENTS } from '../utils/appearance'
+import type { Appearance } from '../utils/appearance'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { useUserSession } from '../composables/useUserSession'
 import { useAccount } from '../composables/useAccount'
@@ -155,6 +158,12 @@ async function deleteAccount() {
   router.push('/')
 }
 
+const { appearance, reset: resetAppearance } = useAppearance()
+const appearanceRows: Array<{ key: keyof Appearance, title: string, hint: string, options: Array<{ value: string, label: string }> }> = [
+  { key: 'text', title: 'Text size', hint: 'For chats and pages.', options: [{ value: 'small', label: 'Small' }, { value: 'default', label: 'Default' }, { value: 'large', label: 'Large' }] },
+  { key: 'width', title: 'Chat width', hint: 'Wider fits tables and code better.', options: [{ value: 'narrow', label: 'Narrow' }, { value: 'standard', label: 'Standard' }, { value: 'wide', label: 'Wide' }] },
+  { key: 'motion', title: 'Motion', hint: 'Full unfolds and slides. Reduced makes everything instant. System follows your device.', options: [{ value: 'system', label: 'System' }, { value: 'full', label: 'Full' }, { value: 'reduced', label: 'Reduced' }] }
+]
 const modes = [
   { value: 'light', label: 'Light', icon: 'i-lucide-sun' },
   { value: 'dark', label: 'Dark', icon: 'i-lucide-moon' },
@@ -313,25 +322,69 @@ const LINKS = [
 
         <!-- Appearance -->
         <section aria-labelledby="s-appearance">
-          <h2 id="s-appearance" class="text-sm font-semibold text-highlighted mb-3">Appearance</h2>
-          <div class="rounded-2xl border border-default bg-default p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium text-highlighted">Theme</p>
-              <p class="text-xs text-muted">Colours can also be changed from your name menu in the sidebar.</p>
+          <h2 id="s-appearance" class="text-sm font-semibold text-highlighted mb-1">Appearance</h2>
+          <p class="text-xs text-muted">How OpenLobs looks on this device.</p>
+          <div class="mt-3 divide-y divide-default">
+            <div class="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Theme</p>
+                <p class="text-xs text-muted">System follows your phone or computer.</p>
+              </div>
+              <div class="flex gap-1.5" role="group" aria-label="Theme">
+                <UButton
+                  v-for="m in modes"
+                  :key="m.value"
+                  :label="m.label"
+                  :icon="m.icon"
+                  size="sm"
+                  color="neutral"
+                  :variant="colorMode === m.value ? 'solid' : 'subtle'"
+                  :aria-pressed="colorMode === m.value"
+                  @click="colorMode = m.value"
+                />
+              </div>
             </div>
-            <div class="flex gap-1.5" role="group" aria-label="Theme">
-              <UButton
-                v-for="m in modes"
-                :key="m.value"
-                :label="m.label"
-                :icon="m.icon"
-                size="sm"
-                color="neutral"
-                :variant="colorMode === m.value ? 'solid' : 'subtle'"
-                :aria-pressed="colorMode === m.value"
-                @click="colorMode = m.value"
-              />
+
+            <div class="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p class="text-sm font-medium text-highlighted">Accent colour</p>
+                <p class="text-xs text-muted">Buttons, links and the focus ring.</p>
+              </div>
+              <div class="flex gap-2" role="group" aria-label="Accent colour">
+                <button
+                  v-for="a in ACCENTS"
+                  :key="a.value"
+                  type="button"
+                  class="size-7 rounded-full ring-offset-2 ring-offset-default transition-shadow focus-visible:outline-2 focus-visible:outline-primary"
+                  :class="[a.swatch, appearance.accent === a.value ? 'ring-2 ring-highlighted' : 'hover:ring-2 hover:ring-accented']"
+                  :aria-label="a.label"
+                  :aria-pressed="appearance.accent === a.value"
+                  @click="appearance.accent = a.value"
+                />
+              </div>
             </div>
+
+            <div v-for="row in appearanceRows" :key="row.key" class="flex flex-wrap items-center justify-between gap-3 py-4">
+              <div>
+                <p class="text-sm font-medium text-highlighted">{{ row.title }}</p>
+                <p class="text-xs text-muted">{{ row.hint }}</p>
+              </div>
+              <div class="flex gap-1.5" role="group" :aria-label="row.title">
+                <UButton
+                  v-for="o in row.options"
+                  :key="o.value"
+                  :label="o.label"
+                  size="sm"
+                  color="neutral"
+                  :variant="appearance[row.key] === o.value ? 'solid' : 'subtle'"
+                  :aria-pressed="appearance[row.key] === o.value"
+                  @click="(appearance as Record<string, string>)[row.key] = o.value"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="pt-1">
+            <UButton label="Back to the defaults" color="neutral" variant="link" size="xs" class="px-0" @click="resetAppearance" />
           </div>
         </section>
 

@@ -14,9 +14,9 @@ import PendingScreen from '../components/state/PendingScreen.vue'
 const router = useRouter()
 const route = useRoute()
 const { loggedIn, fetchSession } = useUserSession()
-const { groups, workspaceChats, fetchChats } = useChats()
+const { groups, pinnedChats, workspaceChats, fetchChats } = useChats()
 const { pinned, loaded: workspacesLoaded, fetchWorkspaces } = useWorkspaces()
-const { renameChat, deleteChat } = useChatActions()
+const { menuFor } = useChatActions()
 const { openAuthModal } = useFirebaseAuth()
 
 onMounted(() => {
@@ -35,14 +35,21 @@ watch(loggedIn, (signedIn) => {
   sidebarOpen.value = false
 })
 
-// Pinned workspaces sit above the chat history, in the same list.
-const pinnedItems = computed(() => pinned.value.length
-  ? [{ label: 'Pinned', type: 'label' as const }, ...pinned.value.map(w => ({
-      label: w.name,
-      to: `/workspaces/${w.id}`,
-      icon: 'i-lucide-folder',
-      active: route.path === `/workspaces/${w.id}`
-    }))]
+// Pinned workspaces and pinned chats sit above the history, under one "Pinned" label.
+const pinnedItems = computed(() => (pinned.value.length || pinnedChats.value.length)
+  ? [{ label: 'Pinned', type: 'label' as const },
+      ...pinned.value.map(w => ({
+        label: w.name,
+        to: `/workspaces/${w.id}`,
+        icon: 'i-lucide-folder',
+        active: route.path === `/workspaces/${w.id}`
+      })),
+      ...pinnedChats.value.map(item => ({
+        ...item,
+        slot: 'chat' as const,
+        icon: undefined,
+        class: item.label === 'Untitled' ? 'text-muted' : ''
+      }))]
   : [])
 
 const items = computed(() => [...pinnedItems.value, ...(groups.value?.flatMap((group) => {
@@ -112,21 +119,8 @@ const navItems = computed(() => [{
   ]
 }])
 
-function getChatActions(item: { id: string, label: string }): DropdownMenuItem[][] {
-  return [[
-    {
-      label: 'Rename',
-      icon: 'i-lucide-pencil',
-      onSelect: () => renameChat(item.id, item.label === 'Untitled' ? '' : item.label)
-    }
-  ], [
-    {
-      label: 'Delete',
-      icon: 'i-lucide-trash',
-      color: 'error' as const,
-      onSelect: () => deleteChat(item.id)
-    }
-  ]]
+function getChatActions(item: { id: string, label: string, pinned?: boolean, workspaceId?: string, visibility?: 'public' | 'private' }): DropdownMenuItem[][] {
+  return menuFor(item)
 }
 
 defineShortcuts({
@@ -202,7 +196,7 @@ defineShortcuts({
         >
           <template #chat-trailing="{ item }">
             <UDropdownMenu
-              :items="getChatActions(item as { id: string, label: string })"
+              :items="getChatActions(item as { id: string, label: string, pinned?: boolean, workspaceId?: string, visibility?: 'public' | 'private' })"
               :content="{ align: 'end' }"
             >
               <UButton

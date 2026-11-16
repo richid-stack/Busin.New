@@ -689,7 +689,6 @@ const saveLabel = computed(() => ({ saved: 'Saved', unsaved: 'Unsaved changes', 
             @click="toggleDeploy"
           />
         </template>
-        <UColorModeButton />
         </template>
       </UDashboardNavbar>
     </template>

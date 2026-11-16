@@ -20,6 +20,10 @@ export interface FirestoreChat {
   agentId?: string
   /** The workspace this chat belongs to, if it was started in one. */
   workspaceId?: string
+  /** Pinned by the owner: shown at the top of the history. */
+  pinned?: boolean
+  /** Ghost mode: kept out of the history and the memory, and deleted when the person leaves. */
+  ghost?: boolean
   createdAt: Date
   updatedAt?: Date
 }
@@ -93,12 +97,15 @@ export async function getUserChats(userId: string): Promise<FirestoreChat[]> {
   const chats: FirestoreChat[] = []
   snapshot.forEach((d) => {
     const data = d.data()
+    // A ghost chat never shows in the history.
+    if (data.ghost === true) return
     chats.push({
       id: d.id,
       title: data.title || '',
       userId: data.userId || userId,
       visibility: data.visibility || 'private',
       ...(data.workspaceId ? { workspaceId: String(data.workspaceId) } : {}),
+      ...(data.pinned === true ? { pinned: true } : {}),
       createdAt: toDate(data.createdAt, new Date())!
     })
   })
@@ -144,6 +151,8 @@ export async function getChat(chatId: string): Promise<(FirestoreChat & { messag
     visibility: data.visibility || 'private',
     ...(data.agentId ? { agentId: String(data.agentId) } : {}),
     ...(data.workspaceId ? { workspaceId: String(data.workspaceId) } : {}),
+    ...(data.pinned === true ? { pinned: true } : {}),
+    ...(data.ghost === true ? { ghost: true } : {}),
     createdAt: toDate(data.createdAt, new Date())!,
     messages
   }
@@ -156,6 +165,7 @@ export async function createChat(data: {
   visibility?: 'public' | 'private'
   agentId?: string
   workspaceId?: string
+  ghost?: boolean
   initialMessage?: string
   attachments?: Array<{ name?: string; contentType?: string; url: string }>
 }): Promise<FirestoreChat> {
@@ -172,6 +182,7 @@ export async function createChat(data: {
     visibility: 'private',
     ...(data.agentId ? { agentId: data.agentId } : {}),
     ...(data.workspaceId ? { workspaceId: data.workspaceId } : {}),
+    ...(data.ghost ? { ghost: true } : {}),
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   })
@@ -226,6 +237,25 @@ export async function updateChatVisibility(chatId: string, visibility: 'public' 
     updatedAt: new Date().toISOString()
   })
   return true
+}
+
+export async function updateChatPinned(chatId: string, pinned: boolean): Promise<boolean> {
+  const { FieldValue } = await import('firebase-admin/firestore')
+  await getFirebaseDb().collection('chats').doc(chatId).update({
+    pinned: pinned ? true : FieldValue.delete(),
+    updatedAt: new Date().toISOString()
+  })
+  return true
+}
+
+/** Ghost chats are deleted when the person leaves. This catches the ones where that never happened (a closed tab, a lost connection). */
+export const GHOST_MAX_AGE_MS = 6 * 60 * 60_000
+export async function sweepGhostChats(userId: string, now = Date.now()): Promise<number> {
+  const db = getFirebaseDb()
+  const snapshot = await db.collection('chats').where('userId', '==', userId).where('ghost', '==', true).get()
+  const old = snapshot.docs.filter(d => now - new Date(String(d.data().createdAt)).getTime() > GHOST_MAX_AGE_MS)
+  for (const d of old) await db.recursiveDelete(d.ref)
+  return old.length
 }
 
 export async function deleteChat(chatId: string): Promise<boolean> {
