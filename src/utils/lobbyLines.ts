@@ -49,7 +49,7 @@ export function phraseFor(part: Part): string {
   const name = toolNameOf(part)
   if (name === 'web_search' || name === 'google_search') return 'Searching the web.'
   if (name === 'web_fetch') return 'Reading a page.'
-  if (name === 'read_document') return 'Reading the file.'
+  if (name === 'read_document' || name === 'read_workspace_file') return 'Reading the file.'
   if (name === 'fetch_file') return 'Saving a file.'
   if (name === 'view_image') return 'Looking at an image.'
   if (name === 'look_at_page') return 'Looking at the page.'

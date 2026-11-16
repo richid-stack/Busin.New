@@ -137,3 +137,14 @@ a[data-slot="base"]:active {
     animation-iteration-count: infinite !important;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------
+   Soft focus. A field you are typing in gets a 1px blue edge and a faint blue halo (the primary colour at
+   24%): one rule for every input and textarea, and for the message box, which carries `.soft-focus`.
+   The message box's inner textarea is left alone so the ring is drawn once, around the whole box.
+   ------------------------------------------------------------------------------------------------ */
+:is(input, textarea)[data-slot="base"]:not(.soft-focus *):focus-visible,
+.soft-focus:focus-within {
+  outline: none !important;
+  box-shadow: 0 0 0 1px var(--ui-primary), 0 0 0 4px color-mix(in oklab, var(--ui-primary) 24%, transparent) !important;
+}

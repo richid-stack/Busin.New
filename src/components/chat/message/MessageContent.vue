@@ -156,7 +156,7 @@ function isToolPart(part: any): boolean {
         <ChatToolSources :sources="getSources(part)" />
       </UChatTool>
       <UChatTool
-        v-else-if="getToolName(part) === 'read_document'"
+        v-else-if="getToolName(part) === 'read_document' || getToolName(part) === 'read_workspace_file'"
         :text="isToolStreaming(part) ? 'Reading the file...' : getDocumentRead(part).failed ? 'Could not read the file' : 'Read the file'"
         :suffix="getDocumentRead(part).file"
         :streaming="isToolStreaming(part)"

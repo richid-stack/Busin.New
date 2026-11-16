@@ -50,6 +50,9 @@ import { installedAsSkill, listInstalledSkills } from '../../../services/skills/
 import { createInstallSkillTool } from '../../../utils/tools/installSkill'
 import { describeCatalog } from '../../../services/skills/parse'
 import { getAgent } from '../../../services/agents/store'
+import { workspaceStore } from '../../../services/workspaces/store'
+import { workspacePrompt } from '../../../services/workspaces/profile'
+import { createReadWorkspaceFileTool } from '../../../utils/tools/readWorkspaceFile'
 import { filterSkills } from '../../../services/agents/profile'
 import { resolveChatSetup } from '../../../services/agents/setup'
 import { listServers } from '../../../services/mcp/store'
@@ -195,6 +198,10 @@ export default defineHandler(async (event) => {
   const savedAgent = signedIn && chat.agentId ? await getAgent(chat.agentId) : null
   const agent = savedAgent && savedAgent.userId === userId ? savedAgent : null
 
+  // The same for a workspace: the link lives on the chat, and a workspace that has been deleted simply stops applying.
+  const workspace = signedIn && chat.workspaceId ? await workspaceStore().get(userId, chat.workspaceId).catch(() => null) : null
+  const workspaceFiles = workspace ? await workspaceStore().filesForPrompt(userId, workspace.id).catch(() => []) : []
+
   // Retired models (e.g. old saved selections) are mapped to the default; a missing API key
   // for the chosen provider produces a clear 400 from getLanguageModel.
   const modelId = agent?.model ?? model
@@ -289,7 +296,7 @@ export default defineHandler(async (event) => {
   const excelOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('workbook_apply'))).catch(() => false)
   const runOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('run_command'))).catch(() => false)
   const paneNote = signedIn && workPane ? await openFileNote(userId, workPane).catch(() => '') : ''
-  const memoryOn = signedIn && (!agent || agent.tools.includes('memory')) && await isMemoryEnabled(userId).catch(() => false)
+  const memoryOn = signedIn && (!agent || agent.tools.includes('memory')) && (!workspace || workspace.useMemory) && await isMemoryEnabled(userId).catch(() => false)
   const memories = memoryOn ? await listMemories(userId).catch(() => []) : []
   const userText = lastMessage?.role === 'user'
     ? (lastMessage.parts ?? []).map((p: any) => (p?.type === 'text' ? String(p.text ?? '') : '')).join(' ')
@@ -313,6 +320,7 @@ export default defineHandler(async (event) => {
     // Saving files and looking at images act on the person's own storage, so they need an account.
     ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), find_photos: createFindPhotosTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), install_skill: createInstallSkillTool(userId, skills.map(b => b.name)), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
+    ...(workspace && workspaceFiles.length ? { read_workspace_file: createReadWorkspaceFileTool(userId, workspace.id) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
     ...(readDocument ? { read_document: readDocument } : {}),
@@ -420,7 +428,7 @@ ${focused && !('read_document' in tools) ? '' : `**ATTACHED FILES:**
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in tools)) ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length && !(focused && !('load_skill' in tools)) ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}${paneNote && 'edit_file' in tools ? `\n\n${paneNote}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`
+${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in tools)) ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length && !(focused && !('load_skill' in tools)) ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}${workspace ? `\n\n${workspacePrompt(workspace, workspaceFiles)}` : ''}${paneNote && 'edit_file' in tools ? `\n\n${paneNote}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`
         const prompt = withPromptCache(providerOf(modelId), instructionsText, await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })))
         const result = streamText({
           abortSignal: event.req.signal,

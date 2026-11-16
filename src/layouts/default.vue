@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useChats } from '../composables/useChats'
+import { useWorkspaces } from '../composables/useWorkspaces'
 import { useUserSession } from '../composables/useUserSession'
 import { useChatActions } from '../composables/useChatActions'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
@@ -13,25 +14,38 @@ import PendingScreen from '../components/state/PendingScreen.vue'
 const router = useRouter()
 const route = useRoute()
 const { loggedIn, fetchSession } = useUserSession()
-const { groups, fetchChats } = useChats()
+const { groups, workspaceChats, fetchChats } = useChats()
+const { pinned, loaded: workspacesLoaded, fetchWorkspaces } = useWorkspaces()
 const { renameChat, deleteChat } = useChatActions()
 const { openAuthModal } = useFirebaseAuth()
 
 onMounted(() => {
   fetchSession()
   fetchChats()
+  if (loggedIn.value) fetchWorkspaces()
 })
 
 const sidebarOpen = ref(false)
 const searchOpen = ref(false)
 
-watch(loggedIn, () => {
+watch(loggedIn, (signedIn) => {
   fetchChats()
+  if (signedIn && !workspacesLoaded.value) fetchWorkspaces()
 
   sidebarOpen.value = false
 })
 
-const items = computed(() => groups.value?.flatMap((group) => {
+// Pinned workspaces sit above the chat history, in the same list.
+const pinnedItems = computed(() => pinned.value.length
+  ? [{ label: 'Pinned', type: 'label' as const }, ...pinned.value.map(w => ({
+      label: w.name,
+      to: `/workspaces/${w.id}`,
+      icon: 'i-lucide-folder',
+      active: route.path === `/workspaces/${w.id}`
+    }))]
+  : [])
+
+const items = computed(() => [...pinnedItems.value, ...(groups.value?.flatMap((group) => {
   return [{
     label: group.label,
     type: 'label' as const
@@ -41,7 +55,7 @@ const items = computed(() => groups.value?.flatMap((group) => {
     icon: undefined,
     class: item.label === 'Untitled' ? 'text-muted' : ''
   }))]
-}))
+}) ?? [])])
 
 function getChatActions(item: { id: string, label: string }): DropdownMenuItem[][] {
   return [[
@@ -111,6 +125,10 @@ defineShortcuts({
             onSelect: () => {
               searchOpen = true
             }
+          }, {
+            label: 'Workspaces',
+            to: '/workspaces',
+            icon: 'i-lucide-folders'
           }, {
             label: 'Agents',
             to: '/agents',
@@ -222,7 +240,7 @@ defineShortcuts({
           to: '/',
           icon: 'i-lucide-circle-plus'
         }]
-      }, ...groups]"
+      }, ...groups, ...(workspaceChats.length ? [{ id: 'in-workspaces', label: 'In workspaces', items: workspaceChats }] : [])]"
     />
 
     <div class="page-host flex-1 flex min-w-0 h-full overflow-hidden">

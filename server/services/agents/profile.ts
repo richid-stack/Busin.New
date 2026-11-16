@@ -77,12 +77,13 @@ export function allowedToolNames(agent: Pick<Agent, 'tools'>): Set<string> {
 
 /**
  * Keeps only the tools this agent may use. `load_skill` is not a group: it is present exactly when the
- * agent has skills switched on, which the caller decides when it builds that tool.
+ * agent has skills switched on, which the caller decides when it builds that tool. `read_workspace_file` is the same: it
+ * exists only when the chat belongs to a workspace, so an agent used there can always open the workspace's files.
  */
 export function filterTools<T extends Record<string, unknown>>(all: T, agent: Pick<Agent, 'tools'>): Partial<T> {
   const allowed = allowedToolNames(agent)
   const mcp = agent.tools.includes('mcp')
-  return Object.fromEntries(Object.entries(all).filter(([name]) => name === 'load_skill' || allowed.has(name) || (mcp && name.startsWith(MCP_TOOL_PREFIX)))) as Partial<T>
+  return Object.fromEntries(Object.entries(all).filter(([name]) => name === 'load_skill' || name === 'read_workspace_file' || allowed.has(name) || (mcp && name.startsWith(MCP_TOOL_PREFIX)))) as Partial<T>
 }
 
 /** Keeps only the skills this agent has switched on; unknown names are ignored. */

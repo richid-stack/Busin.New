@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { requireUser } from '../../../utils/session'
 import { enforceRateLimit } from '../../../utils/rateLimit'
 import { deleteAgent, getAgent } from '../../../services/agents/store'
+import { workspaceStore } from '../../../services/workspaces/store'
 
 export default defineHandler(async (event) => {
   const user = await requireUser(event)
@@ -14,5 +15,7 @@ export default defineHandler(async (event) => {
   if (!existing || existing.userId !== user.id) throw new HTTPError({ statusCode: 404, statusMessage: 'Agent not found' })
 
   await deleteAgent(id)
+  // A workspace that used this agent goes back to the standard assistant.
+  await workspaceStore().forgetAgent(user.id, id).catch(() => {})
   return { success: true }
 })

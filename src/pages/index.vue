@@ -3,7 +3,6 @@ import { ATTACH_ACCEPT } from '../utils/attachmentTypes'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
-import type { DropdownMenuItem } from '@nuxt/ui'
 import { useChats } from '../composables/useChats'
 import { useCsrf } from '../composables/useCsrf'
 import { useUserSession } from '../composables/useUserSession'
@@ -14,8 +13,11 @@ import PromptAttachments from '../components/PromptAttachments.vue'
 import PromptVoiceButton from '../components/lobby/PromptVoiceButton.vue'
 import DictateButton from '../components/lobby/DictateButton.vue'
 import { useDictation } from '../composables/useDictation'
-import AgentSelect from '../components/agents/AgentSelect.vue'
+import PlusMenu from '../components/PlusMenu.vue'
 import { useAgents } from '../composables/useAgents'
+import { useWorkspaces } from '../composables/useWorkspaces'
+import { useSkills } from '../composables/useSkills'
+import { usePlusMenu } from '../composables/usePlusMenu'
 import GuestReply from '../components/chat/GuestReply.vue'
 import { savePendingPrompt, takePendingPrompt } from '../utils/guestReply'
 import { suggestAgent } from '../utils/agentSuggest'
@@ -51,6 +53,22 @@ const agentHint = computed(() => {
 })
 const fileInput = ref<HTMLInputElement | null>(null)
 
+/** The workspace the new chat starts in; null is none. A link from a workspace (?workspace=...) preselects it. */
+const workspaceId = ref<string | null>(null)
+const { workspaces, loaded: workspacesLoaded, fetchWorkspaces, getWorkspace } = useWorkspaces()
+const { loaded: skillsLoaded, fetchSkills } = useSkills()
+watch([workspacesLoaded, () => route.query.workspace], () => {
+  const wanted = route.query.workspace
+  if (typeof wanted === 'string' && workspacesLoaded.value && workspaces.value.some(w => w.id === wanted)) workspaceId.value = wanted
+}, { immediate: true })
+function pickWorkspace(id: string | null) {
+  workspaceId.value = id
+  // A workspace brings its own agent, unless one was already picked for this chat.
+  const own = getWorkspace(id)?.agentId
+  if (own && !agentId.value) agentId.value = own
+}
+const plus = usePlusMenu({ input, chooseFile: () => fileInput.value?.click(), workspaceId, agentId, pickWorkspace, pickAgent: (id) => { agentId.value = id } })
+
 const greeting = computed(() => {
   const hour = new Date().getHours()
   let timeGreeting = 'Good evening'
@@ -84,7 +102,12 @@ async function ensureSignedIn(): Promise<boolean> {
 
 // Once the visitor signs in, send what they had typed.
 // Agents are the signed-in person's own, so load them once the server session exists (also when someone signs in on this page).
-watch(loggedIn, (signedIn) => { if (signedIn) fetchAgents() }, { immediate: true })
+watch(loggedIn, (signedIn) => {
+  if (!signedIn) return
+  fetchAgents()
+  if (!workspacesLoaded.value) fetchWorkspaces()
+  if (!skillsLoaded.value) fetchSkills()
+}, { immediate: true })
 
 watch(loggedIn, (signedIn) => {
   if (!signedIn) return
@@ -119,6 +142,7 @@ async function createChat(prompt: string) {
       body: {
         input: prompt,
         agentId: agentId.value ?? undefined,
+        workspaceId: workspaceId.value ?? undefined,
         attachments: attachments.value.length > 0 ? await toApiAttachments() : undefined
       }
     })
@@ -147,7 +171,7 @@ async function talkToLobby() {
   if (!await ensureSignedIn()) { openAuthModal('signin'); return }
   lobbyLoading.value = true
   try {
-    const chat = await $fetch('/api/chats', { method: 'POST', headers: { [headerName]: csrf() }, body: { agentId: agentId.value ?? undefined } })
+    const chat = await $fetch('/api/chats', { method: 'POST', headers: { [headerName]: csrf() }, body: { agentId: agentId.value ?? undefined, workspaceId: workspaceId.value ?? undefined } })
     fetchChats()
     if (chat?.id) router.push({ path: `/chat/${chat.id}`, query: { lobby: '1' } })
   } catch (err: any) {
@@ -170,41 +194,6 @@ async function onSubmit() {
   }
   createChat(input.value)
 }
-
-const mcpItems = computed<DropdownMenuItem[][]>(() => [
-  [
-    {
-      label: 'Upload files',
-      icon: 'i-lucide-paperclip',
-      onSelect: () => {
-        fileInput.value?.click()
-      }
-    },
-    {
-      label: 'Search the web',
-      icon: 'i-lucide-globe',
-      onSelect: () => {
-        input.value = 'Search the web for: '
-      }
-    }
-  ],
-  [
-    {
-      label: 'Workflow Studio',
-      icon: 'i-lucide-workflow',
-      onSelect: () => {
-        router.push('/workflows')
-      }
-    },
-    {
-      label: 'Integrations',
-      icon: 'i-lucide-blocks',
-      onSelect: () => {
-        router.push('/integrations')
-      }
-    }
-  ]
-])
 
 const proactiveAutomations = [
   {
@@ -275,8 +264,8 @@ async function startAutomation(prompt: string) {
         <div class="flex flex-col gap-2 relative">
           <UChatPrompt
             v-model="input"
-            class="[view-transition-name:chat-prompt] shadow-sm border border-default rounded-2xl bg-elevated/50 backdrop-blur-md focus-within:ring-2 focus-within:ring-primary/20 transition-all"
-            color="neutral"
+            class="soft-focus [view-transition-name:chat-prompt] shadow-sm border border-default rounded-2xl bg-elevated/50 backdrop-blur-md transition-all"
+            color="primary"
             variant="subtle"
             :ui="{ base: 'px-3 py-2' }"
             placeholder="e.g. Build a workflow to read my emails and draft a summary..."
@@ -291,21 +280,7 @@ async function startAutomation(prompt: string) {
 
           <template #footer>
             <div class="flex items-center gap-2 pt-1">
-              <UDropdownMenu
-                :items="mcpItems"
-                :content="{ align: 'start', side: 'top', collisionPadding: 12 }"
-              >
-                <UButton
-                  id="home-attach-btn"
-                  icon="i-lucide-plus"
-                  class="rounded-full shrink-0 cursor-pointer transition-transform hover:rotate-90 shadow-sm"
-                  variant="soft"
-                  color="primary"
-                  size="sm"
-                  aria-label="Capabilities & Integrations"
-                  title="Capabilities & Integrations"
-                />
-              </UDropdownMenu>
+              <PlusMenu id="home-attach-btn" :items="plus.items.value" :active="plus.active.value" />
               <input
                 ref="fileInput"
                 type="file"
@@ -315,7 +290,6 @@ async function startAutomation(prompt: string) {
                 @change="onInputChange"
               >
               <ModelSelect v-if="!selectedAgent?.model" />
-              <AgentSelect v-model="agentId" />
             </div>
 
             <!-- Nothing typed: the waveform is where Send is, with a small mic beside it. Typing turns both into Send. -->

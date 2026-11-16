@@ -8,6 +8,10 @@ import type { UIMessage } from 'ai'
 import { getSearchQuery } from '../../utils/tool'
 import { useModels } from '../../composables/useModels'
 import { useAgents } from '../../composables/useAgents'
+import { useWorkspaces } from '../../composables/useWorkspaces'
+import { useSkills } from '../../composables/useSkills'
+import { usePlusMenu } from '../../composables/usePlusMenu'
+import PlusMenu from '../../components/PlusMenu.vue'
 import { useChats } from '../../composables/useChats'
 import { useCsrf } from '../../composables/useCsrf'
 import { useUserSession } from '../../composables/useUserSession'
@@ -15,7 +19,6 @@ import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { usePromptAttachments } from '../../composables/usePromptAttachments'
 import PromptAttachments from '../../components/PromptAttachments.vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { DropdownMenuItem } from '@nuxt/ui'
 import ChatMessageContent from '../../components/chat/message/MessageContent.vue'
 import ChatMessageActions from '../../components/chat/message/MessageActions.vue'
 import ChatVisibility from '../../components/chat/ChatVisibility.vue'
@@ -52,8 +55,30 @@ const data = await $fetch(`/api/chats/${route.params.id}`).catch(() => null)
 
 const isOwner = computed(() => data?.isOwner ?? false)
 // The saved agent this chat talks to (only the owner sees it; it may have been deleted since).
-const agent = computed(() => (isOwner.value ? getAgent(data?.agentId) : undefined))
-onMounted(() => { if (data?.agentId && isOwner.value && !agentsLoaded.value) fetchAgents() })
+const agentId = ref<string | null>(data?.agentId ?? null)
+const workspaceId = ref<string | null>(data?.workspaceId ?? null)
+const agent = computed(() => (isOwner.value ? getAgent(agentId.value) : undefined))
+const { loaded: workspacesLoaded, fetchWorkspaces, getWorkspace, linkChat, messageOf } = useWorkspaces()
+const { loaded: skillsLoaded, fetchSkills } = useSkills()
+const workspace = computed(() => (isOwner.value ? getWorkspace(workspaceId.value) : undefined))
+onMounted(() => {
+  if (!isOwner.value) return
+  if (!agentsLoaded.value) fetchAgents()
+  if (!workspacesLoaded.value) fetchWorkspaces()
+  if (!skillsLoaded.value) fetchSkills()
+})
+
+/** Moves this chat into a workspace (or out) or switches its agent. The server checks both belong to this person. */
+async function relink(link: { workspaceId?: string | null, agentId?: string | null }) {
+  try {
+    const res = await linkChat(data!.id, link)
+    workspaceId.value = res.workspaceId
+    agentId.value = res.agentId
+    fetchChats()
+  } catch (err: any) {
+    toast.add({ title: 'Could not change that', description: messageOf(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
+  }
+}
 const visibility = ref<'public' | 'private'>(data?.visibility ?? 'private')
 const title = ref<string | null>(data?.title ?? null)
 
@@ -74,40 +99,14 @@ const router = useRouter()
 const input = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 
-const mcpItems = computed<DropdownMenuItem[][]>(() => [
-  [
-    {
-      label: 'Upload files',
-      icon: 'i-lucide-paperclip',
-      onSelect: () => {
-        fileInput.value?.click()
-      }
-    },
-    {
-      label: 'Search the web',
-      icon: 'i-lucide-globe',
-      onSelect: () => {
-        input.value = 'Search the web for: '
-      }
-    }
-  ],
-  [
-    {
-      label: 'Workflow Studio',
-      icon: 'i-lucide-workflow',
-      onSelect: () => {
-        router.push('/workflows')
-      }
-    },
-    {
-      label: 'Integrations',
-      icon: 'i-lucide-blocks',
-      onSelect: () => {
-        router.push('/integrations')
-      }
-    }
-  ]
-])
+const plus = usePlusMenu({
+  input,
+  chooseFile: () => fileInput.value?.click(),
+  workspaceId,
+  agentId,
+  pickWorkspace: id => relink({ workspaceId: id }),
+  pickAgent: id => relink({ agentId: id })
+})
 
 // While Lobby is on the stage the assistant is told to talk the way it should be heard: short, narrating as it works.
 const voiceMode = ref(false)
@@ -449,12 +448,28 @@ function handleTextAction(action: string, selectedText: string) {
     <template #header>
       <Navbar>
         <template #title>
-          <ChatTitle
-            :chat-id="data!.id"
-            :title="title"
-            :is-owner="isOwner"
-            @update:title="title = $event"
-          />
+          <nav class="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
+            <template v-if="workspace">
+              <RouterLink :to="`/workspaces/${workspace.id}`" class="max-w-48 truncate text-muted hover:text-default">{{ workspace.name }}</RouterLink>
+              <UIcon name="i-lucide-chevron-right" class="size-3.5 shrink-0 text-dimmed" />
+            </template>
+            <ChatTitle
+              :chat-id="data!.id"
+              :title="title"
+              :is-owner="isOwner"
+              @update:title="title = $event"
+            />
+            <UBadge
+              v-if="agent"
+              :label="agent.name"
+              icon="i-lucide-bot"
+              color="neutral"
+              variant="subtle"
+              size="sm"
+              class="ml-1 hidden max-w-40 truncate sm:inline-flex"
+              :title="`This chat is with your agent ${agent.name}`"
+            />
+          </nav>
         </template>
 
         <ChatVisibility
@@ -519,9 +534,9 @@ function handleTextAction(action: string, selectedText: string) {
           v-if="isOwner"
           v-model="input"
           :error="error"
-          color="neutral"
+          color="primary"
           variant="subtle"
-          class="sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10 border-t border-default shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]"
+          class="soft-focus sticky bottom-0 [view-transition-name:chat-prompt] rounded-b-none z-10 border-t border-default shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]"
           :ui="{ base: 'px-3 py-2', body: lobby.open ? 'hidden' : '' }"
           @submit="handleSubmit"
         >
@@ -538,21 +553,7 @@ function handleTextAction(action: string, selectedText: string) {
 
           <template #footer>
             <div class="flex items-center gap-2 pt-1">
-              <UDropdownMenu
-                :items="mcpItems"
-                :content="{ align: 'start', side: 'top', collisionPadding: 12 }"
-              >
-                <UButton
-                  id="chat-attach-btn"
-                  icon="i-lucide-plus"
-                  class="rounded-full shrink-0 cursor-pointer transition-transform hover:rotate-90 shadow-sm"
-                  variant="soft"
-                  color="primary"
-                  size="sm"
-                  aria-label="Capabilities & Integrations"
-                  title="Capabilities & Integrations"
-                />
-              </UDropdownMenu>
+              <PlusMenu id="chat-attach-btn" :items="plus.items.value" :active="plus.active.value" />
               <input
                 ref="fileInput"
                 type="file"
@@ -561,16 +562,6 @@ function handleTextAction(action: string, selectedText: string) {
                 :accept="ATTACH_ACCEPT"
                 @change="onInputChange"
               >
-              <UBadge
-                v-if="agent"
-                :label="agent.name"
-                icon="i-lucide-bot"
-                color="neutral"
-                variant="subtle"
-                size="md"
-                class="max-w-40 truncate"
-                :title="`This chat is with your agent ${agent.name}`"
-              />
               <ModelSelect
                 v-if="!agent?.model"
                 v-model="model"
