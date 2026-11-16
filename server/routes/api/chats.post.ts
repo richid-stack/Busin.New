@@ -11,7 +11,8 @@ import { MAX_INPUT_CHARS, allowAnonymousChat, assertNewChatMessage } from '../..
 export default defineHandler(async (event) => {
   const session = await useUserSession(event)
 
-  const { input, attachments, agentId, workspaceId } = await readValidatedBody(event, z.object({
+  const { input, attachments, agentId, workspaceId, ghost } = await readValidatedBody(event, z.object({
+    ghost: z.boolean().optional(),
     agentId: z.string().min(1).max(128).optional(),
     workspaceId: z.string().min(1).max(128).optional(),
     input: z.string().max(MAX_INPUT_CHARS).optional().default(''),
@@ -29,6 +30,14 @@ export default defineHandler(async (event) => {
   const userId = session.data.user?.id || session.id!
   enforceRateLimit(event, 'chat-create', rateLimitSubject(event, signedIn ? userId : undefined), signedIn ? 60 : 20, 10 * 60_000)
   assertNewChatMessage(input, attachments)
+
+  // Ghost mode is for a plain chat: no workspace (its notes and memory would leak in) and no saved agent.
+  if (ghost && (workspaceId || agentId)) {
+    throw new HTTPError({ statusCode: 400, statusMessage: 'Ghost mode is only for a plain chat.' })
+  }
+  if (ghost && !signedIn) {
+    throw new HTTPError({ statusCode: 401, statusMessage: 'Sign in to use ghost mode.' })
+  }
 
   // An agent is the signed-in owner's own; anything else is refused rather than quietly ignored.
   if (agentId) {
@@ -56,6 +65,7 @@ export default defineHandler(async (event) => {
     title: initialTitle,
     agentId: chatAgentId,
     workspaceId,
+    ghost,
     initialMessage: input,
     attachments
   })

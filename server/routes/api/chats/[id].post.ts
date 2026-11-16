@@ -296,7 +296,7 @@ export default defineHandler(async (event) => {
   const excelOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('workbook_apply'))).catch(() => false)
   const runOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('run_command'))).catch(() => false)
   const paneNote = signedIn && workPane ? await openFileNote(userId, workPane).catch(() => '') : ''
-  const memoryOn = signedIn && (!agent || agent.tools.includes('memory')) && (!workspace || workspace.useMemory) && await isMemoryEnabled(userId).catch(() => false)
+  const memoryOn = signedIn && !chat.ghost && (!agent || agent.tools.includes('memory')) && (!workspace || workspace.useMemory) && await isMemoryEnabled(userId).catch(() => false)
   const memories = memoryOn ? await listMemories(userId).catch(() => []) : []
   const userText = lastMessage?.role === 'user'
     ? (lastMessage.parts ?? []).map((p: any) => (p?.type === 'text' ? String(p.text ?? '') : '')).join(' ')
