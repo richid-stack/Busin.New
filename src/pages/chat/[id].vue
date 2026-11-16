@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vGrow } from '../../directives/grow'
 import { ATTACH_ACCEPT } from '../../utils/attachmentTypes'
 import { ref, computed, reactive, watch, onMounted, onBeforeUnmount, provide } from 'vue'
 import { $fetch } from 'ofetch'
@@ -572,6 +573,7 @@ function handleTextAction(action: string, selectedText: string) {
 
         <UChatPrompt
           v-if="isOwner"
+          v-grow
           v-model="input"
           :error="error"
           color="primary"

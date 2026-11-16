@@ -1,0 +1,155 @@
+name: deploy
+
+# Puts the app live on Google Cloud Run. It runs after the checks (the "ci" workflow) pass on main, or by hand
+# from the Actions tab. It does nothing until the repository variable GCP_PROJECT_ID is set (see docs/deploy.md,
+# "Deploy from GitHub").
+#
+# Sign-in to Google uses Workload Identity Federation: no key file exists anywhere.
+# API keys stay in the repository secrets; this workflow copies the ones that are set into Google's Secret Manager,
+# and the running app reads them from there. Nothing is printed.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# One deploy at a time, and a deploy that has started is never cut off half way.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # A failed check never deploys. A by-hand run always may.
+    if: ${{ vars.GCP_PROJECT_ID != '' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
+      SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'openlobs' }}
+      CONTACT_EMAIL: ${{ vars.CONTACT_EMAIL }}
+      APP_URL: ${{ vars.APP_URL }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM || secrets.EMAIL_FROM }}
+      USAGE_UNLIMITED_USER_IDS: ${{ vars.USAGE_UNLIMITED_USER_IDS }}
+      # Keys you put in repository secrets. Any that is empty is skipped.
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+      COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+      FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
+      UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+    steps:
+      - name: Checkout the commit that passed
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+
+      - name: Sign in to Google
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Copy keys from GitHub to Google Secret Manager
+        run: |
+          set -euo pipefail
+          for name in GEMINI_API_KEY GROQ_API_KEY ANTHROPIC_API_KEY OPENAI_API_KEY ELEVENLABS_API_KEY COMPOSIO_API_KEY \
+                      FIRECRAWL_API_KEY TAVILY_API_KEY PARALLEL_API_KEY UNSPLASH_ACCESS_KEY PEXELS_API_KEY PIXABAY_API_KEY \
+                      RESEND_API_KEY PAYSTACK_SECRET_KEY; do
+            value="${!name:-}"
+            [ -n "$value" ] || continue
+            if gcloud secrets describe "$name" --project "$PROJECT" >/dev/null 2>&1; then
+              # A new version only when the value changed, so versions do not pile up.
+              current=$(gcloud secrets versions access latest --secret "$name" --project "$PROJECT" 2>/dev/null || true)
+              if [ "$current" = "$value" ]; then echo "$name: unchanged"; continue; fi
+              printf '%s' "$value" | gcloud secrets versions add "$name" --project "$PROJECT" --data-file=- >/dev/null
+              echo "$name: updated"
+            else
+              printf '%s' "$value" | gcloud secrets create "$name" --project "$PROJECT" --replication-policy=automatic --data-file=- >/dev/null
+              echo "$name: created"
+            fi
+          done
+
+      - name: Build and push the image
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/openlobs/app:${GITHUB_SHA::7}"
+          docker build --build-arg "VITE_CONTACT_EMAIL=${CONTACT_EMAIL}" -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run
+        run: |
+          set -euo pipefail
+          # Every secret that exists in Secret Manager is given to the app under its own name.
+          existing=$(gcloud secrets list --project "$PROJECT" --format='value(name.basename())')
+          mappings=""
+          for name in SESSION_SECRET SECRETS_KEY CRON_SECRET GEMINI_API_KEY GROQ_API_KEY ANTHROPIC_API_KEY OPENAI_API_KEY \
+                      ELEVENLABS_API_KEY COMPOSIO_API_KEY FIRECRAWL_API_KEY TAVILY_API_KEY PARALLEL_API_KEY \
+                      UNSPLASH_ACCESS_KEY PEXELS_API_KEY PIXABAY_API_KEY RESEND_API_KEY PAYSTACK_SECRET_KEY; do
+            if grep -qx "$name" <<<"$existing"; then mappings="${mappings:+$mappings,}${name}=${name}:latest"; fi
+          done
+          for need in SESSION_SECRET SECRETS_KEY CRON_SECRET; do
+            grep -qx "$need" <<<"$existing" || { echo "::error::Secret $need is missing. Run scripts/gcp-setup.sh first (docs/deploy.md)."; exit 1; }
+          done
+          envs="NODE_ENV=production"
+          [ -z "${APP_URL}" ] || envs="${envs},APP_URL=${APP_URL}"
+          [ -z "${EMAIL_FROM}" ] || envs="${envs},EMAIL_FROM=${EMAIL_FROM}"
+          [ -z "${USAGE_UNLIMITED_USER_IDS}" ] || envs="${envs},USAGE_UNLIMITED_USER_IDS=${USAGE_UNLIMITED_USER_IDS}"
+          gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" --image "$IMAGE" \
+            --service-account "openlobs-run@${PROJECT}.iam.gserviceaccount.com" --allow-unauthenticated \
+            --min-instances 0 --max-instances 3 --memory 512Mi --concurrency 40 --timeout 300 \
+            --set-secrets "$mappings" --update-env-vars "$envs" --quiet
+          URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)')
+          echo "URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Check it answers
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS "$URL/api/health"; then echo; echo "Live at $URL"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::$URL/api/health did not answer"; exit 1
+
+      - name: Timers for workflows, tasks and billing reminders
+        run: |
+          set -euo pipefail
+          SECRET=$(gcloud secrets versions access latest --secret CRON_SECRET --project "$PROJECT")
+          echo "::add-mask::$SECRET"
+          make_job() { # name, schedule, path
+            if gcloud scheduler jobs describe "$1" --project "$PROJECT" --location "$REGION" >/dev/null 2>&1; then verb=update; else verb=create; fi
+            gcloud scheduler jobs "$verb" http "$1" --project "$PROJECT" --location "$REGION" --schedule "$2" \
+              --uri "$URL$3" --http-method POST --headers "Authorization=Bearer ${SECRET}" --quiet >/dev/null
+            echo "timer $1: ${verb}d"
+          }
+          make_job openlobs-cron "*/5 * * * *" /api/cron/workflows
+          make_job openlobs-cron-tasks "*/2 * * * *" /api/cron/tasks
+          make_job openlobs-billing "0 8 * * *" /api/cron/billing
+
+      - name: Write the address on the summary page
+        run: |
+          {
+            echo "### Live"
+            echo "$URL"
+            echo
+            echo "If sign-in is refused, add \`${URL#https://}\` under Firebase console > Authentication > Settings > Authorized domains."
+          } >> "$GITHUB_STEP_SUMMARY"

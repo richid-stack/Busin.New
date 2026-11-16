@@ -1,5 +1,33 @@
 # Deploying OpenLobs to Google Cloud (Cloud Run)
 
+## Deploy from GitHub (recommended)
+
+After a one-time setup, every change that passes the checks on `main` goes live by itself, and you can also start a deploy by hand. Nothing here needs a password or a key file: GitHub signs in to Google with Workload Identity Federation, and your API keys stay in the repository secrets (the deploy copies the ones that are set into Google's Secret Manager, where the running app reads them).
+
+**Once, about 10 minutes:**
+
+1. Open [Google Cloud Shell](https://console.cloud.google.com/) (the terminal icon at the top right), signed in as the owner of the project that holds your Firebase sign-in and Firestore.
+2. Run:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/richid-stack/Busin.New/main/scripts/gcp-setup.sh -o gcp-setup.sh
+   bash gcp-setup.sh
+   ```
+   It asks for the project id, region and your GitHub account name, then switches on the services, makes the app's own identity, makes the three secrets the app needs (`SESSION_SECRET`, `SECRETS_KEY`, `CRON_SECRET`), and lets GitHub deploy. It never asks for an API key and can be run again safely.
+3. It ends by printing five values. In GitHub: repository **Settings > Secrets and variables > Actions > Variables** (the Variables tab, not Secrets), add them as repository variables: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WIF_PROVIDER`, `GCP_DEPLOY_SA`, `CONTACT_EMAIL`.
+4. Your keys: any of these already in repository **Secrets** are used as they are: `GEMINI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`, `COMPOSIO_API_KEY`, `FIRECRAWL_API_KEY`, `TAVILY_API_KEY`, `PARALLEL_API_KEY`, `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY`, `PIXABAY_API_KEY`, `RESEND_API_KEY`, `PAYSTACK_SECRET_KEY`. Add or change one later and the next deploy picks it up.
+5. GitHub **Actions** tab > **deploy** > **Run workflow**. The first run takes about 8 minutes. Its summary page shows the live address.
+6. Firebase console > Authentication > Settings > **Authorized domains** > add that address without `https://`, or sign-in is refused.
+
+**Optional variables:** `APP_URL` (your own domain, once you have one), `EMAIL_FROM`, `USAGE_UNLIMITED_USER_IDS` (your own account, so you are not limited), `CLOUD_RUN_SERVICE` (default `openlobs`).
+
+**What the workflow does:** waits for the `ci` checks to pass on `main`, copies set keys into Secret Manager (a new version only when the value changed), builds the image, deploys, calls `/api/health`, and creates or updates the three Cloud Scheduler timers (workflows every 5 minutes, tasks every 2, billing reminders daily). It does nothing at all until `GCP_PROJECT_ID` is set. If a check fails on `main` nothing deploys; fix it or run **deploy** by hand.
+
+**What it can touch (and no more):** the deploy identity can run Cloud Run, push images, manage Secret Manager and Cloud Scheduler in this project, and start the service as the app's own identity. Only workflows from repositories owned by your GitHub account can use it. The app's own identity can read and write Firestore, delete sign-in accounts, and read secrets.
+
+**Not covered by it:** the browser worker (5c) and the cloud box (5c-2) are separate services, still deployed by hand. Paystack's webhook address and the Resend sender domain (5b) still need setting up once the address is live.
+
+The sections below are the same steps by hand. Use them to understand what the workflow does or if you prefer not to use GitHub for deploys.
+
 This is the checklist for going live. Commands were written from the Google Cloud documentation and **have not been run against your project from here**: run them one at a time and read what they print.
 
 Set these once in your terminal:
