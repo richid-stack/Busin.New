@@ -108,25 +108,77 @@ a[data-slot="base"]:active {
   animation-delay: calc(var(--i, 0) * 40ms);
 }
 
-/* Explore in the sidebar: the compass turns a quarter as the group opens, and its pages arrive one after another. */
-@keyframes explore-in {
-  from { opacity: 0; transform: translateX(-6px); }
+/* The two standard motions (chosen from the Motion Lab).
+   UNFOLD: menus, popovers and pickers are hinged on the edge nearest the button and swing open flat, with a soft shade
+   that lifts as they settle. SLIDE OUT: anything that opens in the flow of the page (a trace, the Explore group, a read-more)
+   is drawn downward from its top edge and pushes what is below it. Closing is always quicker than opening. */
+@keyframes unfold-in {
+  0% { opacity: 0; transform: perspective(620px) rotateX(calc(var(--unfold-dir, 1) * -78deg)); }
+  35% { opacity: 1; }
+  100% { opacity: 1; transform: perspective(620px) rotateX(0); }
+}
+@keyframes unfold-out {
+  to { opacity: 0; transform: perspective(620px) rotateX(calc(var(--unfold-dir, 1) * -40deg)); }
+}
+@keyframes unfold-shade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+:is([role="menu"], [role="listbox"])[data-state="open"][data-slot="content"],
+[data-slot="content"][role="dialog"][data-state="open"][data-side],
+:is([role="menu"], [role="listbox"])[data-state="open"][data-side] {
+  position: relative;
+  transform-origin: top center;
+  animation: unfold-in 260ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+:is([role="menu"], [role="listbox"])[data-state="closed"][data-side],
+[data-slot="content"][role="dialog"][data-state="closed"][data-side] {
+  transform-origin: top center;
+  animation: unfold-out 120ms var(--ease-in) both;
+}
+:is([role="menu"], [role="listbox"], [data-slot="content"][role="dialog"])[data-side="top"] {
+  transform-origin: bottom center;
+  --unfold-dir: -1;
+}
+:is([role="menu"], [role="listbox"], [data-slot="content"][role="dialog"])[data-side="left"],
+:is([role="menu"], [role="listbox"], [data-slot="content"][role="dialog"])[data-side="right"] {
+  --unfold-dir: 0.001;
+  animation-name: pop-open;
+}
+@keyframes pop-open {
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: none; }
 }
-.explore-trigger > svg:first-child {
-  transition: transform var(--motion-slow) var(--ease-spring);
+:is([role="menu"], [role="listbox"])[data-state="open"][data-side]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0.28), transparent 70%);
+  animation: unfold-shade 260ms ease-out both;
 }
-.explore-trigger[data-state="open"] > svg:first-child {
-  transform: rotate(90deg);
+:is([role="menu"], [role="listbox"])[data-side="top"][data-state="open"]::after {
+  background: linear-gradient(to top, rgb(0 0 0 / 0.28), transparent 70%);
 }
-li:has(> .explore-live) [data-slot="content"][data-state="open"] [data-slot="childItem"] {
-  animation: explore-in var(--motion-base) var(--ease-out) both;
+
+/* Slide out: the height animations Nuxt UI uses for the Explore group, accordions and traces, drawn from the top edge. */
+@keyframes collapsible-down {
+  from { height: 0; opacity: 0; transform: translateY(-6px); overflow: hidden; }
+  to { height: var(--reka-collapsible-content-height); opacity: 1; transform: none; overflow: hidden; }
 }
-li:has(> .explore-live) [data-slot="childItem"]:nth-child(2) { animation-delay: 40ms; }
-li:has(> .explore-live) [data-slot="childItem"]:nth-child(3) { animation-delay: 80ms; }
-li:has(> .explore-live) [data-slot="childItem"]:nth-child(4) { animation-delay: 120ms; }
-li:has(> .explore-live) [data-slot="childItem"]:nth-child(5) { animation-delay: 160ms; }
-li:has(> .explore-live) [data-slot="childItem"]:nth-child(6) { animation-delay: 200ms; }
+@keyframes collapsible-up {
+  from { height: var(--reka-collapsible-content-height); opacity: 1; overflow: hidden; }
+  to { height: 0; opacity: 0; overflow: hidden; }
+}
+@keyframes accordion-down {
+  from { height: 0; opacity: 0; transform: translateY(-6px); overflow: hidden; }
+  to { height: var(--reka-accordion-content-height); opacity: 1; transform: none; overflow: hidden; }
+}
+@keyframes accordion-up {
+  from { height: var(--reka-accordion-content-height); opacity: 1; overflow: hidden; }
+  to { height: 0; opacity: 0; overflow: hidden; }
+}
 
 /* A like, a star or a copy that just happened. */
 @keyframes pop {
