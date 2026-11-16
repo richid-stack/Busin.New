@@ -8,6 +8,11 @@ import type { ToolNote, VerifyContext } from './verify'
 import type { TaskToolContext } from './tools'
 import { BROWSER_LIMITS } from '../browser/model'
 import { finalStatus } from './status'
+import { isModelOutOfRoom, modelErrorMessage } from '../../utils/modelError'
+import { parseMyModelId } from '../../../shared/modelProviders'
+import { MODELS } from '../../../shared/utils/models'
+
+const modelLabel = (id: string) => MODELS.find(m => m.value === id)?.label ?? id
 
 /**
  * Runs one task from start to finish: work, check, and if the check finds problems, work again with the
@@ -17,7 +22,8 @@ import { finalStatus } from './status'
 export interface RunDeps {
   store: TaskStore
   tools: (task: Task, ctx: TaskToolContext) => Record<string, any> | Promise<Record<string, any>>
-  model: (task: Task) => { id: string, model: LanguageModel } | null | Promise<{ id: string, model: LanguageModel } | null>
+  /** `skip` lists models that just ran out of room; a deps that can, picks another. */
+  model: (task: Task, skip?: string[]) => { id: string, model: LanguageModel } | null | Promise<{ id: string, model: LanguageModel } | null>
   verify: (criteria: Criterion[], ctx: VerifyContext, task: Task) => Promise<Criterion[]>
   charge: (userId: string, cost: number) => Promise<{ refund: () => Promise<void> }>
   costOf: (modelId: string) => number
@@ -105,6 +111,9 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
     return await fail((err as Error)?.message || 'The chosen model is not available.')
   }
   if (!chosen) return await fail('No AI model is configured on this server.')
+
+  // Models that ran out of room during this run; the next attempt uses another.
+  const skipped: string[] = []
 
   // A worker that is gone leaves its lease to run out, and another takes over. This keeps ours alive and watches for Stop.
   const stopper = new AbortController()
@@ -196,8 +205,19 @@ export async function runTask(claimed: Task, lease: string, deps: RunDeps): Prom
         else {
           await charge.refund()
           console.warn('[task] model error:', err?.message)
+          // Out of allowance or busy: use another model for the rest of the task. This is not a failed attempt.
+          if (isModelOutOfRoom(err) && !parseMyModelId(chosen.id)) {
+            skipped.push(chosen.id)
+            const next = await Promise.resolve(deps.model(task, skipped)).catch(() => null)
+            if (next && !skipped.includes(next.id)) {
+              await store.addEvent(task.id, 'note', `${modelLabel(chosen.id)} is out of room right now, so the work goes on with ${modelLabel(next.id)}.`)
+              chosen = next
+              task = await store.update(task.id, lease, { attempts: attempt - 1 })
+              continue
+            }
+          }
           await store.addEvent(task.id, 'error', 'The AI model stopped with an error. It will be tried again if attempts remain.')
-          if (attempt >= task.maxAttempts) return await settle('The AI model kept failing. Try again in a moment.')
+          if (attempt >= task.maxAttempts) return await settle(isModelOutOfRoom(err) ? `The AI model kept failing. ${modelErrorMessage(err)}` : 'The AI model kept failing. Try again in a moment.')
           continue
         }
       }

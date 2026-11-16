@@ -100,6 +100,8 @@ export const PHOTO_PROVIDERS: Provider[] = [
   }
 ]
 
+const PHOTO_RESULT_BUDGET = 4_800
+
 /** Which photo services have a key set here. */
 export const photoSourcesAvailable = (env: Env = process.env) => PHOTO_PROVIDERS.filter(p => env[p.key]?.trim()).map(p => p.name)
 
@@ -128,7 +130,10 @@ export function createFindPhotosTool(userId: string, fetcher: Fetcher = safeFetc
           try {
             const photos = await p.search(query, limit, orientation, env[p.key]!.trim(), fetcher, signal)
             if (photos.length) {
-              return { status: 'ok' as const, query, count: photos.length, source: p.name, photos, note: 'Save a photo with fetch_file using its url, and look at it with view_image before you use it. Put the credit line in the work where the licence asks for it (Unsplash does). Photos are real pictures: say what they show, not what you hoped they would show.' }
+              // The result has a size budget. Drop whole photos to fit it; cutting inside a photo would break its links.
+              const fit = [...photos]
+              while (fit.length > 1 && JSON.stringify(fit).length > PHOTO_RESULT_BUDGET) fit.pop()
+              return { status: 'ok' as const, query, count: fit.length, source: p.name, photos: fit, note: 'Save a photo with fetch_file using its url, and look at it with view_image before you use it. Put the credit line in the work where the licence asks for it (Unsplash does). Photos are real pictures: say what they show, not what you hoped they would show.' }
             }
             problems.push(`${p.name} had no matches`)
           } catch (err: any) {
