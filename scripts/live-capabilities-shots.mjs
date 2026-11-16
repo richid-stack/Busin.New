@@ -365,7 +365,7 @@ try {
       await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
       const row = page.locator('a', { hasText: 'Weekly payment reminders' }).first()
       await row.hover(); await sleep(400)
-      await row.getByRole('button', { name: 'Chat actions' }).click({ timeout: 6000, force: true }); await sleep(900)
+      await row.locator('[aria-label="Chat actions"]').click({ timeout: 6000, force: true }); await sleep(900)
       let labels = await menuLabels()
       note(`sidebar menu: ${labels.join(' | ')}`)
       check(['Pin', 'Share', 'Rename', 'Add to workspace', 'Export', 'Delete'].every(l => labels.includes(l)) && !labels.includes('Remove from workspace'), '[chatui] a chat outside any workspace offers Add to workspace and no Remove')
@@ -376,7 +376,7 @@ try {
 
       // Workspace page: plain rows and the in-workspace menu
       await page.goto(`${BASE}/workspaces/${wsA.id}`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
-      const wrow = page.locator('a', { hasText: 'Reply to the supplier in Kumasi' }).first()
+      const wrow = page.locator('li', { hasText: 'Reply to the supplier in Kumasi' }).first()
       check(await wrow.count() > 0, '[chatui] the workspace page lists its chat as a plain row')
       await wrow.hover(); await sleep(300)
       await wrow.getByRole('button', { name: 'Chat options' }).click({ timeout: 6000, force: true }); await sleep(900)

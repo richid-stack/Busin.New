@@ -296,24 +296,22 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
               <li v-for="c in rows" :key="c.id" class="group relative">
                 <RouterLink
                   :to="c.to"
-                  class="flex items-center gap-4 rounded-lg px-3 py-3 transition-colors hover:bg-elevated/60 focus-visible:bg-elevated/60"
+                  class="flex items-center gap-4 rounded-lg py-3 pl-3 pr-12 transition-colors hover:bg-elevated/60 focus-visible:bg-elevated/60"
                 >
                   <UIcon v-if="c.pinned" name="i-lucide-pin" class="size-3.5 shrink-0 text-dimmed" />
                   <span class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ c.label }}</span>
                   <span class="shrink-0 text-xs text-muted">{{ whenUsed(c.createdAt) }}</span>
-                  <UDropdownMenu :items="menuFor(c)" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }">
-                    <UButton
-                      as="span"
-                      icon="i-lucide-ellipsis"
-                      color="neutral"
-                      variant="ghost"
-                      size="xs"
-                      aria-label="Chat options"
-                      class="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100"
-                      @click.stop.prevent
-                    />
-                  </UDropdownMenu>
                 </RouterLink>
+                <UDropdownMenu :items="menuFor(c)" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }">
+                  <UButton
+                    icon="i-lucide-ellipsis"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    aria-label="Chat options"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                  />
+                </UDropdownMenu>
               </li>
             </ul>
           </div>
