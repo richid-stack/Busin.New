@@ -94,7 +94,7 @@ const finished = { id: 't1', userId: 'u1', goal: 'Research mobile money in Ghana
 const waiting = { userId: 'u1', workflowId: 'w1', workflowName: 'Weekly report', runId: 'r1', prompt: 'Send the report to the board?', chatId: 'chat-approvals' }
 { const d = deps(); pushes.length = 0; emails.length = 0
   assert(await notifyApprovalWaiting(d, waiting) === true && pushes[0]?.title === 'Waiting for your OK' && pushes[0].url === '/chat/chat-approvals' && pushes[0].body.includes('Weekly report'), 'a paused workflow alerts the device and opens the approvals chat')
-  assert(emails.length === 1 && /Weekly report/.test(emails[0].subject) && emails[0].text.includes('https://app.example.com/chat/chat-approvals'), 'and the email links to the same chat')
+  assert(emails.length === 1 && /Weekly report/.test(emails[0].subject) && /https:\/\/app\.example\.com\/chat\/chat-approvals/.test(emails[0].text), 'and the email links to the same chat')
   assert(await notifyApprovalWaiting(d, waiting) === false && pushes.length === 1, 'once per paused run')
   pushes.length = 0
   assert(await notifyApprovalWaiting(deps(), { ...waiting, runId: 'r2', chatId: undefined }) === true && pushes[0].url === '/workflows/w1', 'with no chat card it opens the workflow')

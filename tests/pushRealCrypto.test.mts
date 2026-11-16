@@ -5,7 +5,7 @@
  */
 import { createRequire } from 'node:module'
 import { createServer } from 'node:https'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { createECDH, randomBytes } from 'node:crypto'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,10 +15,16 @@ import { getVapidKeys, sendPushToUser } from '../server/services/push/push'
 
 const ece = createRequire(import.meta.url)('http_ece')
 const assert = (c: any, m: string) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
 
-const dir = mkdtempSync(join(tmpdir(), 'pushcert-'))
-execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', join(dir, 'k.pem'), '-out', join(dir, 'c.pem'), '-days', '2', '-subj', '/CN=localhost'], { stdio: 'ignore' })
+// The stand-in push service uses a certificate made here. Rather than switching certificate checks off, the test
+// makes the certificate first, then runs itself again with that one certificate trusted.
+let dir = process.env.PUSHCERT_DIR ?? ''
+if (!dir) {
+  dir = mkdtempSync(join(tmpdir(), 'pushcert-'))
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', join(dir, 'k.pem'), '-out', join(dir, 'c.pem'), '-days', '2', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1'], { stdio: 'ignore' })
+  const again = spawnSync(process.execPath, [...process.execArgv, ...process.argv.slice(1)], { stdio: 'inherit', env: { ...process.env, PUSHCERT_DIR: dir, NODE_EXTRA_CA_CERTS: join(dir, 'c.pem') } })
+  process.exit(again.status ?? 1)
+}
 
 // The "browser": a real keypair and auth secret.
 const browser = createECDH('prime256v1'); browser.generateKeys()
