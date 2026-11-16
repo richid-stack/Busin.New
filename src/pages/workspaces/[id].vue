@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vGrow } from '../../directives/grow'
 import StateCard from '../../components/state/StateCard.vue'
 import PageSkeleton from '../../components/state/PageSkeleton.vue'
 import WorkspaceArt from '../../components/workspaces/WorkspaceArt.vue'
@@ -257,6 +258,7 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
           </div>
 
           <UChatPrompt
+            v-grow
             v-model="input"
             class="soft-focus mt-6 rounded-2xl border border-default bg-elevated/50 shadow-sm backdrop-blur-md"
             color="primary"

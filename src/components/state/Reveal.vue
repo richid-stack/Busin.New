@@ -2,17 +2,9 @@
 // The "slides out of the edge" motion for anything that opens in the flow of the page (a trace detail, a
 // read-more, a form that appears). It grows downward from its top edge and pushes what is below it.
 // Wrap the thing that comes and goes: <Reveal><div v-if="open">…</div></Reveal>
+import { EASE_IN, EASE_OUT, motionReduced as reduce } from '../../utils/motion'
 const OPEN_MS = 200
 const CLOSE_MS = 120
-const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)'
-const EASE_IN = 'cubic-bezier(0.55, 0, 0.8, 0.4)'
-const reduce = () => {
-  if (typeof window === 'undefined') return false
-  const chosen = document.documentElement.dataset.motion
-  if (chosen === 'reduced') return true
-  if (chosen === 'full') return false
-  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
-}
 
 function enter(el: Element, done: () => void) {
   const node = el as HTMLElement

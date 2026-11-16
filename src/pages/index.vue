@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { vGrow } from '../directives/grow'
 import { ATTACH_ACCEPT } from '../utils/attachmentTypes'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -278,6 +279,7 @@ async function startAutomation(prompt: string) {
 
         <div class="flex flex-col gap-2 relative">
           <UChatPrompt
+            v-grow
             v-model="input"
             class="soft-focus [view-transition-name:chat-prompt] shadow-sm border border-default rounded-2xl bg-elevated/50 backdrop-blur-md transition-all"
             color="primary"
