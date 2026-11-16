@@ -6,7 +6,13 @@ const OPEN_MS = 200
 const CLOSE_MS = 120
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)'
 const EASE_IN = 'cubic-bezier(0.55, 0, 0.8, 0.4)'
-const reduce = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+const reduce = () => {
+  if (typeof window === 'undefined') return false
+  const chosen = document.documentElement.dataset.motion
+  if (chosen === 'reduced') return true
+  if (chosen === 'full') return false
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+}
 
 function enter(el: Element, done: () => void) {
   const node = el as HTMLElement

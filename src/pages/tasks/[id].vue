@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTasks } from '../../composables/useTasks'
 import { TASK_STATUS } from '../../types/tasks'
+import StatusChip from '../../components/tasks/StatusChip.vue'
 import type { CriterionStatus, TaskArtifact, TaskEventItem, TaskItem } from '../../types/tasks'
 import { duration, timeAgo } from '../../utils/taskTime'
 import ChatToolApproval from '../../components/chat/tool/Approval.vue'
@@ -91,12 +92,12 @@ async function run(kind: 'cancel' | 'accept' | 'delete') {
   }
 }
 
-const CRITERION: Record<CriterionStatus, { icon: string, tone: string, label: string }> = {
-  met: { icon: 'i-lucide-circle-check', tone: 'text-success', label: 'Met' },
-  unmet: { icon: 'i-lucide-circle-x', tone: 'text-error', label: 'Not met' },
-  unsure: { icon: 'i-lucide-circle-help', tone: 'text-warning', label: 'Could not tell' },
-  pending: { icon: 'i-lucide-hand', tone: 'text-warning', label: 'Waiting for you' },
-  unchecked: { icon: 'i-lucide-circle-dashed', tone: 'text-dimmed', label: 'Not checked yet' }
+const CRITERION: Record<CriterionStatus, { label: string, tone: 'quiet' | 'calm' | 'needs' | 'failed' }> = {
+  met: { label: 'Met', tone: 'calm' },
+  unmet: { label: 'Not met', tone: 'failed' },
+  unsure: { label: 'Could not tell', tone: 'needs' },
+  pending: { label: 'Waiting for you', tone: 'needs' },
+  unchecked: { label: 'Not checked', tone: 'quiet' }
 }
 
 const downloading = ref<string | null>(null)
@@ -155,12 +156,7 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
 
       <template v-else>
         <div class="flex items-center gap-2 text-sm mb-3">
-          <span
-            class="size-2 rounded-full"
-            :class="status!.dot"
-            aria-hidden="true"
-          />
-          <span class="font-medium text-highlighted">{{ status!.label }}</span>
+          <StatusChip :label="status!.label" :tone="status!.tone" />
           <span
             v-if="working"
             class="text-muted"
@@ -226,21 +222,14 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
             <li
               v-for="c in task.criteria"
               :key="c.id"
-              class="flex gap-3 py-3 first:pt-0"
+              class="flex items-start justify-between gap-4 py-3.5 first:pt-0"
             >
-              <UIcon
-                :name="CRITERION[c.status].icon"
-                class="size-5 shrink-0 mt-0.5"
-                :class="CRITERION[c.status].tone"
-              />
               <div class="min-w-0 text-sm">
                 <p class="text-highlighted">
                   {{ c.text }}
                 </p>
-                <p class="text-xs text-muted mt-0.5">
-                  {{ CRITERION[c.status].label }}<template v-if="c.evidence">
-                    · {{ c.evidence }}
-                  </template>
+                <p v-if="c.evidence" class="text-xs text-muted mt-0.5">
+                  {{ c.evidence }}
                 </p>
                 <p
                   v-if="c.status === 'unmet' && c.fix"
@@ -249,6 +238,7 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
                   <span class="font-medium text-default">To fix:</span> {{ c.fix }}
                 </p>
               </div>
+              <StatusChip :label="CRITERION[c.status].label" :tone="CRITERION[c.status].tone" class="mt-0.5" />
             </li>
           </ul>
         </section>

@@ -200,22 +200,37 @@ a[data-slot="base"]:active {
   animation: fade-in 200ms var(--ease-out) 250ms both;
 }
 
+/* Reduce motion: the device asks for it, or the person chose it in Settings > Appearance (Full overrides the device). */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  :root:not([data-motion="full"]) *, :root:not([data-motion="full"]) *::before, :root:not([data-motion="full"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  button[data-slot="base"]:not(:disabled):active,
-  a[data-slot="base"]:active {
+  :root:not([data-motion="full"]) button[data-slot="base"]:not(:disabled):active,
+  :root:not([data-motion="full"]) a[data-slot="base"]:active {
     transform: none;
   }
   /* A spinner is information, not decoration: it keeps turning. */
-  .animate-spin {
+  :root:not([data-motion="full"]) .animate-spin {
     animation-duration: 1s !important;
     animation-iteration-count: infinite !important;
   }
+}
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+:root[data-motion="reduced"] button[data-slot="base"]:not(:disabled):active,
+:root[data-motion="reduced"] a[data-slot="base"]:active {
+  transform: none;
+}
+:root[data-motion="reduced"] .animate-spin {
+  animation-duration: 1s !important;
+  animation-iteration-count: infinite !important;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -227,4 +242,80 @@ a[data-slot="base"]:active {
 .soft-focus:focus-within {
   outline: none !important;
   box-shadow: 0 0 0 1px var(--ui-primary), 0 0 0 4px color-mix(in oklab, var(--ui-primary) 24%, transparent) !important;
+}
+
+/* ------------------------------------------------------------------------------------------------
+   Appearance (Settings). Each choice is one attribute on <html>, set by useAppearance.
+   ------------------------------------------------------------------------------------------------ */
+:root[data-text="small"] { font-size: 15px; }
+:root[data-text="large"] { font-size: 17.5px; }
+
+.chat-width { --ui-container: 80rem; }
+:root[data-width="narrow"] .chat-width { --ui-container: 48rem; }
+:root[data-width="wide"] .chat-width { --ui-container: 100rem; }
+
+:root[data-accent="violet"] {
+  --ui-color-primary-50: var(--color-violet-50);
+  --ui-color-primary-100: var(--color-violet-100);
+  --ui-color-primary-200: var(--color-violet-200);
+  --ui-color-primary-300: var(--color-violet-300);
+  --ui-color-primary-400: var(--color-violet-400);
+  --ui-color-primary-500: var(--color-violet-500);
+  --ui-color-primary-600: var(--color-violet-600);
+  --ui-color-primary-700: var(--color-violet-700);
+  --ui-color-primary-800: var(--color-violet-800);
+  --ui-color-primary-900: var(--color-violet-900);
+  --ui-color-primary-950: var(--color-violet-950);
+}
+:root[data-accent="emerald"] {
+  --ui-color-primary-50: var(--color-emerald-50);
+  --ui-color-primary-100: var(--color-emerald-100);
+  --ui-color-primary-200: var(--color-emerald-200);
+  --ui-color-primary-300: var(--color-emerald-300);
+  --ui-color-primary-400: var(--color-emerald-400);
+  --ui-color-primary-500: var(--color-emerald-500);
+  --ui-color-primary-600: var(--color-emerald-600);
+  --ui-color-primary-700: var(--color-emerald-700);
+  --ui-color-primary-800: var(--color-emerald-800);
+  --ui-color-primary-900: var(--color-emerald-900);
+  --ui-color-primary-950: var(--color-emerald-950);
+}
+:root[data-accent="rose"] {
+  --ui-color-primary-50: var(--color-rose-50);
+  --ui-color-primary-100: var(--color-rose-100);
+  --ui-color-primary-200: var(--color-rose-200);
+  --ui-color-primary-300: var(--color-rose-300);
+  --ui-color-primary-400: var(--color-rose-400);
+  --ui-color-primary-500: var(--color-rose-500);
+  --ui-color-primary-600: var(--color-rose-600);
+  --ui-color-primary-700: var(--color-rose-700);
+  --ui-color-primary-800: var(--color-rose-800);
+  --ui-color-primary-900: var(--color-rose-900);
+  --ui-color-primary-950: var(--color-rose-950);
+}
+:root[data-accent="orange"] {
+  --ui-color-primary-50: var(--color-orange-50);
+  --ui-color-primary-100: var(--color-orange-100);
+  --ui-color-primary-200: var(--color-orange-200);
+  --ui-color-primary-300: var(--color-orange-300);
+  --ui-color-primary-400: var(--color-orange-400);
+  --ui-color-primary-500: var(--color-orange-500);
+  --ui-color-primary-600: var(--color-orange-600);
+  --ui-color-primary-700: var(--color-orange-700);
+  --ui-color-primary-800: var(--color-orange-800);
+  --ui-color-primary-900: var(--color-orange-900);
+  --ui-color-primary-950: var(--color-orange-950);
+}
+:root[data-accent="ink"] {
+  --ui-color-primary-50: var(--ui-color-neutral-50);
+  --ui-color-primary-100: var(--ui-color-neutral-100);
+  --ui-color-primary-200: var(--ui-color-neutral-200);
+  --ui-color-primary-300: var(--ui-color-neutral-300);
+  --ui-color-primary-400: var(--ui-color-neutral-400);
+  --ui-color-primary-500: var(--ui-color-neutral-500);
+  --ui-color-primary-600: var(--ui-color-neutral-600);
+  --ui-color-primary-700: var(--ui-color-neutral-700);
+  --ui-color-primary-800: var(--ui-color-neutral-800);
+  --ui-color-primary-900: var(--ui-color-neutral-900);
+  --ui-color-primary-950: var(--ui-color-neutral-950);
 }

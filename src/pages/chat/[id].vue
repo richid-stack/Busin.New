@@ -522,7 +522,7 @@ function handleTextAction(action: string, selectedText: string) {
     </template>
 
     <template #body>
-      <UContainer class="flex-1 flex flex-col gap-4 sm:gap-6">
+      <UContainer class="chat-width flex-1 flex flex-col gap-4 sm:gap-6">
         <UChatMessages
           should-auto-scroll
           :messages="messages"

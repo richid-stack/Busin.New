@@ -13,6 +13,7 @@ import { useUserSession } from '../../composables/useUserSession'
 import { TASK_STATUS } from '../../types/tasks'
 import type { CriterionKind } from '../../types/tasks'
 import { timeAgo } from '../../utils/taskTime'
+import StatusChip from '../../components/tasks/StatusChip.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -313,20 +314,15 @@ async function start() {
           >
             Your tasks
           </h2>
-          <ul class="divide-y divide-default rounded-2xl border border-default overflow-hidden">
+          <ul class="divide-y divide-default">
             <li
               v-for="t in tasks"
               :key="t.id"
             >
               <RouterLink
                 :to="`/tasks/${t.id}`"
-                class="flex items-start gap-3 px-4 py-3.5 hover:bg-elevated/60 transition-colors"
+                class="flex items-center gap-4 px-3 py-3.5 rounded-lg hover:bg-elevated/60 transition-colors"
               >
-                <span
-                  class="mt-1.5 size-2 shrink-0 rounded-full"
-                  :class="TASK_STATUS[t.status].dot"
-                  aria-hidden="true"
-                />
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-medium text-highlighted flex items-center gap-1.5 min-w-0">
                     <UIcon
@@ -337,11 +333,12 @@ async function start() {
                     />
                     <span class="truncate">{{ t.goal }}</span>
                   </p>
-                  <p class="text-xs text-muted mt-0.5 truncate">
-                    {{ t.outcome || TASK_STATUS[t.status].label }}
+                  <p v-if="t.outcome" class="text-xs text-muted mt-0.5 truncate">
+                    {{ t.outcome }}
                   </p>
                 </div>
-                <span class="text-xs text-dimmed shrink-0 mt-0.5">{{ timeAgo(t.createdAt) }}</span>
+                <StatusChip :label="TASK_STATUS[t.status].label" :tone="TASK_STATUS[t.status].tone" />
+                <span class="hidden sm:block w-20 text-right text-xs text-dimmed shrink-0">{{ timeAgo(t.createdAt) }}</span>
               </RouterLink>
             </li>
           </ul>
