@@ -12,6 +12,7 @@ import ChatToolPlan from '../tool/Plan.vue'
 import ChatToolCalculator from '../tool/Calculator.vue'
 import ChatToolGeneric from '../tool/Generic.vue'
 import ChatToolMemory from '../tool/Memory.vue'
+import ChatToolNotes from '../tool/Notes.vue'
 import ChatToolAgentProposal from '../tool/AgentProposal.vue'
 import ChatToolWorkflowCreate from '../tool/WorkflowCreate.vue'
 import ChatToolWorkflowRun from '../tool/WorkflowRun.vue'
@@ -583,6 +584,10 @@ function isToolPart(part: any): boolean {
       />
       <ChatToolMemory
         v-else-if="['remember', 'forget_memory'].includes(getToolName(part))"
+        :part="part"
+      />
+      <ChatToolNotes
+        v-else-if="['save_to_notes', 'update_where_we_are'].includes(getToolName(part))"
         :part="part"
       />
       <ChatToolFile

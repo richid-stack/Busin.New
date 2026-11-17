@@ -52,6 +52,7 @@ import { describeCatalog } from '../../../services/skills/parse'
 import { getAgent } from '../../../services/agents/store'
 import { workspaceStore } from '../../../services/workspaces/store'
 import { workspacePrompt } from '../../../services/workspaces/profile'
+import { createSaveToNotesTool, createUpdateWhereWeAreTool } from '../../../utils/tools/workspaceNotes'
 import { createReadWorkspaceFileTool } from '../../../utils/tools/readWorkspaceFile'
 import { filterSkills } from '../../../services/agents/profile'
 import { resolveChatSetup } from '../../../services/agents/setup'
@@ -76,7 +77,7 @@ import { allowAnonymousChat, assertMessageSizes, trimHistory } from '../../../ut
 import { focusTools, leanParamsFor, toolsUsedIn } from '../../../services/models/focus'
 import { getPowers } from '../../../services/account/powers'
 import { getFirebaseDb } from '../../../utils/firebaseAdmin'
-import { applyPowers, DEFAULT_POWERS } from '../../../../shared/powers'
+import { applyPowers, combinePowers, DEFAULT_POWERS } from '../../../../shared/powers'
 import { modelErrorMessage } from '../../../utils/modelError'
 import { NARRATION_PROMPT, VOICE_PROMPT } from '../../../services/voice/persona'
 
@@ -204,6 +205,11 @@ export default defineHandler(async (event) => {
   // The same for a workspace: the link lives on the chat, and a workspace that has been deleted simply stops applying.
   const workspace = signedIn && chat.workspaceId ? await workspaceStore().get(userId, chat.workspaceId).catch(() => null) : null
   const workspaceFiles = workspace ? await workspaceStore().filesForPrompt(userId, workspace.id).catch(() => []) : []
+  // What the person switched off in Settings > Powers, and in this workspace, is never offered, so the model is not told it exists.
+  const accountPowers = signedIn ? await getPowers(getFirebaseDb(), userId) : DEFAULT_POWERS
+  const powers = combinePowers(accountPowers, workspace?.powers)
+  const notesOn = Boolean(workspace) && powers.notes
+  const workspaceNotes = notesOn && workspace ? await workspaceStore().notesFor(userId, workspace.id).catch(() => []) : []
 
   // Retired models (e.g. old saved selections) are mapped to the default; a missing API key
   // for the chosen provider produces a clear 400 from getLanguageModel.
@@ -324,6 +330,7 @@ export default defineHandler(async (event) => {
     ...(signedIn ? { fetch_file: createFetchFileTool(userId), view_image: createViewImageTool(userId), look_at_page: createLookAtPageTool(userId), design_tokens: createDesignTokensTool(userId), find_icons: createFindIconsTool(userId), find_fonts: createFindFontsTool(userId), find_photos: createFindPhotosTool(userId), github_read: createGithubReadTool(userId), community_search: createCommunitySearchTool(userId), find_skill: createFindSkillTool(userId, activeSkills), install_skill: createInstallSkillTool(userId, skills.map(b => b.name)), check_setup: createCheckSetupTool(userId, setupSources(userId, activeSkills)), load_external_skill: createLoadExternalSkillTool(userId) } : {}),
     ...(signedIn && !agent ? { propose_agent: createProposeAgentTool(userId), task_propose: createProposeTaskTool(userId) } : {}),
     ...(workspace && workspaceFiles.length ? { read_workspace_file: createReadWorkspaceFileTool(userId, workspace.id) } : {}),
+    ...(workspace && notesOn ? { save_to_notes: createSaveToNotesTool(userId, workspace.id), update_where_we_are: createUpdateWhereWeAreTool(userId, workspace.id) } : {}),
     ...(memoryOn ? { remember: createRememberTool(userId, userText), forget_memory: createForgetTool(userId, userText) } : {}),
     ...(loadSkill ? { load_skill: loadSkill } : {}),
     ...(readDocument ? { read_document: readDocument } : {}),
@@ -357,8 +364,6 @@ export default defineHandler(async (event) => {
         }
       : {})
   }
-  // What the person switched off in Settings > Powers is never offered, so the model is not told it exists.
-  const powers = signedIn ? await getPowers(getFirebaseDb(), userId) : DEFAULT_POWERS
   const setup = resolveChatSetup({ agent, tools: applyPowers(allTools, powers), model: modelId, defaultSteps: 10 })
   // Free plans with a small minute-by-minute allowance get only the tools this message is about.
   const tools = focusTools(setup.tools, { provider: providerOf(modelId), text: userText, used: toolsUsedIn(messages) })
@@ -433,7 +438,7 @@ ${'web_search' in setup.tools ? `**WEB SEARCH:**
 - Break down complex topics into digestible parts
 - Maintain a friendly, professional tone
 
-${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in tools)) ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length && !(focused && !('load_skill' in tools)) ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}${workspace ? `\n\n${workspacePrompt(workspace, workspaceFiles)}` : ''}${paneNote && 'edit_file' in tools ? `\n\n${paneNote}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`
+${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in tools)) ? WORKFLOW_PROMPT : '') : ANON_PROMPT}${activeSkills.length && !(focused && !('load_skill' in tools)) ? `\n\n${skillsPrompt(describeCatalog(activeSkills))}` : ''}${setup.rolePrompt ? `\n\n${setup.rolePrompt}` : ''}${workspace ? `\n\n${workspacePrompt(workspace, workspaceFiles, { on: notesOn, notes: workspaceNotes, whereWeAre: workspace.whereWeAre })}` : ''}${paneNote && 'edit_file' in tools ? `\n\n${paneNote}` : ''}\n\n${NARRATION_PROMPT}${voice ? `\n\n${VOICE_PROMPT}` : ''}`
         const prompt = withPromptCache(providerOf(modelId), instructionsText, await convertToModelMessages(prepareMessagesForModel(trimHistory(messages), { nativePdf: supportsNativePdf(modelId) })))
         const result = streamText({
           abortSignal: event.req.signal,

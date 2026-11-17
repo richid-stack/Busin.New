@@ -495,7 +495,7 @@ try {
 
       // Powers
       const p0 = await J(await api('/api/account/powers'))
-      check(Object.values(p0.powers || {}).length === 5 && Object.values(p0.powers).every(v => v === true), `[settings] every power starts on (${JSON.stringify(p0.powers)})`)
+      check(Object.values(p0.powers || {}).length === 6 && Object.values(p0.powers).every(v => v === true), `[settings] every power starts on (${JSON.stringify(p0.powers)})`)
       check((await api('/api/account/powers', { method: 'PUT', body: JSON.stringify({ nonsense: true }) })).status === 400, '[settings] an unknown power is refused')
       check((await api('/api/account/powers', { method: 'PUT', body: JSON.stringify({ web: 'no' }) })).status === 400, '[settings] a non-boolean value is refused')
       await page.goto(`${BASE}/settings?s=powers`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
@@ -549,6 +549,102 @@ try {
       await shot('settings-10-after-delete')
       await api(`/api/workspaces/${ws.id}`, { method: 'DELETE' }).catch(() => {})
     } catch (e) { check(false, `[settings] ${redact(e.message).slice(0, 220)}`) }
+  }
+
+
+  // Workspace Notes and Powers: the screens, then a real chat that saves a note, undo, and a second chat that reads it back.
+  if (ONLY.includes('wsnotes')) {
+    const J = async (r) => r.json().catch(() => ({}))
+    try {
+      const ws = await J(await api('/api/workspaces', { method: 'POST', body: JSON.stringify({ name: 'Kofi logo', instructions: 'Friendly, plain English. Prices in cedis.' }) }))
+      check(!!ws.id && ws.powers?.notes === true && ws.whereWeAre === null, `[wsnotes] a new workspace has every power on and no summary (${JSON.stringify(ws.powers)})`)
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await page.goto(`${BASE}/workspaces/${ws.id}`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000)
+      const tabNames = (await page.getByRole('tab').allInnerTexts()).map(t => t.trim())
+      check(tabNames.join('|') === 'Chats|Notes', `[wsnotes] the tabs are plain words with no counts (${tabNames.join('|')})`)
+      await shot('wsnotes-1-chats-tab')
+
+      // Powers row
+      const powersBtn = page.getByRole('button', { name: /^Powers/ })
+      check(/6 of 6 on/i.test(await powersBtn.innerText()), `[wsnotes] Powers starts at 6 of 6 on (${(await powersBtn.innerText()).replace(/\s+/g, ' ')})`)
+      await powersBtn.click(); await sleep(700)
+      await shot('wsnotes-2-powers-open')
+      await page.getByRole('switch', { name: 'Run programs in the cloud' }).click(); await sleep(1500)
+      let d = await J(await api(`/api/workspaces/${ws.id}`))
+      check(d.workspace?.powers?.cloud === false && d.workspace?.powers?.web === true, `[wsnotes] switching one off saves only that one (${JSON.stringify(d.workspace?.powers)})`)
+      check(/5 of 6 on/i.test(await powersBtn.innerText()), '[wsnotes] the count follows')
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000)
+      check(/5 of 6 on/i.test(await page.getByRole('button', { name: /^Powers/ }).innerText()), '[wsnotes] it is still off after a reload')
+      await page.getByRole('button', { name: /^Powers/ }).click(); await sleep(600)
+      await page.getByRole('switch', { name: 'Run programs in the cloud' }).click(); await sleep(1500)
+      d = await J(await api(`/api/workspaces/${ws.id}`))
+      check(d.workspace?.powers?.cloud === true, '[wsnotes] switching it back on works')
+
+      // A power off in Settings shows as locked in the workspace
+      check((await api('/api/account/powers', { method: 'PUT', body: JSON.stringify({ web: false }) })).status === 200, '[wsnotes] switched web off in Settings')
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000)
+      await page.getByRole('button', { name: /^Powers/ }).click(); await sleep(700)
+      const web = page.getByRole('switch', { name: 'Search and read the web' })
+      check(await web.isDisabled() && await web.getAttribute('aria-checked') === 'false' && await page.getByText('Off in Settings').count() >= 1, '[wsnotes] a power off in Settings is locked off in the workspace')
+      await shot('wsnotes-3-locked-by-settings')
+      await api('/api/account/powers', { method: 'PUT', body: JSON.stringify({ web: true }) })
+
+      // Notes tab
+      await page.goto(`${BASE}/workspaces/${ws.id}?tab=notes`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
+      check(await page.getByRole('tab', { name: 'Notes' }).getAttribute('aria-selected') === 'true', '[wsnotes] ?tab=notes opens the Notes tab')
+      check(await page.getByText('Not written yet').count() === 1 && await page.getByText('Nothing saved yet').count() === 1, '[wsnotes] empty notes say so')
+      await shot('wsnotes-4-notes-empty')
+      await page.getByRole('button', { name: 'Write', exact: true }).click(); await sleep(700)
+      await page.locator('textarea[aria-label="Where we are"]').fill('Logo direction is chosen. Next: export the files.')
+      await page.getByRole('button', { name: 'Save', exact: true }).click(); await sleep(1500)
+      d = await J(await api(`/api/workspaces/${ws.id}/notes`))
+      check(d.whereWeAre?.text === 'Logo direction is chosen. Next: export the files.' && d.whereWeAre?.by === 'you', `[wsnotes] the summary is saved as the person's (${JSON.stringify(d.whereWeAre)})`)
+      await page.getByLabel('Write a note').fill('Invoices go out on the 25th. Kofi pays by MoMo.')
+      await page.keyboard.press('Enter'); await sleep(1500)
+      d = await J(await api(`/api/workspaces/${ws.id}/notes`))
+      check(d.notes.length === 1 && d.notes[0].by === 'you', '[wsnotes] a typed note is saved')
+      check(await page.getByText('Invoices go out on the 25th').count() === 1 && await page.getByText('You', { exact: true }).count() >= 1, '[wsnotes] it shows in the list with a YOU chip')
+      await shot('wsnotes-5-notes-filled')
+      await page.getByRole('button', { name: 'Delete note' }).first().click(); await sleep(1500)
+      check((await J(await api(`/api/workspaces/${ws.id}/notes`))).notes.length === 0, '[wsnotes] a note can be deleted')
+
+      // Notes off in the workspace: the page says so
+      await api(`/api/workspaces/${ws.id}`, { method: 'PATCH', body: JSON.stringify({ powers: { notes: false } }) })
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(6000)
+      check(await page.getByText(/Notes are off for this workspace/).count() === 1, '[wsnotes] with notes off the page says the assistant is not reading or saving them')
+      await shot('wsnotes-6-notes-off')
+      await api(`/api/workspaces/${ws.id}`, { method: 'PATCH', body: JSON.stringify({ powers: { notes: true } }) })
+      await J(await api(`/api/workspaces/${ws.id}/where-we-are`, { method: 'PUT', body: JSON.stringify({ text: '' }) }))
+
+      // Phone
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.goto(`${BASE}/workspaces/${ws.id}?tab=notes`, { waitUntil: 'domcontentloaded' }); await sleep(6000)
+      check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '[wsnotes] on a phone the Notes tab does not widen the page')
+      await shot('wsnotes-7-phone-notes')
+      await page.setViewportSize({ width: 1440, height: 900 })
+
+      // A real chat that saves a note, then Undo, then a second chat that reads it
+      await scenario('wsnotes', 'Kofi just called. He picked option 2, the warm yellow mark, and wants no red anywhere. Please keep that in this workspace\'s notes, and tell me in one sentence when it is saved.', async (text) => {
+        check(/Saved to notes|Already in notes/i.test(text), '[wsnotes] the trace shows "Saved to notes"')
+        const after = await J(await api(`/api/workspaces/${ws.id}/notes`))
+        const mine = after.notes.filter(n => n.by === 'assistant')
+        check(mine.length >= 1 && mine.some(n => /yellow|red|option 2/i.test(n.text)), `[wsnotes] the assistant saved a note of its own (${mine.map(n => n.text).join(' | ')})`)
+        await shot('wsnotes-8-chat-saved')
+        const undo = page.getByRole('button', { name: 'Undo', exact: true }).first()
+        if (await undo.count()) {
+          await undo.click(); await sleep(2000)
+          const left = await J(await api(`/api/workspaces/${ws.id}/notes`))
+          check(left.notes.length < after.notes.length, '[wsnotes] Undo in the chat removes the note')
+          await shot('wsnotes-9-chat-undone')
+        } else check(false, '[wsnotes] the trace has an Undo')
+      }, `${BASE}/workspaces/${ws.id}`, t => /Saved to notes|Already in notes|notes/i.test(t))
+      // Put a note back by hand, then a brand new chat has to know it without being told.
+      await api(`/api/workspaces/${ws.id}/notes`, { method: 'POST', body: JSON.stringify({ text: 'Kofi chose option 2, the warm yellow mark.' }) })
+      await scenario('wsnotes-read', 'Which logo option did Kofi choose? Answer in one short sentence from what you know about this job.', async (text) => {
+        check(/yellow|option 2/i.test(text.split('Which logo option did Kofi choose?').pop() || ''), '[wsnotes] a new chat in the workspace already knows the note')
+      }, `${BASE}/workspaces/${ws.id}`, t => /yellow|option 2/i.test(t))
+    } catch (e) { check(false, `[wsnotes] ${redact(e.message).slice(0, 220)}`) }
   }
 
   if (problems.length) process.exitCode = 1

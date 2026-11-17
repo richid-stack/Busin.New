@@ -72,6 +72,8 @@ export function phraseFor(part: Part): string {
   if (name === 'chart') return 'Drawing a chart.'
   if (name === 'weather') return 'Checking the weather.'
   if (name === 'remember' || name === 'forget_memory') return 'Updating my notes about you.'
+  if (name === 'save_to_notes') return 'Saving a note.'
+  if (name === 'update_where_we_are') return 'Updating where we are.'
   if (name.startsWith('create_')) return `Making ${words(name.slice(7))}.`
   if (name === 'integration_execute') return `Working in ${provider(part.input)}.`
   // A browsing job is many small steps: say where it goes, then stay quiet unless the assistant speaks.
