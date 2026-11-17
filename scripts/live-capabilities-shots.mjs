@@ -596,7 +596,7 @@ try {
       check(await page.getByText('Not written yet').count() === 1 && await page.getByText('Nothing saved yet').count() === 1, '[wsnotes] empty notes say so')
       await shot('wsnotes-4-notes-empty')
       await page.getByRole('button', { name: 'Write', exact: true }).click(); await sleep(700)
-      await page.getByLabel('Where we are').fill('Logo direction is chosen. Next: export the files.')
+      await page.locator('textarea[aria-label="Where we are"]').fill('Logo direction is chosen. Next: export the files.')
       await page.getByRole('button', { name: 'Save', exact: true }).click(); await sleep(1500)
       d = await J(await api(`/api/workspaces/${ws.id}/notes`))
       check(d.whereWeAre?.text === 'Logo direction is chosen. Next: export the files.' && d.whereWeAre?.by === 'you', `[wsnotes] the summary is saved as the person's (${JSON.stringify(d.whereWeAre)})`)
