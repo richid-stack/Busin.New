@@ -16,6 +16,8 @@ import { taskStore } from './store'
 import type { TaskStore } from './store'
 import { buildTaskTools } from './tools'
 import { browserServiceFor } from '../browser/where'
+import { getPowers } from '../account/powers'
+import { getFirebaseDb } from '../../utils/firebaseAdmin'
 import { endTaskBrowser } from './taskBrowser'
 import { modelJudge, verifyCriteria } from './verify'
 
@@ -29,7 +31,7 @@ export function liveDeps(store: TaskStore = taskStore()): RunDeps {
   }
   return {
     store,
-    tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null, task.model),
+    tools: async (task, ctx) => buildTaskTools(task.userId, task.tools, ctx, task.tools.includes('browser') ? await browserServiceFor(task.userId).catch(() => null) : null, task.model, await getPowers(getFirebaseDb(), task.userId)),
     model: (task, skip) => pick(task.model, task.userId, skip),
     costOf: id => (parseMyModelId(id) ? 0 : modelCost(id)),
     charge: chargeUsage,

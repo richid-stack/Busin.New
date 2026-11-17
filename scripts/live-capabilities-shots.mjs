@@ -423,8 +423,7 @@ try {
       await shot('chatui-7-home-ghost')
 
       // Settings > Appearance
-      await page.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
-      await page.getByRole('heading', { name: 'Appearance' }).scrollIntoViewIfNeeded().catch(() => {})
+      await page.goto(`${BASE}/settings?s=appearance`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
       await page.getByRole('button', { name: 'Violet' }).click({ timeout: 6000 }); await page.getByRole('button', { name: 'Large' }).click(); await page.getByRole('button', { name: 'Narrow' }).click(); await page.getByRole('button', { name: 'Reduced' }).click(); await sleep(500)
       const attrs = await page.evaluate(() => ['data-accent', 'data-text', 'data-width', 'data-motion'].map(a => document.documentElement.getAttribute(a)).join(','))
       check(attrs === 'violet,large,narrow,reduced', `[chatui] Appearance sets the page (${attrs})`)
@@ -444,6 +443,112 @@ try {
       for (const c of [loose.body.id, inWs.body.id]) await api(`/api/chats/${c}`, { method: 'DELETE' }).catch(() => {})
       for (const w of [wsA.id, wsB.id]) await api(`/api/workspaces/${w}`, { method: 'DELETE' }).catch(() => {})
     } catch (e) { check(false, `[chatui] ${redact(e.message).slice(0, 220)}`) }
+  }
+
+
+  // Settings: the section list, Defaults, Approvals and safety, Powers, Data controls. Runs last because it deletes every chat of the test user.
+  if (ONLY.includes('settings')) {
+    const J = async (r) => r.json().catch(() => ({}))
+    const nav = (label) => page.locator('nav[aria-label="Settings sections"] button', { hasText: label })
+    try {
+      await page.setViewportSize({ width: 1280, height: 800 })
+      await page.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
+      const labels = (await page.locator('nav[aria-label="Settings sections"] button').allInnerTexts()).map(t => t.trim())
+      note(`settings sections: ${labels.join(' | ')}`)
+      check(['Account', 'Plan and usage', 'Appearance', 'Defaults', 'Voice', 'Notifications', 'Approvals and safety', 'Powers', 'Data controls'].every(l => labels.includes(l)), '[settings] the section list has all nine sections')
+      check(await page.getByRole('heading', { name: 'Account', level: 2 }).count() === 1, '[settings] Account is the section that opens first')
+      await shot('settings-1-account')
+      await nav('Powers').click(); await sleep(600)
+      check(page.url().includes('s=powers') && await page.getByRole('heading', { name: 'Powers', level: 2 }).count() === 1, `[settings] choosing a section opens it and puts it in the address (${page.url().split('/').pop()})`)
+      await page.goto(`${BASE}/settings?s=data`, { waitUntil: 'domcontentloaded' }); await sleep(4000)
+      check(await page.getByRole('heading', { name: 'Data controls', level: 2 }).count() === 1, '[settings] an address with ?s= opens that section')
+      await page.goto(`${BASE}/settings?s=nonsense`, { waitUntil: 'domcontentloaded' }); await sleep(3000)
+      check(await page.getByRole('heading', { name: 'Account', level: 2 }).count() === 1, '[settings] an unknown section falls back to Account')
+
+      // Defaults
+      await page.goto(`${BASE}/settings?s=defaults`, { waitUntil: 'domcontentloaded' }); await sleep(4000)
+      await shot('settings-2-defaults')
+      await page.getByRole('button', { name: 'Ctrl + Enter sends' }).click(); await page.getByRole('button', { name: '14:05' }).click(); await sleep(300)
+      const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('openlobs.preferences') || '{}'))
+      check(stored.enterSends === 'mod' && stored.timeStyle === 'exact', `[settings] Defaults are kept on this device (${JSON.stringify(stored)})`)
+      await page.getByRole('button', { name: 'Always this one' }).click(); await sleep(500)
+      check(await page.getByRole('combobox', { name: 'Model for new chats' }).count() === 1, '[settings] "Always this one" shows a model picker')
+      await shot('settings-3-defaults-fixed-model')
+      await page.getByRole('button', { name: 'Last used' }).click(); await sleep(300)
+      check((await page.evaluate(() => JSON.parse(localStorage.getItem('openlobs.preferences') || '{}'))).newChatModel === '', '[settings] "Last used" clears the fixed model')
+      // Enter now adds a line; Ctrl+Enter sends
+      await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
+      const box = page.locator('textarea').first()
+      await box.click(); await box.fill('first line'); await page.keyboard.press('Enter'); await page.keyboard.type('second line'); await sleep(300)
+      check(page.url().replace(/\/$/, '') === BASE.replace(/\/$/, '') && (await box.inputValue()).includes('\n'), '[settings] with Ctrl + Enter selected, Enter adds a new line instead of sending')
+      await page.keyboard.press('Control+Enter'); await sleep(5000)
+      check(/\/chat\//.test(page.url()), `[settings] Ctrl + Enter sends (${page.url().split('/').slice(-2).join('/')})`)
+      await page.evaluate(() => localStorage.removeItem('openlobs.preferences'))
+
+      // Approvals and safety
+      await page.goto(`${BASE}/settings?s=approvals`, { waitUntil: 'domcontentloaded' }); await sleep(4000)
+      check(await page.getByRole('heading', { name: 'Always asks first', level: 3 }).count() === 1 && await page.getByText('Always', { exact: true }).count() >= 4, '[settings] Approvals lists what it always asks first, with mono chips')
+      check(await page.getByRole('switch').count() === 0, '[settings] nothing on Approvals pretends to be a switch')
+      await shot('settings-4-approvals')
+      await page.getByRole('button', { name: /Tell me when it is waiting/ }).click(); await sleep(600)
+      check(page.url().includes('s=notifications'), '[settings] "Tell me when it is waiting" goes to Notifications')
+
+      // Powers
+      const p0 = await J(await api('/api/account/powers'))
+      check(Object.values(p0.powers || {}).length === 5 && Object.values(p0.powers).every(v => v === true), `[settings] every power starts on (${JSON.stringify(p0.powers)})`)
+      check((await api('/api/account/powers', { method: 'PUT', body: JSON.stringify({ nonsense: true }) })).status === 400, '[settings] an unknown power is refused')
+      check((await api('/api/account/powers', { method: 'PUT', body: JSON.stringify({ web: 'no' }) })).status === 400, '[settings] a non-boolean value is refused')
+      await page.goto(`${BASE}/settings?s=powers`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
+      await shot('settings-5-powers')
+      const cloud = page.getByRole('switch', { name: 'Run programs in the cloud' })
+      check(await cloud.count() === 1 && await cloud.getAttribute('aria-checked') === 'true', '[settings] Powers shows the cloud switch on')
+      await cloud.click(); await sleep(1500)
+      let p1 = await J(await api('/api/account/powers'))
+      check(p1.powers?.cloud === false && p1.powers?.web === true, `[settings] switching one off saves only that one (${JSON.stringify(p1.powers)})`)
+      await page.reload({ waitUntil: 'domcontentloaded' }); await sleep(5000)
+      check(await page.getByRole('switch', { name: 'Run programs in the cloud' }).getAttribute('aria-checked') === 'false', '[settings] the switch is still off after a reload')
+      await shot('settings-6-powers-off')
+      await page.getByRole('switch', { name: 'Run programs in the cloud' }).click(); await sleep(1500)
+      p1 = await J(await api('/api/account/powers'))
+      check(p1.powers?.cloud === true, '[settings] switching it back on works')
+      check(await page.getByRole('switch', { name: 'Remember things about you' }).count() === 1, '[settings] the memory switch is on the Powers page')
+
+      // Phone: the section list is one row you swipe, and the open section stays in view
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.goto(`${BASE}/settings?s=powers`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
+      const strip = await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Settings sections"]'); const a = n?.querySelector('[aria-current="page"]'); const r = a?.getBoundingClientRect(); return { scrolls: n ? n.scrollWidth > n.clientWidth : false, inView: !!r && r.left >= 0 && r.right <= window.innerWidth + 1 } })
+      check(strip.scrolls && strip.inView, `[settings] on a phone the list scrolls sideways and the open section is in view (${JSON.stringify(strip)})`)
+      await shot('settings-7-phone-powers')
+      await page.setViewportSize({ width: 1280, height: 800 })
+
+      // Data controls
+      const keep = await J(await api('/api/chats', { method: 'POST', body: JSON.stringify({ input: 'A chat to delete' }) }))
+      const ws = await J(await api('/api/workspaces', { method: 'POST', body: JSON.stringify({ name: 'Settings test shop' }) }))
+      const inWs = await J(await api('/api/chats', { method: 'POST', body: JSON.stringify({ input: 'A chat inside a workspace', workspaceId: ws.id }) }))
+      await api('/api/memory', { method: 'POST', body: JSON.stringify({ text: 'Prefers WhatsApp for reminders' }) })
+      await page.goto(`${BASE}/settings?s=data`, { waitUntil: 'domcontentloaded' }); await sleep(5000)
+      await shot('settings-8-data')
+      await page.getByRole('button', { name: 'Clear', exact: true }).click(); await sleep(700)
+      check(await page.getByText('Clear your memory?').count() === 1, '[settings] Clear memory asks first')
+      await shot('settings-9-confirm')
+      await page.getByRole('button', { name: 'Cancel' }).click(); await sleep(500)
+      check(((await J(await api('/api/memory'))).items || []).length >= 1, '[settings] Cancel leaves memory alone')
+      await page.getByRole('button', { name: 'Clear', exact: true }).click(); await sleep(500)
+      await page.getByRole('button', { name: 'Clear memory', exact: true }).click(); await sleep(2000)
+      check(((await J(await api('/api/memory'))).items || []).length === 0, '[settings] confirming clears memory')
+      await page.getByRole('button', { name: 'Delete chats' }).click(); await sleep(700)
+      check(await page.getByText('Delete all your chats?').count() === 1, '[settings] Delete all chats asks first')
+      await page.getByRole('button', { name: 'Cancel' }).click(); await sleep(500)
+      check((await J(await api('/api/chats'))).some(c => c.id === keep.id), '[settings] Cancel leaves the chats alone')
+      await page.getByRole('button', { name: 'Delete chats' }).click(); await sleep(500)
+      await page.getByRole('button', { name: 'Delete all chats', exact: true }).click(); await sleep(3500)
+      const left = await J(await api('/api/chats'))
+      check(Array.isArray(left) && left.length === 0, `[settings] confirming deletes every chat (${Array.isArray(left) ? left.length : 'bad'} left)`)
+      check((await api(`/api/chats/${inWs.id}`)).status === 404, '[settings] a chat inside a workspace was deleted too')
+      check((await api(`/api/workspaces/${ws.id}`)).status === 200, '[settings] the workspace itself stays')
+      await shot('settings-10-after-delete')
+      await api(`/api/workspaces/${ws.id}`, { method: 'DELETE' }).catch(() => {})
+    } catch (e) { check(false, `[settings] ${redact(e.message).slice(0, 220)}`) }
   }
 
   if (problems.length) process.exitCode = 1

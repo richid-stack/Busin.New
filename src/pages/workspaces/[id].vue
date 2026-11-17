@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { usePreferences } from '../../composables/usePreferences'
+import { useModels } from '../../composables/useModels'
 import StateCard from '../../components/state/StateCard.vue'
 import PageSkeleton from '../../components/state/PageSkeleton.vue'
 import WorkspaceArt from '../../components/workspaces/WorkspaceArt.vue'
@@ -21,9 +23,12 @@ import { useUserSession } from '../../composables/useUserSession'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { usePromptAttachments } from '../../composables/usePromptAttachments'
 import { useDictation } from '../../composables/useDictation'
-import { whenUsed, workspaceIcon, sizeLabel, WORKSPACE_ICONS } from '../../utils/workspaceIcons'
+import { workspaceIcon, sizeLabel, WORKSPACE_ICONS } from '../../utils/workspaceIcons'
 import type { Workspace, WorkspaceFile } from '../../types/workspaces'
 import { fileToDataUrl } from '../../utils/files'
+const { used, prefs } = usePreferences()
+const { startNewChat } = useModels()
+startNewChat()
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
 
@@ -258,6 +263,7 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
 
           <UChatPrompt
             v-model="input"
+            :submit-on-enter="prefs.enterSends === 'enter'"
             class="soft-focus mt-6 rounded-2xl border border-default bg-elevated/50 shadow-sm backdrop-blur-md"
             color="primary"
             variant="subtle"
@@ -299,7 +305,7 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
                 >
                   <UIcon v-if="c.pinned" name="i-lucide-pin" class="size-3.5 shrink-0 text-dimmed" />
                   <span class="min-w-0 flex-1 truncate text-sm text-highlighted">{{ c.label }}</span>
-                  <span class="shrink-0 text-xs text-muted">{{ whenUsed(c.createdAt) }}</span>
+                  <span class="shrink-0 text-xs text-muted">{{ used(c.createdAt) }}</span>
                 </RouterLink>
                 <UDropdownMenu :items="menuFor(c)" :content="{ align: 'end', side: 'bottom' }" :ui="{ content: 'w-56' }">
                   <UButton

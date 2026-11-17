@@ -4,6 +4,7 @@ import { MODELS } from '../../shared/utils/models'
 import { MY_PREFIX } from '../../shared/modelProviders'
 import { useModelProviders } from './useModelProviders'
 import { useUserSession } from './useUserSession'
+import { usePreferences } from './usePreferences'
 
 export function useModels() {
   const defaultModel = 'google/gemini-3.5-flash'
@@ -39,12 +40,21 @@ export function useModels() {
   })
   const selected = computed(() => items.value.find(m => m.value === model.value))
 
+  /** A new chat page calls this once: if Settings > Defaults names a model, start with it instead of the last one used. */
+  const { prefs } = usePreferences()
+  function startNewChat() {
+    const wanted = prefs.value.newChatModel
+    if (!wanted) return
+    if (wanted.startsWith(MY_PREFIX) || MODELS.some(m => m.value === wanted)) model.value = wanted
+  }
+
   return {
     models: MODELS,
     items,
     selected,
     myModels,
     defaultModel,
-    model
+    model,
+    startNewChat
   }
 }

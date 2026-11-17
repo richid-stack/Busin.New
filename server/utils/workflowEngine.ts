@@ -11,6 +11,9 @@ import { runVisualCheckNode } from './workflowVisual'
 import { UsageLimitError, chargeUsage } from '../services/usage/usage'
 import { trackToolWork } from '../services/integrations/execute'
 import { modelCost } from '../services/usage/plans'
+import { getPowers } from '../services/account/powers'
+import { getFirebaseDb } from './firebaseAdmin'
+import { applyPowers } from '../../shared/powers'
 import jexl from 'jexl'
 import { interpolateDeep, interpolateVariables, snapshotContext, snapshotOutputs, stripBraces } from './workflowTemplate'
 
@@ -241,7 +244,9 @@ async function runAgentOn(modelId: string, data: { model?: string, prompt?: stri
   )
   const { createIntegrationExecuteTool } = await import('./tools/workflow')
 
-  const tracked = trackToolWork({ integration_execute: createIntegrationExecuteTool(userId) })
+  // An AI step is offered connected apps only while that power is on (Settings > Powers). Steps the person built themselves are not affected.
+  const powers = await getPowers(getFirebaseDb(), userId)
+  const tracked = trackToolWork(applyPowers({ integration_execute: createIntegrationExecuteTool(userId) }, powers))
   // A model call that fails before any tool started (provider down, timeout) did no useful work, so a retry is not charged twice.
   const result = await generateText({
     model: getLanguageModel(modelId),

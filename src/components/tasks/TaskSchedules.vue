@@ -5,7 +5,8 @@ import { useTaskSchedules } from '../../composables/useTaskSchedules'
 import { RESULT_DOT } from '../../types/taskSchedules'
 import type { TaskScheduleItem } from '../../types/taskSchedules'
 import { describeSchedule, formatMoment } from '../../utils/scheduleText'
-import { timeAgo } from '../../utils/taskTime'
+import { usePreferences } from '../../composables/usePreferences'
+const { ago } = usePreferences()
 
 const router = useRouter()
 const { schedules, setEnabled, runNow, removeSchedule } = useTaskSchedules()
@@ -51,7 +52,7 @@ const status = (s: TaskScheduleItem) => {
           <p v-if="s.note && !s.error" class="text-xs text-dimmed mt-0.5">
             {{ s.note }}
             <RouterLink v-if="s.lastTaskId" :to="`/tasks/${s.lastTaskId}`" class="underline underline-offset-2 hover:text-muted">See it</RouterLink>
-            <span v-if="s.lastRunAt"> · {{ timeAgo(s.lastRunAt) }}</span>
+            <span v-if="s.lastRunAt"> · {{ ago(s.lastRunAt) }}</span>
           </p>
           <p v-if="s.error" class="text-xs text-error mt-0.5" role="alert">{{ s.error }}</p>
         </div>

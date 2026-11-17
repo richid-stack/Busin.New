@@ -4,6 +4,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
 import { useChats } from '../composables/useChats'
+import { useModels } from '../composables/useModels'
+import { usePreferences } from '../composables/usePreferences'
 import { useCsrf } from '../composables/useCsrf'
 import { useUserSession } from '../composables/useUserSession'
 import { useFirebaseAuth } from '../composables/useFirebaseAuth'
@@ -24,6 +26,10 @@ import { suggestAgent } from '../utils/agentSuggest'
 
 const toast = useToast()
 const { fetchChats } = useChats()
+const { startNewChat } = useModels()
+const { prefs } = usePreferences()
+// A new chat starts with the model chosen in Settings > Defaults, if one is.
+startNewChat()
 const { csrf, headerName } = useCsrf()
 const { user, loggedIn, fetchSession } = useUserSession()
 const { openAuthModal, authReady, isAuthenticated } = useFirebaseAuth()
@@ -279,6 +285,7 @@ async function startAutomation(prompt: string) {
         <div class="flex flex-col gap-2 relative">
           <UChatPrompt
             v-model="input"
+            :submit-on-enter="prefs.enterSends === 'enter'"
             class="soft-focus [view-transition-name:chat-prompt] shadow-sm border border-default rounded-2xl bg-elevated/50 backdrop-blur-md transition-all"
             color="primary"
             variant="subtle"

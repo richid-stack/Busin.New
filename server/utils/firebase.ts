@@ -265,6 +265,20 @@ export async function deleteChat(chatId: string): Promise<boolean> {
   return true
 }
 
+/**
+ * Deletes every chat a person has, ghost chats included, with their messages and votes. Workspaces, agents, workflows
+ * and memory stay. Takes the database so it can be tested; a few chats are removed at a time so a large history
+ * does not open hundreds of deletes at once.
+ */
+export async function deleteAllChatsFor(db: ReturnType<typeof getFirebaseDb>, userId: string): Promise<number> {
+  const snapshot = await db.collection('chats').where('userId', '==', userId).get()
+  const refs = snapshot.docs.map(d => d.ref)
+  for (let i = 0; i < refs.length; i += 5) {
+    await Promise.all(refs.slice(i, i + 5).map(ref => db.recursiveDelete(ref)))
+  }
+  return refs.length
+}
+
 // Recursively remove any keys with undefined values or undefined array items to prevent Firestore write errors
 export function sanitizeForFirestore<T>(data: T): T {
   if (data === undefined) return null as unknown as T
