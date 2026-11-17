@@ -15,7 +15,7 @@ watch(() => props.modelValue, async () => {
 </script>
 
 <template>
-  <nav aria-label="Settings sections" class="-mx-4 shrink-0 self-start overflow-x-auto px-4 md:sticky md:top-10 md:mx-0 md:w-52 md:overflow-visible md:px-0">
+  <nav aria-label="Settings sections" class="-mx-4 min-w-0 shrink-0 self-stretch overflow-x-auto px-4 md:sticky md:top-10 md:mx-0 md:w-52 md:self-start md:overflow-visible md:px-0">
     <ul ref="list" class="flex w-max gap-1 md:w-auto md:flex-col">
       <li v-for="s in sections" :key="s.id">
         <button

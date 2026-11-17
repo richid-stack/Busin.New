@@ -487,7 +487,7 @@ try {
 
       // Approvals and safety
       await page.goto(`${BASE}/settings?s=approvals`, { waitUntil: 'domcontentloaded' }); await sleep(4000)
-      check(await page.getByText('Always asks first').count() === 1 && await page.getByText('ALWAYS', { exact: true }).count() >= 4, '[settings] Approvals lists what it always asks first, with mono chips')
+      check(await page.getByRole('heading', { name: 'Always asks first', level: 3 }).count() === 1 && await page.getByText('Always', { exact: true }).count() >= 4, '[settings] Approvals lists what it always asks first, with mono chips')
       check(await page.getByRole('switch').count() === 0, '[settings] nothing on Approvals pretends to be a switch')
       await shot('settings-4-approvals')
       await page.getByRole('button', { name: /Tell me when it is waiting/ }).click(); await sleep(600)
