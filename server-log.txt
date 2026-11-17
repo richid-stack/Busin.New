@@ -1,0 +1,24 @@
+[info] Using `[36mindex.html[39m` as renderer template.
+[unplugin-vue-components] component "ModalConfirm"(/home/runner/work/Busin.New/Busin.New/src/components/settings/ModalConfirm.vue) has naming conflicts with other components, ignored.
+
+  [32m[1mVITE[22m v8.3.0[39m  [2mready in [0m[1m774[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m3100[22m/[39m
+[2m9:41:33 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m9:41:34 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m9:41:34 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mdependencies optimized: [33m@ai-sdk/vue, ai, ofetch, @comark/vue, @comark/vue/plugins/shiki, @shikijs/langs/c, @shikijs/langs/cpp, @shikijs/langs/css, @shikijs/langs/diff, @shikijs/langs/dockerfile, @shikijs/langs/go, @shikijs/langs/graphql, @shikijs/langs/html, @shikijs/langs/java, @shikijs/langs/kotlin, @shikijs/langs/php, @shikijs/langs/python, @shikijs/langs/ruby, @shikijs/langs/rust, @shikijs/langs/sql, @shikijs/langs/swift, @shikijs/langs/toml, @shikijs/langs/xml, @vue-flow/background, @vue-flow/controls, @vue-flow/core, @vue-flow/minimap, dagre, date-fns, vue-chrts, zod[32m[39m
+[2m9:41:34 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32moptimized dependencies changed. reloading[39m
+[2m9:41:37 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m9:41:38 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mdependency optimized: [33mvue-router/experimental[32m[39m
+[2m9:41:38 AM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32moptimized dependencies changed. reloading[39m
+{"severity":"ERROR","@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","message":"HTTPError: GitHub is limiting requests right now. Try again in a few minutes.\n    at workspaceRoute (/home/runner/work/Busin.New/Busin.New/server/utils/workspaceRoute.ts:10:46)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at ViteEnvRunner.fetch (file:///home/runner/work/Busin.New/Busin.New/node_modules/nitro/dist/runtime/internal/vite/dev-worker.mjs:84:14)","serviceContext":{"service":"openlobs","version":"dev"},"context":{"httpRequest":{"method":"GET","url":"/api/workspaces/github"}},"source":"server"}
+{"severity":"ERROR","@type":"type.googleapis.com/google.devtools.clouderrorreporting.v1beta1.ReportedErrorEvent","message":"HTTPError: GitHub is limiting requests right now. Try again in a few minutes.\n    at workspaceRoute (/home/runner/work/Busin.New/Busin.New/server/utils/workspaceRoute.ts:10:46)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at ViteEnvRunner.fetch (file:///home/runner/work/Busin.New/Busin.New/node_modules/nitro/dist/runtime/internal/vite/dev-worker.mjs:84:14)","serviceContext":{"service":"openlobs","version":"dev"},"context":{"httpRequest":{"method":"GET","url":"/api/workspaces/github"}},"source":"server"}
+[chat] finished: stop, 1 step(s), google/gemini-3.8-flash
+[chat] finished: stop, 2 step(s), google/gemini-3.8-flash
+[chat] finished: stop, 1 step(s), google/gemini-3.8-flash
+[chat] finished: stop, 3 step(s), google/gemini-3.8-flash
+[chat] google/gemini-3.8-flash is out of room, continuing on google/gemini-3.5-flash
+[chat] google/gemini-3.5-flash is out of room, continuing on groq/gpt-oss-120b
+[chat] groq/gpt-oss-120b is out of room, continuing on google/gemini-3.1-flash-lite
+[chat] finished: stop, 1 step(s), google/gemini-3.8-flash
+[chat] finished: stop, 1 step(s), google/gemini-3.8-flash

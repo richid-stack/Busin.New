@@ -1,0 +1,66 @@
+console error: Failed to load resource: the server responded with a status of 401 (Authentication required)
+shot ws-1-empty-list
+PASS [workspaces] creating one opens its page
+shot ws-2-empty-workspace
+shot ws-3-new-dialog
+PASS [workspaces] the workspace is saved
+shot ws-4-add-menu
+shot ws-5-text-dialog
+console error: Failed to load resource: the server responded with a status of 502 (GitHub is limiting requests right now. Try again in a few minutes.)
+console error: Failed to load resource: the server responded with a status of 502 (GitHub is limiting requests right now. Try again in a few minutes.)
+shot ws-6-github-picker
+shot ws-7-filled-workspace
+PASS [workspaces] the typed file is stored (Price list)
+FAIL [workspaces] the GitHub file is stored
+shot ws-8-plus-menu
+shot ws-9-list-with-pinned
+[workspaces] using google/gemini-3.8-flash
+shot workspaces-1-closed
+shot workspaces-2-open
+[workspaces] rows opened: 0
+
+PASS [workspaces] the answer has the prices from the file
+PASS [workspaces] the trace shows the file being read
+PASS [workspaces] the chat header shows its workspace
+shot ws-10-chat-plus-menu
+PASS [workspaces] the chat is stored inside the workspace
+PASS [wsnotes] a new workspace has every power on and no summary ({"web":true,"browser":true,"computer":true,"cloud":true,"apps":true,"notes":true})
+PASS [wsnotes] the tabs are plain words with no counts (Chats|Notes)
+shot wsnotes-1-chats-tab
+PASS [wsnotes] Powers starts at 6 of 6 on (Powers What the assistant may use here 6 OF 6 ON)
+shot wsnotes-2-powers-open
+PASS [wsnotes] switching one off saves only that one ({"web":true,"browser":true,"computer":true,"cloud":false,"apps":true,"notes":true})
+PASS [wsnotes] the count follows
+PASS [wsnotes] it is still off after a reload
+PASS [wsnotes] switching it back on works
+PASS [wsnotes] switched web off in Settings
+PASS [wsnotes] a power off in Settings is locked off in the workspace
+shot wsnotes-3-locked-by-settings
+PASS [wsnotes] ?tab=notes opens the Notes tab
+PASS [wsnotes] empty notes say so
+shot wsnotes-4-notes-empty
+PASS [wsnotes] the summary is saved as the person's ({"text":"Logo direction is chosen. Next: export the files.","by":"you","at":"2026-11-17T09:46:11.777Z"})
+PASS [wsnotes] a typed note is saved
+PASS [wsnotes] it shows in the list with a YOU chip
+shot wsnotes-5-notes-filled
+PASS [wsnotes] a note can be deleted
+PASS [wsnotes] with notes off the page says the assistant is not reading or saving them
+shot wsnotes-6-notes-off
+PASS [wsnotes] on a phone the Notes tab does not widen the page
+shot wsnotes-7-phone-notes
+[wsnotes] using google/gemini-3.8-flash
+shot wsnotes-1-closed
+shot wsnotes-2-open
+[wsnotes] rows opened: 1
+
+PASS [wsnotes] the trace shows "Saved to notes"
+PASS [wsnotes] the assistant saved a note of its own (Kofi chose option 2 (the warm yellow mark) and specified no red anywhere.)
+shot wsnotes-8-chat-saved
+PASS [wsnotes] Undo in the chat removes the note
+shot wsnotes-9-chat-undone
+[wsnotes-read] using google/gemini-3.8-flash
+shot wsnotes-read-1-closed
+shot wsnotes-read-2-open
+[wsnotes-read] rows opened: 0
+
+PASS [wsnotes] a new chat in the workspace already knows the note
