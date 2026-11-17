@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePreferences } from '../../composables/usePreferences'
 import PageSkeleton from '../../components/state/PageSkeleton.vue'
 import StateCard from '../../components/state/StateCard.vue'
 import WorkspaceForm from '../../components/workspaces/WorkspaceForm.vue'
@@ -7,8 +8,9 @@ import { useRouter } from 'vue-router'
 import { useWorkspaces } from '../../composables/useWorkspaces'
 import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
-import { whenUsed, workspaceIcon } from '../../utils/workspaceIcons'
+import { workspaceIcon } from '../../utils/workspaceIcons'
 import type { Workspace } from '../../types/workspaces'
+const { used } = usePreferences()
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
 
@@ -118,7 +120,7 @@ const isEmpty = computed(() => loaded.value && !loading.value && !loadError.valu
               </div>
               <div class="min-w-0">
                 <div class="truncate font-medium text-highlighted">{{ w.name }}</div>
-                <div class="text-sm text-muted">{{ whenUsed(w.lastUsedAt) }}</div>
+                <div class="text-sm text-muted">{{ used(w.lastUsedAt) }}</div>
               </div>
             </RouterLink>
             <div class="ml-auto flex items-center gap-1">

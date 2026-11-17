@@ -19,6 +19,7 @@ import { createFindPhotosTool } from '../../utils/tools/findPhotos'
 import { createGithubReadTool } from '../../utils/tools/githubRead'
 import { createCommunitySearchTool } from '../../utils/tools/communitySearch'
 import { allowedToolNames } from './registry'
+import { applyPowers, type Powers } from '../../../shared/powers'
 
 /** What a running task hands its tools: how to pause itself, and what the person approved before it paused. */
 export interface TaskToolContext { taskId: string, pause: TaskBrowser['pause'], approvedLabel: string | null }
@@ -27,7 +28,7 @@ export interface TaskToolContext { taskId: string, pause: TaskBrowser['pause'], 
  * The tools a task may use. Every tool is built for the task's owner, then cut down to the groups chosen
  * for the task and to those the registry allows without a person watching.
  */
-export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolContext, browserService: BrowserService | null = null, taskModel: string | null = null): Record<string, any> {
+export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolContext, browserService: BrowserService | null = null, taskModel: string | null = null, powers?: Partial<Powers>): Record<string, any> {
   const sessionKey = ctx ? browserKey(userId, `task-${ctx.taskId}`) : ''
   const all: Record<string, any> = {
     web_search: createWebSearchTool(userId),
@@ -62,5 +63,6 @@ export function buildTaskTools(userId: string, groups: string[], ctx?: TaskToolC
       : {})
   }
   const allowed = new Set(allowedToolNames(groups))
-  return Object.fromEntries(Object.entries(all).filter(([name]) => allowed.has(name)))
+  // Then what the person switched off in Settings > Powers.
+  return applyPowers(Object.fromEntries(Object.entries(all).filter(([name]) => allowed.has(name))), powers)
 }

@@ -7,10 +7,12 @@ import { useTasks } from '../../composables/useTasks'
 import { TASK_STATUS } from '../../types/tasks'
 import StatusChip from '../../components/tasks/StatusChip.vue'
 import type { CriterionStatus, TaskArtifact, TaskEventItem, TaskItem } from '../../types/tasks'
-import { duration, timeAgo } from '../../utils/taskTime'
+import { duration } from '../../utils/taskTime'
+import { usePreferences } from '../../composables/usePreferences'
 import ChatToolApproval from '../../components/chat/tool/Approval.vue'
 import ChatToolBrowserView from '../../components/chat/tool/BrowserView.vue'
 import UseAgain from '../../components/tasks/UseAgain.vue'
+const { ago } = usePreferences()
 
 const route = useRoute()
 const router = useRouter()
@@ -378,7 +380,7 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour
             </li>
           </ol>
           <p class="text-[11px] text-dimmed mt-4">
-            Started {{ timeAgo(task.createdAt) }}. Checked by file lookups, screenshots and AI judgement; AI judgement is labelled as such.
+            Started {{ ago(task.createdAt) }}. Checked by file lookups, screenshots and AI judgement; AI judgement is labelled as such.
           </p>
         </section>
       </template>

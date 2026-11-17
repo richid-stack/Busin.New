@@ -7,6 +7,7 @@ import { DefaultChatTransport, isReasoningUIPart, isToolUIPart, isTextUIPart, ge
 import type { UIMessage } from 'ai'
 import { getSearchQuery } from '../../utils/tool'
 import { useModels } from '../../composables/useModels'
+import { usePreferences } from '../../composables/usePreferences'
 import { useAgents } from '../../composables/useAgents'
 import { useWorkspaces } from '../../composables/useWorkspaces'
 import { useSkills } from '../../composables/useSkills'
@@ -42,6 +43,7 @@ export interface Vote {
 const route = useRoute<'/chat/[id]'>()
 const toast = useToast()
 const { model } = useModels()
+const { prefs } = usePreferences()
 const { getAgent, loaded: agentsLoaded, fetchAgents } = useAgents()
 const DEFAULT_MODEL = 'google/gemini-3.5-flash'
 const { fetchChats, chats, updateChat } = useChats()
@@ -573,6 +575,7 @@ function handleTextAction(action: string, selectedText: string) {
         <UChatPrompt
           v-if="isOwner"
           v-model="input"
+          :submit-on-enter="prefs.enterSends === 'enter'"
           :error="error"
           color="primary"
           variant="subtle"

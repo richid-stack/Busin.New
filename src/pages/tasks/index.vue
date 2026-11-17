@@ -12,8 +12,9 @@ import { useFirebaseAuth } from '../../composables/useFirebaseAuth'
 import { useUserSession } from '../../composables/useUserSession'
 import { TASK_STATUS } from '../../types/tasks'
 import type { CriterionKind } from '../../types/tasks'
-import { timeAgo } from '../../utils/taskTime'
+import { usePreferences } from '../../composables/usePreferences'
 import StatusChip from '../../components/tasks/StatusChip.vue'
+const { ago } = usePreferences()
 
 const router = useRouter()
 const route = useRoute()
@@ -338,7 +339,7 @@ async function start() {
                   </p>
                 </div>
                 <StatusChip :label="TASK_STATUS[t.status].label" :tone="TASK_STATUS[t.status].tone" />
-                <span class="hidden sm:block w-20 text-right text-xs text-dimmed shrink-0">{{ timeAgo(t.createdAt) }}</span>
+                <span class="hidden sm:block w-20 text-right text-xs text-dimmed shrink-0">{{ ago(t.createdAt) }}</span>
               </RouterLink>
             </li>
           </ul>

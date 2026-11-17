@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import StateCard from '../components/state/StateCard.vue'
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useColorMode } from '@vueuse/core'
 import { useAppearance } from '../composables/useAppearance'
 import { ACCENTS } from '../utils/appearance'
@@ -10,28 +10,30 @@ import { useFirebaseAuth } from '../composables/useFirebaseAuth'
 import { useUserSession } from '../composables/useUserSession'
 import { useAccount } from '../composables/useAccount'
 import { useBilling } from '../composables/useBilling'
-import { useBrowserWhere } from '../composables/useBrowserWhere'
 import { usePushAlerts } from '../composables/usePushAlerts'
 
 import LobbyVoiceSettings from '../components/settings/LobbyVoiceSettings.vue'
+import SettingsNav from '../components/settings/SettingsNav.vue'
+import SettingRow from '../components/settings/SettingRow.vue'
+import DefaultsSection from '../components/settings/DefaultsSection.vue'
+import ApprovalsSection from '../components/settings/ApprovalsSection.vue'
+import PowersSection from '../components/settings/PowersSection.vue'
+import DataSection from '../components/settings/DataSection.vue'
 
-const ModalDeleteAccount = defineAsyncComponent(() => import('../components/settings/ModalDeleteAccount.vue'))
-
+const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const overlay = useOverlay()
 const colorMode = useColorMode()
 const { openAuthModal, firebaseUser, signInMethod, sendPasswordReset, updateDisplayName, signOutUser } = useFirebaseAuth()
 const { user, loggedIn, clearSession } = useUserSession()
-const { usage, usageError, loadingUsage, fetchUsage, downloadExport } = useAccount()
-const { browserWhere, fetchBrowserWhere, setBrowserWhere } = useBrowserWhere()
+const { usage, usageError, loadingUsage, fetchUsage } = useAccount()
 const { billing, billingFailed, notifications, fetchBilling, startCheckout, fetchNotifications, saveNotifications } = useBilling()
 const { availability: alertsAvailability, on: alertsOn, busy: alertsBusy, error: alertsError, testSent, enable: enableAlerts, disable: disableAlerts, sendTest } = usePushAlerts()
 
 const errorMessage = (err: any, fallback: string) => err?.data?.statusMessage || err?.statusMessage || err?.message || fallback
 
 // The signed-in state is the server session, which is what every API call here is checked against.
-const loadAll = () => { fetchUsage(); fetchBilling(); fetchNotifications(); fetchBrowserWhere() }
+const loadAll = () => { fetchUsage(); fetchBilling(); fetchNotifications() }
 onMounted(() => { if (loggedIn.value) loadAll() })
 watch(loggedIn, (v) => { if (v) loadAll() })
 
@@ -101,15 +103,6 @@ const alertsHint = computed(() => ({
 })[alertsAvailability.value])
 const setAlerts = (value: boolean) => (value ? enableAlerts() : disableAlerts())
 
-// ---- Assistant browser ----
-async function setOnComputer(value: boolean) {
-  try {
-    await setBrowserWhere(value ? 'computer' : 'cloud')
-  } catch (err: any) {
-    toast.add({ title: 'Could not change that', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
-  }
-}
-
 // ---- Security ----
 const resetting = ref(false)
 async function resetPassword() {
@@ -132,32 +125,6 @@ async function logOut() {
   router.push('/')
 }
 
-// ---- Your data ----
-const exporting = ref(false)
-async function exportData() {
-  if (exporting.value) return
-  exporting.value = true
-  try {
-    await downloadExport()
-    toast.add({ title: 'Your data is downloading', icon: 'i-lucide-download', color: 'success' })
-  } catch (err: any) {
-    toast.add({ title: 'Could not export your data', description: errorMessage(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
-  } finally {
-    exporting.value = false
-  }
-}
-
-const deleteModal = overlay.create(ModalDeleteAccount)
-async function deleteAccount() {
-  const deleted = await deleteModal.open().result
-  if (!deleted) return
-  // The account no longer exists, so signing out only clears this browser.
-  await signOutUser().catch(() => {})
-  await clearSession()
-  toast.add({ title: 'Your account was deleted', description: 'Everything was removed. Thanks for trying OpenLobs.', icon: 'i-lucide-check', color: 'neutral', duration: 10000 })
-  router.push('/')
-}
-
 const { appearance, reset: resetAppearance } = useAppearance()
 const appearanceRows: Array<{ key: keyof Appearance, title: string, hint: string, options: Array<{ value: string, label: string }> }> = [
   { key: 'text', title: 'Text size', hint: 'For chats and pages.', options: [{ value: 'small', label: 'Small' }, { value: 'default', label: 'Default' }, { value: 'large', label: 'Large' }] },
@@ -170,348 +137,274 @@ const modes = [
   { value: 'auto', label: 'System', icon: 'i-lucide-monitor' }
 ] as const
 
-const LINKS = [
-  { to: '/memory', icon: 'i-lucide-brain', title: 'Memory', detail: 'Notes OpenLobs keeps about you. Add, edit, or switch memory off.' },
-  { to: '/agents', icon: 'i-lucide-bot', title: 'Agents', detail: 'Your saved agents, what each can use, and which skills they follow.' },
-  { to: '/skills', icon: 'i-lucide-book-open-text', title: 'Skills', detail: 'Skills you chose to keep, ready in every chat.' },
-  { to: '/integrations', icon: 'i-lucide-blocks', title: 'Connected apps', detail: 'Connect or disconnect Google, Microsoft, Slack and more.' },
-  { to: '/integrations/mcp', icon: 'i-lucide-plug', title: 'MCP servers', detail: 'Tools from servers you add, each approved by you first.' },
-  { to: '/workflows', icon: 'i-lucide-workflow', title: 'Workflows', detail: 'Automations and their schedules.' }
+
+// ---- Sections ----
+const SECTIONS = [
+  { id: 'account', label: 'Account', icon: 'i-lucide-user-round' },
+  { id: 'plan', label: 'Plan and usage', icon: 'i-lucide-gauge' },
+  { id: 'appearance', label: 'Appearance', icon: 'i-lucide-palette' },
+  { id: 'defaults', label: 'Defaults', icon: 'i-lucide-sliders-horizontal' },
+  { id: 'voice', label: 'Voice', icon: 'i-lucide-mic' },
+  { id: 'notifications', label: 'Notifications', icon: 'i-lucide-bell' },
+  { id: 'approvals', label: 'Approvals and safety', icon: 'i-lucide-shield-check' },
+  { id: 'powers', label: 'Powers', icon: 'i-lucide-zap' },
+  { id: 'data', label: 'Data controls', icon: 'i-lucide-database' }
 ]
+const HEADINGS: Record<string, { title: string, text: string }> = {
+  account: { title: 'Account', text: 'Who you are and how you sign in.' },
+  plan: { title: 'Plan and usage', text: 'What you have used and what is left.' },
+  appearance: { title: 'Appearance', text: 'How OpenLobs looks on this device.' },
+  defaults: { title: 'Defaults', text: 'How new chats start. Kept on this device.' },
+  voice: { title: 'Voice', text: 'How Lobby sounds when it talks.' },
+  notifications: { title: 'Notifications', text: 'How OpenLobs reaches you when you are away.' },
+  approvals: { title: 'Approvals and safety', text: 'What OpenLobs always asks about first, and where you manage what it can reach.' },
+  powers: { title: 'Powers', text: 'What the assistant may use at all. Off means it is not even offered.' },
+  data: { title: 'Data controls', text: 'Take your data, or remove it.' }
+}
+// The section lives in the address (/settings?s=powers) so a link can open it.
+const section = computed({
+  get: () => SECTIONS.some(x => x.id === route.query.s) ? String(route.query.s) : 'account',
+  set: (id: string) => { void router.replace({ query: id === 'account' ? {} : { s: id } }) }
+})
+const heading = computed(() => HEADINGS[section.value]!)
 </script>
 
 <template>
   <div class="flex-1 min-w-0 h-full flex flex-col bg-default overflow-y-auto">
-    <div class="max-w-3xl w-full mx-auto px-4 sm:px-6 py-12 md:py-20 flex-1">
-      <div class="mb-10">
-        <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-highlighted mb-3">Settings</h1>
-        <p class="text-muted text-base md:text-lg">Your account, your usage, and your data, all in one place.</p>
-      </div>
+    <div class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 md:py-14">
+      <h1 class="text-3xl font-semibold tracking-tight text-highlighted">Settings</h1>
 
-      <StateCard v-if="!loggedIn" icon="i-lucide-lock" title="Sign in to see your settings" text="Settings belong to your account, so only you can see them.">
+      <StateCard v-if="!loggedIn" class="mt-8" icon="i-lucide-lock" title="Sign in to see your settings" text="Settings belong to your account, so only you can see them.">
         <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
       </StateCard>
 
-      <div v-else class="flex flex-col gap-8">
-        <!-- Profile -->
-        <section aria-labelledby="s-profile">
-          <h2 id="s-profile" class="text-sm font-semibold text-highlighted mb-3">Profile</h2>
-          <div class="rounded-2xl border border-default bg-default p-4 sm:p-5">
-            <div class="flex items-center gap-4 mb-5">
+      <div v-else class="mt-6 flex flex-col gap-5 md:mt-10 md:flex-row md:gap-12">
+        <SettingsNav v-model="section" :sections="SECTIONS" />
+
+        <section :key="section" class="min-w-0 max-w-2xl flex-1" :aria-labelledby="`s-${section}`">
+          <h2 :id="`s-${section}`" class="text-xl font-semibold text-highlighted">{{ heading.title }}</h2>
+          <p class="mt-1 text-sm text-muted">{{ heading.text }}</p>
+
+          <!-- Account -->
+          <template v-if="section === 'account'">
+            <div class="mt-6 flex items-center gap-4">
               <UAvatar :src="user?.avatar || undefined" :alt="user?.name" size="xl" />
               <div class="min-w-0">
-                <p class="text-sm font-medium text-highlighted truncate">{{ user?.name }}</p>
-                <p class="text-xs text-muted truncate">{{ user?.email || 'No email on this account' }}</p>
+                <p class="truncate text-sm font-medium text-highlighted">{{ user?.name }}</p>
+                <p class="truncate text-xs text-muted">{{ user?.email || 'No email on this account' }}</p>
               </div>
             </div>
-            <form class="flex flex-col sm:flex-row gap-2 sm:items-end" @submit.prevent="saveName">
+            <form class="mt-5 flex flex-col gap-2 sm:flex-row sm:items-end" @submit.prevent="saveName">
               <UFormField label="Display name" class="flex-1">
                 <UInput v-model="name" class="w-full" maxlength="60" autocomplete="name" />
               </UFormField>
               <UButton type="submit" label="Save" color="neutral" :loading="savingName" :disabled="!nameChanged" />
             </form>
-          </div>
-        </section>
+            <div class="mt-6 divide-y divide-default border-y border-default">
+              <SettingRow title="Sign-in method" :hint="methodLabel">
+                <UIcon :name="methodIcon" class="size-5 text-muted" />
+                <UButton v-if="signInMethod === 'password'" label="Reset password" icon="i-lucide-key-round" color="neutral" variant="subtle" size="sm" :loading="resetting" @click="resetPassword" />
+              </SettingRow>
+              <SettingRow title="Sign out" hint="Ends your session in this browser.">
+                <UButton label="Log out" icon="i-lucide-log-out" color="neutral" variant="subtle" size="sm" @click="logOut" />
+              </SettingRow>
+            </div>
+            <p class="mt-8 text-xs text-dimmed">
+              <RouterLink to="/terms" class="underline underline-offset-2 hover:text-muted">Terms of use</RouterLink>
+              ·
+              <RouterLink to="/privacy" class="underline underline-offset-2 hover:text-muted">Privacy policy</RouterLink>
+            </p>
+          </template>
 
-        <!-- Plan and usage -->
-        <section aria-labelledby="s-usage">
-          <h2 id="s-usage" class="text-sm font-semibold text-highlighted mb-3">Plan and usage</h2>
-          <div class="rounded-2xl border border-default bg-default p-4 sm:p-5">
-            <div v-if="usageError" class="flex items-center justify-between gap-4">
-              <p class="text-sm text-muted">{{ usageError }}</p>
-              <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" size="sm" :loading="loadingUsage" @click="fetchUsage" />
-            </div>
-            <div v-else-if="!usage" class="py-6 flex justify-center">
-              <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-            </div>
-            <template v-else>
-              <div class="flex items-center justify-between gap-3 mb-5">
-                <div class="flex items-center gap-2">
-                  <UBadge :label="usage.limits.label + ' plan'" :color="usage.plan === 'pro' ? 'primary' : 'neutral'" variant="subtle" />
-                  <span v-if="usage.unlimited" class="text-xs text-muted">No limits on this account</span>
-                </div>
-                <p v-if="usage.plan === 'pro' && usage.planEndsAt" class="text-xs text-muted">Pro until {{ day(usage.planEndsAt) }}</p>
-                <p v-else-if="usage.plan === 'pro'" class="text-xs text-muted">Pro, no end date</p>
-                <p v-else-if="billingFailed" class="text-xs text-muted">
-                  Plans could not be loaded.
-                  <button type="button" class="underline underline-offset-2 hover:text-highlighted" @click="fetchBilling">Retry</button>
-                </p>
-                <p v-else-if="billing && !billing.enabled" class="text-xs text-muted">Pro plans are coming soon.</p>
+          <!-- Plan and usage -->
+          <template v-else-if="section === 'plan'">
+            <div class="mt-6">
+              <div v-if="usageError" class="flex items-center justify-between gap-4">
+                <p class="text-sm text-muted">{{ usageError }}</p>
+                <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" size="sm" :loading="loadingUsage" @click="fetchUsage" />
               </div>
-              <div v-if="billing?.enabled && !usage.unlimited && !(usage.plan === 'pro' && !usage.planEndsAt)" class="mb-5 rounded-xl border border-default bg-elevated/40 p-4">
-                <p class="text-sm font-medium text-highlighted">{{ usage.plan === 'pro' ? 'Add more Pro time' : 'Upgrade to Pro' }}</p>
-                <p class="text-xs text-muted mt-0.5 mb-3 leading-snug">Pay once by card or mobile money. Time you buy is added to what you have left, and nothing renews by itself.</p>
-                <div class="flex flex-wrap gap-2">
+              <div v-else-if="!usage" class="flex justify-center py-6">
+                <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
+              </div>
+              <template v-else>
+                <div class="mb-5 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <UBadge :label="usage.limits.label + ' plan'" :color="usage.plan === 'pro' ? 'primary' : 'neutral'" variant="subtle" />
+                    <span v-if="usage.unlimited" class="text-xs text-muted">No limits on this account</span>
+                  </div>
+                  <p v-if="usage.plan === 'pro' && usage.planEndsAt" class="text-xs text-muted">Pro until {{ day(usage.planEndsAt) }}</p>
+                  <p v-else-if="usage.plan === 'pro'" class="text-xs text-muted">Pro, no end date</p>
+                  <p v-else-if="billingFailed" class="text-xs text-muted">
+                    Plans could not be loaded.
+                    <button type="button" class="underline underline-offset-2 hover:text-highlighted" @click="fetchBilling">Retry</button>
+                  </p>
+                  <p v-else-if="billing && !billing.enabled" class="text-xs text-muted">Pro plans are coming soon.</p>
+                </div>
+                <div v-if="billing?.enabled && !usage.unlimited && !(usage.plan === 'pro' && !usage.planEndsAt)" class="mb-5 rounded-xl border border-default bg-elevated/40 p-4">
+                  <p class="text-sm font-medium text-highlighted">{{ usage.plan === 'pro' ? 'Add more Pro time' : 'Upgrade to Pro' }}</p>
+                  <p class="mb-3 mt-0.5 text-xs leading-snug text-muted">Pay once by card or mobile money. Time you buy is added to what you have left, and nothing renews by itself.</p>
+                  <div class="flex flex-wrap gap-2">
+                    <UButton
+                      v-for="o in billing.options"
+                      :key="o.period"
+                      :label="`${o.label} · ${money(o.price, billing.currency)}`"
+                      :loading="buying === o.period"
+                      :disabled="buying !== null"
+                      color="neutral"
+                      :variant="o.period === 'year' ? 'solid' : 'subtle'"
+                      size="sm"
+                      @click="buy(o.period)"
+                    />
+                  </div>
+                </div>
+                <div v-if="!usage.unlimited" class="flex flex-col gap-5">
+                  <div>
+                    <div class="mb-1.5 flex items-baseline justify-between">
+                      <p class="text-sm text-highlighted">Today</p>
+                      <p class="text-xs tabular-nums text-muted">{{ fmt(usage.usedToday) }} of {{ fmt(usage.limits.daily) }} credits</p>
+                    </div>
+                    <UProgress :model-value="pct(usage.usedToday, usage.limits.daily)" :color="barColor(pct(usage.usedToday, usage.limits.daily))" size="sm" aria-label="Credits used today" />
+                    <p class="mt-1.5 text-xs text-dimmed">{{ resetsLabel(usage.dayResetsAt, 'day') }}</p>
+                  </div>
+                  <div>
+                    <div class="mb-1.5 flex items-baseline justify-between">
+                      <p class="text-sm text-highlighted">This month</p>
+                      <p class="text-xs tabular-nums text-muted">{{ fmt(usage.usedMonth) }} of {{ fmt(usage.limits.monthly) }} credits</p>
+                    </div>
+                    <UProgress :model-value="pct(usage.usedMonth, usage.limits.monthly)" :color="barColor(pct(usage.usedMonth, usage.limits.monthly))" size="sm" aria-label="Credits used this month" />
+                    <p class="mt-1.5 text-xs text-dimmed">{{ resetsLabel(usage.monthResetsAt, 'month') }}</p>
+                  </div>
+                </div>
+                <p class="mt-5 text-xs leading-relaxed text-dimmed">
+                  A normal message costs 1 credit; some models cost more. Workflow steps and the workflow assistant use credits too.
+                  <template v-if="usage.tokens.input || usage.tokens.output"> This month the assistant read {{ fmt(usage.tokens.input) }} tokens and wrote {{ fmt(usage.tokens.output) }}.</template>
+                </p>
+              </template>
+            </div>
+
+            <template v-if="billing?.payments?.length">
+              <h3 class="mt-8 text-xs font-medium uppercase tracking-wider text-muted">Payments</h3>
+              <ul class="mt-2 divide-y divide-default border-y border-default">
+                <li v-for="p in billing.payments" :key="p.reference" class="flex items-center justify-between gap-4 py-3">
+                  <div class="min-w-0">
+                    <p class="text-sm text-highlighted">{{ p.months }} month{{ p.months === 1 ? '' : 's' }} of Pro</p>
+                    <p class="truncate text-xs text-muted">{{ day(p.paidAt) }} · <span class="font-mono">{{ p.reference }}</span></p>
+                  </div>
+                  <p class="shrink-0 text-sm tabular-nums text-highlighted">{{ money(p.amount, p.currency, true) }}</p>
+                </li>
+              </ul>
+            </template>
+          </template>
+
+          <!-- Appearance -->
+          <template v-else-if="section === 'appearance'">
+            <div class="mt-4 divide-y divide-default border-y border-default">
+              <div class="flex flex-wrap items-center justify-between gap-3 py-4">
+                <div>
+                  <p class="text-sm font-medium text-highlighted">Theme</p>
+                  <p class="text-xs text-muted">System follows your phone or computer.</p>
+                </div>
+                <div class="flex gap-1.5" role="group" aria-label="Theme">
                   <UButton
-                    v-for="o in billing.options"
-                    :key="o.period"
-                    :label="`${o.label} · ${money(o.price, billing.currency)}`"
-                    :loading="buying === o.period"
-                    :disabled="buying !== null"
-                    color="neutral"
-                    :variant="o.period === 'year' ? 'solid' : 'subtle'"
+                    v-for="m in modes"
+                    :key="m.value"
+                    :label="m.label"
+                    :icon="m.icon"
                     size="sm"
-                    @click="buy(o.period)"
+                    color="neutral"
+                    :variant="colorMode === m.value ? 'solid' : 'subtle'"
+                    :aria-pressed="colorMode === m.value"
+                    @click="colorMode = m.value"
                   />
                 </div>
               </div>
-              <div v-if="!usage.unlimited" class="flex flex-col gap-5">
+
+              <div class="flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
-                  <div class="flex items-baseline justify-between mb-1.5">
-                    <p class="text-sm text-highlighted">Today</p>
-                    <p class="text-xs text-muted tabular-nums">{{ fmt(usage.usedToday) }} of {{ fmt(usage.limits.daily) }} credits</p>
-                  </div>
-                  <UProgress :model-value="pct(usage.usedToday, usage.limits.daily)" :color="barColor(pct(usage.usedToday, usage.limits.daily))" size="sm" aria-label="Credits used today" />
-                  <p class="text-xs text-dimmed mt-1.5">{{ resetsLabel(usage.dayResetsAt, 'day') }}</p>
+                  <p class="text-sm font-medium text-highlighted">Accent colour</p>
+                  <p class="text-xs text-muted">Buttons, links and the focus ring.</p>
                 </div>
+                <div class="flex gap-2" role="group" aria-label="Accent colour">
+                  <button
+                    v-for="a in ACCENTS"
+                    :key="a.value"
+                    type="button"
+                    class="size-7 rounded-full ring-offset-2 ring-offset-default transition-shadow focus-visible:outline-2 focus-visible:outline-primary"
+                    :class="[a.swatch, appearance.accent === a.value ? 'ring-2 ring-highlighted' : 'hover:ring-2 hover:ring-accented']"
+                    :aria-label="a.label"
+                    :aria-pressed="appearance.accent === a.value"
+                    @click="appearance.accent = a.value"
+                  />
+                </div>
+              </div>
+
+              <div v-for="row in appearanceRows" :key="row.key" class="flex flex-wrap items-center justify-between gap-3 py-4">
                 <div>
-                  <div class="flex items-baseline justify-between mb-1.5">
-                    <p class="text-sm text-highlighted">This month</p>
-                    <p class="text-xs text-muted tabular-nums">{{ fmt(usage.usedMonth) }} of {{ fmt(usage.limits.monthly) }} credits</p>
-                  </div>
-                  <UProgress :model-value="pct(usage.usedMonth, usage.limits.monthly)" :color="barColor(pct(usage.usedMonth, usage.limits.monthly))" size="sm" aria-label="Credits used this month" />
-                  <p class="text-xs text-dimmed mt-1.5">{{ resetsLabel(usage.monthResetsAt, 'month') }}</p>
+                  <p class="text-sm font-medium text-highlighted">{{ row.title }}</p>
+                  <p class="text-xs text-muted">{{ row.hint }}</p>
+                </div>
+                <div class="flex gap-1.5" role="group" :aria-label="row.title">
+                  <UButton
+                    v-for="o in row.options"
+                    :key="o.value"
+                    :label="o.label"
+                    size="sm"
+                    color="neutral"
+                    :variant="appearance[row.key] === o.value ? 'solid' : 'subtle'"
+                    :aria-pressed="appearance[row.key] === o.value"
+                    @click="(appearance as Record<string, string>)[row.key] = o.value"
+                  />
                 </div>
               </div>
-              <p class="text-xs text-dimmed mt-5 leading-relaxed">
-                A normal message costs 1 credit; some models cost more. Workflow steps and the workflow assistant use credits too.
-                <template v-if="usage.tokens.input || usage.tokens.output"> This month the assistant read {{ fmt(usage.tokens.input) }} tokens and wrote {{ fmt(usage.tokens.output) }}.</template>
-              </p>
-            </template>
-          </div>
-        </section>
+            </div>
+            <div class="pt-2">
+              <UButton label="Back to the defaults" color="neutral" variant="link" size="xs" class="px-0" @click="resetAppearance" />
+            </div>
+          </template>
 
-        <!-- Payments -->
-        <section v-if="billing?.payments?.length" aria-labelledby="s-payments">
-          <h2 id="s-payments" class="text-sm font-semibold text-highlighted mb-3">Payments</h2>
-          <ul class="rounded-2xl border border-default bg-default divide-y divide-default">
-            <li v-for="p in billing.payments" :key="p.reference" class="flex items-center justify-between gap-4 px-4 py-3">
-              <div class="min-w-0">
-                <p class="text-sm text-highlighted">{{ p.months }} month{{ p.months === 1 ? '' : 's' }} of Pro</p>
-                <p class="text-xs text-muted truncate">{{ day(p.paidAt) }} · <span class="font-mono">{{ p.reference }}</span></p>
-              </div>
-              <p class="text-sm tabular-nums text-highlighted shrink-0">{{ money(p.amount, p.currency, true) }}</p>
-            </li>
-          </ul>
-        </section>
+          <DefaultsSection v-else-if="section === 'defaults'" class="mt-4" />
 
-        <!-- Assistant -->
-        <section aria-labelledby="s-assistant">
-          <h2 id="s-assistant" class="text-sm font-semibold text-highlighted mb-3">Your assistant</h2>
-          <ul class="rounded-2xl border border-default bg-default divide-y divide-default overflow-hidden">
-            <li v-for="link in LINKS" :key="link.to">
-              <RouterLink :to="link.to" class="flex items-center gap-3 px-4 py-3.5 hover:bg-elevated/60 transition-colors outline-primary/25 focus-visible:outline-2 focus-visible:-outline-offset-2">
-                <div class="size-8 shrink-0 rounded-lg border border-default bg-default shadow-sm flex items-center justify-center">
-                  <UIcon :name="link.icon" class="size-4 text-primary" />
-                </div>
-                <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium text-highlighted">{{ link.title }}</p>
-                  <p class="text-xs text-muted leading-snug">{{ link.detail }}</p>
-                </div>
-                <UIcon name="i-lucide-chevron-right" class="size-4 text-dimmed shrink-0" />
-              </RouterLink>
-            </li>
-          </ul>
-        </section>
+          <LobbyVoiceSettings v-else-if="section === 'voice'" class="mt-4" />
 
-        <!-- Lobby voice -->
-        <section aria-labelledby="s-voice">
-          <h2 id="s-voice" class="text-sm font-semibold text-highlighted mb-3">Lobby voice</h2>
-          <LobbyVoiceSettings />
-        </section>
-
-        <!-- Appearance -->
-        <section aria-labelledby="s-appearance">
-          <h2 id="s-appearance" class="text-sm font-semibold text-highlighted mb-1">Appearance</h2>
-          <p class="text-xs text-muted">How OpenLobs looks on this device.</p>
-          <div class="mt-3 divide-y divide-default">
-            <div class="flex flex-wrap items-center justify-between gap-3 py-4">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Theme</p>
-                <p class="text-xs text-muted">System follows your phone or computer.</p>
-              </div>
-              <div class="flex gap-1.5" role="group" aria-label="Theme">
-                <UButton
-                  v-for="m in modes"
-                  :key="m.value"
-                  :label="m.label"
-                  :icon="m.icon"
-                  size="sm"
-                  color="neutral"
-                  :variant="colorMode === m.value ? 'solid' : 'subtle'"
-                  :aria-pressed="colorMode === m.value"
-                  @click="colorMode = m.value"
-                />
-              </div>
+          <!-- Notifications -->
+          <template v-else-if="section === 'notifications'">
+            <div class="mt-4 divide-y divide-default border-y border-default">
+              <SettingRow title="Alerts on this device" hint="A pop-up on this phone or computer when a task is done, the assistant is waiting for you, or a workflow needs your OK. Works even when OpenLobs is closed.">
+                <USwitch :model-value="alertsOn" :loading="alertsBusy" :disabled="alertsBusy || alertsCannot" aria-label="Alerts on this device" @update:model-value="setAlerts(Boolean($event))" />
+                <template #extra>
+                  <button v-if="alertsOn" type="button" class="mt-1.5 rounded text-xs text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-primary" @click="sendTest">Send a test alert</button>
+                  <p v-if="testSent === 'sent'" class="mt-1 text-xs text-dimmed" role="status">Sent. It should arrive in a moment.</p>
+                  <p v-else-if="testSent === 'none'" class="mt-1 text-xs text-warning" role="status">No device is signed up for alerts yet.</p>
+                  <p v-if="alertsError" class="mt-1 text-xs text-error" role="alert">{{ alertsError }}</p>
+                  <p v-else-if="alertsHint" class="mt-1 text-xs leading-snug text-dimmed">{{ alertsHint }}</p>
+                </template>
+              </SettingRow>
+              <SettingRow title="Pro plan ending" hint="An email a few days before your Pro time runs out.">
+                <USwitch :model-value="notifications?.emailRenewals !== false" :disabled="!notifications" aria-label="Email when Pro is ending" @update:model-value="setNotification('emailRenewals', Boolean($event))" />
+              </SettingRow>
+              <SettingRow title="Scheduled workflow failed" hint="An email when a scheduled run fails, at most once a day for each workflow.">
+                <USwitch :model-value="notifications?.emailWorkflowFailures !== false" :disabled="!notifications" aria-label="Email when a scheduled workflow fails" @update:model-value="setNotification('emailWorkflowFailures', Boolean($event))" />
+              </SettingRow>
+              <SettingRow title="Task finished" hint="An email when a task that took a couple of minutes or more ends, so you can leave it running.">
+                <USwitch :model-value="notifications?.emailTaskResults !== false" :disabled="!notifications" aria-label="Email when a task finishes" @update:model-value="setNotification('emailTaskResults', Boolean($event))" />
+              </SettingRow>
+              <SettingRow title="Assistant needs you" hint="An email when the assistant's browser is waiting for you (a sign-in, a code or an OK) and you are not looking at it.">
+                <USwitch :model-value="notifications?.emailNeedsYou !== false" :disabled="!notifications" aria-label="Email when the assistant needs me" @update:model-value="setNotification('emailNeedsYou', Boolean($event))" />
+              </SettingRow>
             </div>
-
-            <div class="flex flex-wrap items-center justify-between gap-3 py-4">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Accent colour</p>
-                <p class="text-xs text-muted">Buttons, links and the focus ring.</p>
-              </div>
-              <div class="flex gap-2" role="group" aria-label="Accent colour">
-                <button
-                  v-for="a in ACCENTS"
-                  :key="a.value"
-                  type="button"
-                  class="size-7 rounded-full ring-offset-2 ring-offset-default transition-shadow focus-visible:outline-2 focus-visible:outline-primary"
-                  :class="[a.swatch, appearance.accent === a.value ? 'ring-2 ring-highlighted' : 'hover:ring-2 hover:ring-accented']"
-                  :aria-label="a.label"
-                  :aria-pressed="appearance.accent === a.value"
-                  @click="appearance.accent = a.value"
-                />
-              </div>
-            </div>
-
-            <div v-for="row in appearanceRows" :key="row.key" class="flex flex-wrap items-center justify-between gap-3 py-4">
-              <div>
-                <p class="text-sm font-medium text-highlighted">{{ row.title }}</p>
-                <p class="text-xs text-muted">{{ row.hint }}</p>
-              </div>
-              <div class="flex gap-1.5" role="group" :aria-label="row.title">
-                <UButton
-                  v-for="o in row.options"
-                  :key="o.value"
-                  :label="o.label"
-                  size="sm"
-                  color="neutral"
-                  :variant="appearance[row.key] === o.value ? 'solid' : 'subtle'"
-                  :aria-pressed="appearance[row.key] === o.value"
-                  @click="(appearance as Record<string, string>)[row.key] = o.value"
-                />
-              </div>
-            </div>
-          </div>
-          <div class="pt-1">
-            <UButton label="Back to the defaults" color="neutral" variant="link" size="xs" class="px-0" @click="resetAppearance" />
-          </div>
-        </section>
-
-        <!-- Assistant browser -->
-        <section aria-labelledby="s-browser">
-          <h2 id="s-browser" class="text-sm font-semibold text-highlighted mb-3">Assistant browser</h2>
-          <div class="rounded-2xl border border-default bg-default divide-y divide-default">
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Use the browser on my computer</p>
-                <p class="text-xs text-muted leading-snug">The assistant works in a browser on your computer, in a profile of its own, so sites you signed in to there stay signed in. It still asks before anything that sends, pays or deletes, and never types your passwords. Off: it uses a fresh browser in the cloud.</p>
-              </div>
-              <USwitch :model-value="browserWhere?.where === 'computer'" :disabled="!browserWhere" aria-label="Use the browser on my computer" @update:model-value="setOnComputer(Boolean($event))" />
-            </div>
-            <p v-if="browserWhere" class="px-4 sm:px-5 py-3 text-xs leading-snug" :class="browserWhere.computer.ready ? 'text-dimmed' : 'text-warning'">{{ browserWhere.computer.note }}</p>
-          </div>
-        </section>
-
-        <!-- Notifications -->
-        <section aria-labelledby="s-notifications">
-          <h2 id="s-notifications" class="text-sm font-semibold text-highlighted mb-3">Notifications</h2>
-          <div class="rounded-2xl border border-default bg-default divide-y divide-default">
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div class="min-w-0">
-                <p class="text-sm font-medium text-highlighted">Alerts on this device</p>
-                <p class="text-xs text-muted leading-snug">A pop-up on this phone or computer when a task is done, the assistant is waiting for you, or a workflow needs your OK. Works even when OpenLobs is closed.</p>
-                <button
-                  v-if="alertsOn"
-                  type="button"
-                  class="mt-1.5 text-xs text-primary hover:underline underline-offset-2 rounded focus-visible:outline-2 focus-visible:outline-primary"
-                  @click="sendTest"
-                >
-                  Send a test alert
-                </button>
-                <p v-if="testSent === 'sent'" class="mt-1 text-xs text-dimmed" role="status">Sent. It should arrive in a moment.</p>
-                <p v-else-if="testSent === 'none'" class="mt-1 text-xs text-warning" role="status">No device is signed up for alerts yet.</p>
-                <p v-if="alertsError" class="mt-1 text-xs text-error" role="alert">{{ alertsError }}</p>
-                <p v-else-if="alertsHint" class="mt-1 text-xs text-dimmed leading-snug">{{ alertsHint }}</p>
-              </div>
-              <USwitch :model-value="alertsOn" :loading="alertsBusy" :disabled="alertsBusy || alertsCannot" aria-label="Alerts on this device" @update:model-value="setAlerts(Boolean($event))" />
-            </div>
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Pro plan ending</p>
-                <p class="text-xs text-muted leading-snug">An email a few days before your Pro time runs out.</p>
-              </div>
-              <USwitch :model-value="notifications?.emailRenewals !== false" :disabled="!notifications" aria-label="Email when Pro is ending" @update:model-value="setNotification('emailRenewals', Boolean($event))" />
-            </div>
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Scheduled workflow failed</p>
-                <p class="text-xs text-muted leading-snug">An email when a scheduled run fails, at most once a day for each workflow.</p>
-              </div>
-              <USwitch :model-value="notifications?.emailWorkflowFailures !== false" :disabled="!notifications" aria-label="Email when a scheduled workflow fails" @update:model-value="setNotification('emailWorkflowFailures', Boolean($event))" />
-            </div>
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Task finished</p>
-                <p class="text-xs text-muted leading-snug">An email when a task that took a couple of minutes or more ends, so you can leave it running.</p>
-              </div>
-              <USwitch :model-value="notifications?.emailTaskResults !== false" :disabled="!notifications" aria-label="Email when a task finishes" @update:model-value="setNotification('emailTaskResults', Boolean($event))" />
-            </div>
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Assistant needs you</p>
-                <p class="text-xs text-muted leading-snug">An email when the assistant's browser is waiting for you (a sign-in, a code or an OK) and you are not looking at it.</p>
-              </div>
-              <USwitch :model-value="notifications?.emailNeedsYou !== false" :disabled="!notifications" aria-label="Email when the assistant needs me" @update:model-value="setNotification('emailNeedsYou', Boolean($event))" />
-            </div>
-            <p class="px-4 sm:px-5 py-3 text-xs text-dimmed leading-snug">
+            <p class="mt-3 text-xs leading-snug text-dimmed">
               <template v-if="notifications && notifications.emailAvailable === false">Email sending is not switched on for this server yet, so these will start once it is.</template>
               <template v-else-if="notifications?.email">Sent to {{ notifications.email }}. Payment receipts are always sent.</template>
               <template v-else>Your account has no email address, so no emails can be sent.</template>
             </p>
-          </div>
-        </section>
+          </template>
 
-        <!-- Security -->
-        <section aria-labelledby="s-security">
-          <h2 id="s-security" class="text-sm font-semibold text-highlighted mb-3">Security</h2>
-          <div class="rounded-2xl border border-default bg-default divide-y divide-default">
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div class="flex items-center gap-3 min-w-0">
-                <UIcon :name="methodIcon" class="size-5 text-muted shrink-0" />
-                <div class="min-w-0">
-                  <p class="text-sm font-medium text-highlighted">Sign-in method</p>
-                  <p class="text-xs text-muted">{{ methodLabel }}</p>
-                </div>
-              </div>
-              <UButton v-if="signInMethod === 'password'" label="Reset password" icon="i-lucide-key-round" color="neutral" variant="subtle" size="sm" :loading="resetting" @click="resetPassword" />
-            </div>
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Sign out</p>
-                <p class="text-xs text-muted">Ends your session in this browser.</p>
-              </div>
-              <UButton label="Log out" icon="i-lucide-log-out" color="neutral" variant="subtle" size="sm" @click="logOut" />
-            </div>
-          </div>
-        </section>
+          <ApprovalsSection v-else-if="section === 'approvals'" @go="section = $event" />
 
-        <!-- Your data -->
-        <section aria-labelledby="s-data">
-          <h2 id="s-data" class="text-sm font-semibold text-highlighted mb-3">Your data</h2>
-          <div class="rounded-2xl border border-default bg-default divide-y divide-default">
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-highlighted">Download your data</p>
-                <p class="text-xs text-muted leading-snug">Chats, workflows, agents, memory and more, as one file. Passwords and tokens are never included.</p>
-              </div>
-              <UButton label="Download" icon="i-lucide-download" color="neutral" variant="subtle" size="sm" :loading="exporting" @click="exportData" />
-            </div>
-            <div class="flex items-center justify-between gap-4 p-4 sm:p-5">
-              <div>
-                <p class="text-sm font-medium text-error">Delete account</p>
-                <p class="text-xs text-muted leading-snug">Removes your account and everything in it, for good.</p>
-              </div>
-              <UButton label="Delete" icon="i-lucide-trash-2" color="error" variant="subtle" size="sm" @click="deleteAccount" />
-            </div>
-          </div>
-        </section>
+          <PowersSection v-else-if="section === 'powers'" />
 
-        <p class="text-xs text-dimmed text-center">
-          <RouterLink to="/terms" class="underline underline-offset-2 hover:text-muted">Terms of use</RouterLink>
-          ·
-          <RouterLink to="/privacy" class="underline underline-offset-2 hover:text-muted">Privacy policy</RouterLink>
-        </p>
+          <DataSection v-else-if="section === 'data'" />
+        </section>
       </div>
     </div>
   </div>
