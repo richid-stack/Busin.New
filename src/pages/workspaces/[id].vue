@@ -6,6 +6,8 @@ import PageSkeleton from '../../components/state/PageSkeleton.vue'
 import WorkspaceArt from '../../components/workspaces/WorkspaceArt.vue'
 import WorkspaceForm from '../../components/workspaces/WorkspaceForm.vue'
 import WorkspaceAddDialogs from '../../components/workspaces/WorkspaceAddDialogs.vue'
+import WorkspaceNotes from '../../components/workspaces/WorkspaceNotes.vue'
+import WorkspacePowers from '../../components/workspaces/WorkspacePowers.vue'
 import PromptAttachments from '../../components/PromptAttachments.vue'
 import DictateButton from '../../components/lobby/DictateButton.vue'
 import PromptVoiceButton from '../../components/lobby/PromptVoiceButton.vue'
@@ -15,6 +17,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { $fetch } from 'ofetch'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useWorkspaces } from '../../composables/useWorkspaces'
+import { usePowers } from '../../composables/usePowers'
 import { useAgents } from '../../composables/useAgents'
 import { useChats } from '../../composables/useChats'
 import { useChatActions } from '../../composables/useChatActions'
@@ -41,6 +44,7 @@ const { loggedIn } = useUserSession()
 const { openAuthModal } = useFirebaseAuth()
 const { fetchWorkspaces, updateWorkspace, removeWorkspace, detail, addUpload, removeFile, messageOf, loaded: listLoaded } = useWorkspaces()
 const { agents, loaded: agentsLoaded, fetchAgents } = useAgents()
+const { powers: accountPowers, fetchPowers } = usePowers()
 const { chats, fetchChats } = useChats()
 const { menuFor } = useChatActions()
 const { attachments, processing, onInputChange, remove, clear, toApiAttachments } = usePromptAttachments()
@@ -73,10 +77,10 @@ async function load() {
 }
 
 onMounted(() => {
-  if (loggedIn.value) { load(); fetchChats(); if (!agentsLoaded.value) fetchAgents(); if (!listLoaded.value) fetchWorkspaces() }
+  if (loggedIn.value) { load(); fetchPowers(); fetchChats(); if (!agentsLoaded.value) fetchAgents(); if (!listLoaded.value) fetchWorkspaces() }
   else state.value = 'ready'
 })
-watch(loggedIn, (v) => { if (v) { load(); fetchChats(); fetchAgents(); fetchWorkspaces() } })
+watch(loggedIn, (v) => { if (v) { load(); fetchPowers(); fetchChats(); fetchAgents(); fetchWorkspaces() } })
 watch(id, load)
 
 const agent = computed(() => agents.value.find(a => a.id === workspace.value?.agentId))
@@ -180,6 +184,19 @@ async function patch(p: Parameters<typeof updateWorkspace>[1]) {
     toast.add({ title: 'Could not save that', description: messageOf(err, 'Try again.'), icon: 'i-lucide-alert-circle', color: 'error' })
     await load()
   }
+}
+// ---- Chats / Notes, and the Powers row
+const tab = ref<'chats' | 'notes'>(route.query.tab === 'notes' ? 'notes' : 'chats')
+watch(() => route.query.tab, (t) => { tab.value = t === 'notes' ? 'notes' : 'chats' })
+function chooseTab(t: 'chats' | 'notes') {
+  tab.value = t
+  router.replace({ path: route.path, query: t === 'notes' ? { tab: 'notes' } : {} })
+}
+const powersOpen = ref(false)
+const notesOff = computed<'' | 'workspace' | 'settings'>(() => accountPowers.value?.notes === false ? 'settings' : workspace.value?.powers.notes === false ? 'workspace' : '')
+function openPowers() { powersOpen.value = true }
+async function setPower(key: keyof Workspace['powers'], value: boolean) {
+  await patch({ powers: { [key]: value } })
 }
 const memoryOn = computed({ get: () => workspace.value?.useMemory ?? true, set: v => { patch({ useMemory: v }) } })
 
@@ -295,9 +312,14 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
             </template>
           </UChatPrompt>
 
-          <div v-if="rows.length" class="mt-9">
-            <div class="mb-1 px-3 text-xs font-medium text-muted">Recents</div>
-            <ul>
+          <!-- Chats / Notes: plain words, the open one is lit. No counts. -->
+          <div class="mt-8 flex items-center gap-1" role="tablist" aria-label="Workspace">
+            <button id="tab-chats" type="button" role="tab" :aria-selected="tab === 'chats'" aria-controls="panel-chats" class="rounded-lg px-3 py-1.5 text-sm outline-primary/25 transition-colors focus-visible:outline-2" :class="tab === 'chats' ? 'bg-elevated font-medium text-highlighted' : 'text-muted hover:text-highlighted'" @click="chooseTab('chats')">Chats</button>
+            <button id="tab-notes" type="button" role="tab" :aria-selected="tab === 'notes'" aria-controls="panel-notes" class="rounded-lg px-3 py-1.5 text-sm outline-primary/25 transition-colors focus-visible:outline-2" :class="tab === 'notes' ? 'bg-elevated font-medium text-highlighted' : 'text-muted hover:text-highlighted'" @click="chooseTab('notes')">Notes</button>
+          </div>
+
+          <div v-if="tab === 'chats'" id="panel-chats" role="tabpanel" aria-labelledby="tab-chats">
+            <ul v-if="rows.length" class="mt-2">
               <li v-for="c in rows" :key="c.id" class="group relative">
                 <RouterLink
                   :to="c.to"
@@ -319,10 +341,14 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
                 </UDropdownMenu>
               </li>
             </ul>
+            <div v-else-if="isEmpty" class="mt-8 flex flex-col items-center text-center text-muted">
+              <WorkspaceArt class="w-full max-w-xl" />
+              <p class="mt-1 max-w-xs text-sm">Nothing here yet. Add the rules and files once, then every chat in this workspace knows them.</p>
+            </div>
           </div>
-          <div v-else-if="isEmpty" class="mt-8 flex flex-col items-center text-center text-muted">
-            <WorkspaceArt class="w-full max-w-xl" />
-            <p class="mt-1 max-w-xs text-sm">Nothing here yet. Add the rules and files once, then every chat in this workspace knows them.</p>
+
+          <div v-else id="panel-notes" role="tabpanel" aria-labelledby="tab-notes">
+            <WorkspaceNotes :workspace-id="id" :off="notesOff" @open-powers="openPowers" />
           </div>
         </div>
 
@@ -360,13 +386,13 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
             <div class="flex items-center justify-between gap-3">
               <div>
                 <div class="font-medium text-highlighted">Memory</div>
-                <div class="text-xs text-muted">Use my notes here</div>
+                <div class="text-xs text-muted">Use what you asked me to remember</div>
               </div>
-              <USwitch v-model="memoryOn" aria-label="Use my notes in this workspace" />
+              <USwitch v-model="memoryOn" aria-label="Use what you asked me to remember in this workspace" />
             </div>
           </section>
 
-          <section class="pt-5">
+          <section class="py-5">
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
                 <div class="font-medium text-highlighted">Agent</div>
@@ -377,6 +403,8 @@ const isEmpty = computed(() => !rows.value.length && !files.value.length && !wor
               </UDropdownMenu>
             </div>
           </section>
+
+          <WorkspacePowers v-model:open="powersOpen" :powers="workspace.powers" :account="accountPowers" @change="setPower" />
         </aside>
       </div>
 

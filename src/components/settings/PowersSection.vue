@@ -22,7 +22,8 @@ const ROWS: Array<{ key: Power, title: string, hint: string }> = [
   { key: 'browser', title: 'Use websites for you', hint: 'Opening sites, filling forms, clicking. Still stops before it sends, pays or deletes.' },
   { key: 'computer', title: 'Work on your computer', hint: 'Through the Bridge: spreadsheets, your browser profile, programs you approve.' },
   { key: 'cloud', title: 'Run programs in the cloud', hint: 'Builds and tests on a temporary machine. Each run costs credits.' },
-  { key: 'apps', title: 'Your connected apps and tool servers', hint: 'Google, Microsoft, Slack and the rest you connected. Each action still shows what it will change.' }
+  { key: 'apps', title: 'Your connected apps and tool servers', hint: 'Google, Microsoft, Slack and the rest you connected. Each action still shows what it will change.' },
+  { key: 'notes', title: 'Keep notes in workspaces', hint: 'Where we are, decisions and next steps, saved by the assistant so every chat in a workspace starts knowing them. Each workspace can also turn it off.' }
 ]
 
 const fail = (err: any) => toast.add({ title: 'Could not change that', description: err?.data?.statusMessage || err?.statusMessage || err?.message || 'Try again.', icon: 'i-lucide-alert-circle', color: 'error' })

@@ -8,7 +8,7 @@ import { providerOf } from '../../utils/models'
 /** Providers whose free plans are too small for the full tool list. */
 export const SMALL_WINDOW_PROVIDERS = ['groq'] as const
 
-const ALWAYS = ['calculator', 'weather', 'web_search', 'web_fetch', 'read_workspace_file']
+const ALWAYS = ['calculator', 'weather', 'web_search', 'web_fetch', 'read_workspace_file', 'save_to_notes', 'update_where_we_are']
 
 /** Tools that work as a set: once the chat has used one, the whole set stays described. */
 const SETS: string[][] = [

@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import { assertNotDeleting } from '../account/tombstone'
 import { getFirebaseDb } from '../../utils/firebaseAdmin'
-import { MAX_FILES, MAX_FILE_CHARS, MAX_TOTAL_CHARS, MAX_WORKSPACES, WorkspaceError, fileInputSchema, fitText, workspaceInputSchema, workspacePatchSchema } from './profile'
-import type { FileSource, Workspace, WorkspaceFile, WorkspaceFileInfo, WorkspaceInput, WorkspacePatch } from './profile'
+import { readPowers } from '../../../shared/powers'
+import { MAX_FILES, MAX_FILE_CHARS, MAX_NOTES, MAX_TOTAL_CHARS, MAX_WORKSPACES, WorkspaceError, fileInputSchema, fitText, noteInputSchema, whereInputSchema, workspaceInputSchema, workspacePatchSchema } from './profile'
+import type { FileSource, NoteAuthor, WhereWeAre, Workspace, WorkspaceFile, WorkspaceFileInfo, WorkspaceInput, WorkspaceNote, WorkspacePatch } from './profile'
 
 export const WORKSPACES = 'workspaces'
 export const WORKSPACE_FILES = 'workspace_files'
+export const WORKSPACE_NOTES = 'workspace_notes'
 
 /** The slice of Firestore this store needs, so it can be tested on an in-memory stand-in. */
 export type WorkspaceDb = any
@@ -22,7 +24,10 @@ export function workspaceFromDoc(id: string, data: Record<string, any>): Workspa
   })
   const input: WorkspaceInput = parsed.success ? parsed.data : workspaceInputSchema.parse({ name: 'Workspace' })
   const createdAt = String(data.createdAt || '')
-  return { ...input, id, userId: String(data.userId || ''), createdAt, updatedAt: String(data.updatedAt || createdAt), lastUsedAt: String(data.lastUsedAt || data.updatedAt || createdAt) }
+  const where = data.whereWeAre && typeof data.whereWeAre === 'object' && typeof data.whereWeAre.text === 'string' && data.whereWeAre.text.trim()
+    ? { text: String(data.whereWeAre.text), by: (data.whereWeAre.by === 'you' ? 'you' : 'assistant') as NoteAuthor, at: String(data.whereWeAre.at || '') }
+    : null
+  return { ...input, powers: readPowers(data.powers), whereWeAre: where, id, userId: String(data.userId || ''), createdAt, updatedAt: String(data.updatedAt || createdAt), lastUsedAt: String(data.lastUsedAt || data.updatedAt || createdAt) }
 }
 
 function fileFromDoc(id: string, data: Record<string, any>): WorkspaceFile {
@@ -41,6 +46,10 @@ function fileFromDoc(id: string, data: Record<string, any>): WorkspaceFile {
 
 export const toInfo = (f: WorkspaceFile): WorkspaceFileInfo => ({ id: f.id, workspaceId: f.workspaceId, name: f.name, source: f.source, ...(f.from ? { from: f.from } : {}), chars: f.chars, cut: f.cut, createdAt: f.createdAt })
 
+function noteFromDoc(id: string, data: Record<string, any>): WorkspaceNote {
+  return { id, workspaceId: String(data.workspaceId || ''), text: String(data.text || ''), by: data.by === 'you' ? 'you' : 'assistant', createdAt: String(data.createdAt || '') }
+}
+
 const oneLineName = (name: string) => name.replace(/\s+/g, ' ').trim()
 
 /** The rules for adding one more file, in plain words. */
@@ -53,6 +62,7 @@ function room(existing: WorkspaceFile[], name: string, chars: number): void {
 export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => new Date()) {
   const ws = () => db.collection(WORKSPACES)
   const wf = () => db.collection(WORKSPACE_FILES)
+  const wn = () => db.collection(WORKSPACE_NOTES)
 
   /** A workspace that exists and belongs to this person; anything else is "not found" so ids cannot be probed. */
   async function owned(userId: string, id: string): Promise<Workspace> {
@@ -67,6 +77,14 @@ export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => ne
       .filter((d: any) => String(d.data().userId) === userId)
       .map((d: any) => fileFromDoc(d.id, d.data()))
       .sort((a: WorkspaceFile, b: WorkspaceFile) => a.createdAt.localeCompare(b.createdAt))
+  }
+
+  async function notesOf(userId: string, workspaceId: string): Promise<WorkspaceNote[]> {
+    const snap = await wn().where('workspaceId', '==', workspaceId).get()
+    return snap.docs
+      .filter((d: any) => String(d.data().userId) === userId)
+      .map((d: any) => noteFromDoc(d.id, d.data()))
+      .sort((a: WorkspaceNote, b: WorkspaceNote) => a.createdAt.localeCompare(b.createdAt))
   }
 
   return {
@@ -96,8 +114,11 @@ export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => ne
       const patch: WorkspacePatch = workspacePatchSchema.parse(raw)
       const existing = await owned(userId, id)
       const stamp = now().toISOString()
-      await ws().doc(id).update({ ...patch, updatedAt: stamp })
-      return { ...existing, ...patch, updatedAt: stamp }
+      const { powers: powersPatch, ...rest } = patch
+      // Only the powers that were sent change; the rest stay as they were.
+      const powers = powersPatch ? readPowers({ ...existing.powers, ...powersPatch }) : existing.powers
+      await ws().doc(id).update({ ...rest, ...(powersPatch ? { powers } : {}), updatedAt: stamp })
+      return { ...existing, ...rest, powers, updatedAt: stamp }
     },
 
     /** Marks the workspace as just used, so the list shows it first. Never throws: it is housekeeping. */
@@ -111,6 +132,7 @@ export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => ne
     async remove(userId: string, id: string): Promise<void> {
       await owned(userId, id)
       for (const f of await filesOf(userId, id)) await wf().doc(f.id).delete()
+      for (const n of await notesOf(userId, id)) await wn().doc(n.id).delete()
       await ws().doc(id).delete()
     },
 
@@ -153,6 +175,49 @@ export function createWorkspaceStore(db: WorkspaceDb, now: () => Date = () => ne
       await wf().doc(fileId).delete()
       await ws().doc(workspaceId).update({ updatedAt: now().toISOString() })
     },
+
+    /** The notes of a workspace, oldest first, and its "where we are" summary. */
+    async listNotes(userId: string, workspaceId: string): Promise<{ notes: WorkspaceNote[], whereWeAre: WhereWeAre | null, maxNotes: number }> {
+      const workspace = await owned(userId, workspaceId)
+      return { notes: await notesOf(userId, workspaceId), whereWeAre: workspace.whereWeAre, maxNotes: MAX_NOTES }
+    },
+
+    /**
+     * Saves one short note. The same sentence twice is saved once. When the workspace is full the note is not
+     * saved and the caller is told, so nothing is thrown away without the person knowing.
+     */
+    async addNote(userId: string, workspaceId: string, raw: unknown, by: NoteAuthor): Promise<{ status: 'saved' | 'exists', note: WorkspaceNote }> {
+      await assertNotDeleting(userId, db)
+      await owned(userId, workspaceId)
+      const { text } = noteInputSchema.parse(raw)
+      const existing = await notesOf(userId, workspaceId)
+      const same = existing.find(n => n.text.toLowerCase() === text.toLowerCase())
+      if (same) return { status: 'exists', note: same }
+      if (existing.length >= MAX_NOTES) throw new WorkspaceError(`This workspace keeps up to ${MAX_NOTES} notes. Delete one to add another.`, 409)
+      const id = randomUUID()
+      const doc = { userId, workspaceId, text, by, createdAt: now().toISOString() }
+      await wn().doc(id).set(doc)
+      return { status: 'saved', note: noteFromDoc(id, doc) }
+    },
+
+    async removeNote(userId: string, workspaceId: string, noteId: string): Promise<void> {
+      await owned(userId, workspaceId)
+      const doc = await wn().doc(noteId).get()
+      if (!doc.exists || String(doc.data()!.userId) !== userId || String(doc.data()!.workspaceId) !== workspaceId) throw new WorkspaceError('Note not found', 404)
+      await wn().doc(noteId).delete()
+    },
+
+    /** Replaces the summary. An empty text clears it. */
+    async setWhereWeAre(userId: string, workspaceId: string, raw: unknown, by: NoteAuthor): Promise<WhereWeAre | null> {
+      await assertNotDeleting(userId, db)
+      await owned(userId, workspaceId)
+      const { text } = whereInputSchema.parse(raw)
+      const value = text ? { text, by, at: now().toISOString() } : null
+      await ws().doc(workspaceId).update({ whereWeAre: value })
+      return value
+    },
+
+    notesFor: notesOf,
 
     /** The text of one file, found by its name. Null when there is no such file in this workspace. */
     async readFile(userId: string, workspaceId: string, name: string): Promise<{ name: string, text: string, cut: boolean } | null> {
