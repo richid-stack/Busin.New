@@ -14,7 +14,7 @@ import { readSpec } from '../artifacts/store'
  * `payments` is handled separately on erase: records are anonymised rather than deleted.
  */
 /** Top-level collections where each document carries the owner's `userId`. */
-const OWNED = ['chats', 'workflows', 'agents', 'workspaces', 'workspace_files', 'workspace_notes', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'artifacts', 'artifact_versions', 'integrations', 'notification_log', 'connector_credentials', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings', 'push_subscriptions'] as const
+const OWNED = ['chats', 'workflows', 'agents', 'workspaces', 'workspace_files', 'workspace_notes', 'memories', 'mcp_servers', 'user_skills', 'model_connections', 'voice_keys', 'usage', 'generated_files', 'artifacts', 'artifact_versions', 'integrations', 'notification_log', 'connector_credentials', 'github_runner', 'connector_usage', 'connector_audit', 'tasks', 'task_schedules', 'shared_items', 'share_reports', 'reef_profiles', 'reef_handles', 'reef_follows', 'reef_projects', 'reef_versions', 'reef_stars', 'reef_posts', 'reef_likes', 'reef_reports', 'reef_alerts', 'devices', 'bridge_jobs', 'bridge_pairings', 'push_subscriptions'] as const
 /** Collections with one document per person, named by their id. */
 const PER_PERSON = ['memory_settings', 'user_plans', 'user_settings', 'voice_settings'] as const
 /** Nested data that goes with its parent document. */

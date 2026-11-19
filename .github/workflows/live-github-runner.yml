@@ -1,0 +1,27 @@
+name: live-github-runner
+
+# Checks "run on your GitHub" against the real GitHub, not a stand-in. It needs a throwaway private repo named
+# openlobs-runs and a fine-grained token for that one repo (Actions, Contents and Workflows: read and write), saved as
+# the repository secret OPENLOBS_RUNNER_TEST_TOKEN. Start it by hand from the Actions tab. It prints no token.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NUXT_UI_PRO_LICENSE: ${{ secrets.NUXT_UI_PRO_LICENSE }}
+      OPENLOBS_RUNNER_TEST_TOKEN: ${{ secrets.OPENLOBS_RUNNER_TEST_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run on a real GitHub
+        run: npx tsx scripts/live-github-runner.mts
