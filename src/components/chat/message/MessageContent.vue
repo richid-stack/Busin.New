@@ -58,6 +58,9 @@ const emit = defineEmits<{
 function isToolPart(part: any): boolean {
   return typeof part?.type === 'string' && (part.type.startsWith('tool-') || part.type === 'dynamic-tool')
 }
+
+/** Where a plan ran, for the trace heading. */
+const runPlace = (tool: string) => (tool === 'run_in_cloud' ? 'in the cloud' : tool === 'run_on_github' ? 'on your GitHub' : 'on your computer')
 </script>
 
 <template>
@@ -396,11 +399,11 @@ function isToolPart(part: any): boolean {
         </p>
       </UChatTool>
       <UChatTool
-        v-else-if="getToolName(part) === 'run_on_computer' || getToolName(part) === 'run_in_cloud'"
-        :text="isToolStreaming(part) ? (getToolName(part) === 'run_in_cloud' ? 'Running the plan in the cloud...' : 'Running the plan on your computer...') : getRunTrace(part).failed ? 'Could not run the plan' : getRunTrace(part).stopped ? 'The plan stopped on a step' : getRunTrace(part).steps.length === 1 ? `Ran 1 step ${getToolName(part) === 'run_in_cloud' ? 'in the cloud' : 'on your computer'}` : `Ran ${getRunTrace(part).steps.length} steps ${getToolName(part) === 'run_in_cloud' ? 'in the cloud' : 'on your computer'}`"
+        v-else-if="getToolName(part) === 'run_on_computer' || getToolName(part) === 'run_in_cloud' || getToolName(part) === 'run_on_github'"
+        :text="isToolStreaming(part) ? (getToolName(part) === 'run_in_cloud' ? 'Running the plan in the cloud...' : getToolName(part) === 'run_on_github' ? 'Running the plan on your GitHub...' : 'Running the plan on your computer...') : getRunTrace(part).failed ? 'Could not run the plan' : getRunTrace(part).stopped ? 'The plan stopped on a step' : getRunTrace(part).steps.length === 1 ? `Ran 1 step ${runPlace(getToolName(part))}` : `Ran ${getRunTrace(part).steps.length} steps ${runPlace(getToolName(part))}`"
         :suffix="getRunTrace(part).summary"
         :streaming="isToolStreaming(part)"
-        icon="i-lucide-terminal"
+        :icon="getToolName(part) === 'run_on_github' ? 'i-lucide-github' : 'i-lucide-terminal'"
         :chevron="getRunTrace(part).steps.length || getRunTrace(part).error ? 'leading' : undefined"
       >
         <div

@@ -21,7 +21,10 @@ const isBrowser = computed(() => toolName.value === 'browser')
 const isKeep = computed(() => toolName.value === 'install_skill')
 const isSkill = computed(() => toolName.value === 'load_external_skill' || isKeep.value)
 const isCloud = computed(() => toolName.value === 'run_in_cloud')
-const isRun = computed(() => toolName.value === 'run_on_computer' || isCloud.value)
+const isGithub = computed(() => toolName.value === 'run_on_github')
+/** A clean machine somewhere else (the OpenLobs box or the person's GitHub): it gets the plan's files written first and has none of their own. */
+const isRemote = computed(() => isCloud.value || isGithub.value)
+const isRun = computed(() => toolName.value === 'run_on_computer' || isRemote.value)
 const isAdd = computed(() => toolName.value === 'add_tool_server')
 
 /** What is shown about a server to add comes from the checked list, never from what the assistant wrote. */
@@ -48,7 +51,7 @@ const plan = computed(() => {
   })
 })
 /** Files the plan writes into the box first. They are the code that runs, so the person can read each one before approving. */
-const boxFiles = computed(() => (isCloud.value && Array.isArray(input.value.files) ? input.value.files as Array<{ path?: string, content?: string }> : [])
+const boxFiles = computed(() => (isRemote.value && Array.isArray(input.value.files) ? input.value.files as Array<{ path?: string, content?: string }> : [])
   .map(f => ({ path: String(f.path || ''), content: String(f.content || '') }))
   .filter(f => f.path))
 const anyRunsCode = computed(() => plan.value.some(s => s.flags.includes('Runs code')))
@@ -64,12 +67,13 @@ const title = computed(() => {
   if (isBrowser.value) return props.label || 'a website'
   if (isSkill.value) return [input.value.repo, input.value.folder].filter(Boolean).join('/') || 'a skill'
   if (isCloud.value) return 'a fresh cloud box'
+  if (isGithub.value) return 'openlobs-runs'
   if (isRun.value) return String(input.value.computer || 'your computer')
   if (isAdd.value) return preset.value?.name || 'a tool server'
   return words(toolName.value)
 })
-const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-book-open-text' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
-const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? (isKeep.value ? 'Keep a skill' : 'Skill from GitHub') : isCloud.value ? 'Run in the cloud' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
+const logo = computed(() => (isApp.value ? appLogo(String(input.value.provider || '')) : isBrowser.value ? 'i-lucide-globe' : isSkill.value ? 'i-lucide-book-open-text' : isGithub.value ? 'i-lucide-github' : isRun.value ? 'i-lucide-terminal' : isAdd.value ? (preset.value?.icon || 'i-lucide-plug') : mcpLogo(toolName.value)))
+const kind = computed(() => isApp.value ? 'App action' : isMcp.value ? 'Tool from an outside server' : isBrowser.value ? 'Browser step' : isSkill.value ? (isKeep.value ? 'Keep a skill' : 'Skill from GitHub') : isCloud.value ? 'Run in the cloud' : isGithub.value ? 'Run on your GitHub' : isRun.value ? 'Run commands' : isAdd.value ? 'Add a tool server' : 'Action')
 
 /** What will be done, in the person's own terms: the instruction for apps, the inputs for tools. */
 const instruction = computed(() => props.instruction || (isApp.value ? String(input.value.instruction || '') : ''))
@@ -110,7 +114,7 @@ async function answer(approved: boolean) {
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>
           <p class="text-xs text-muted mt-0.5">
-            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isKeep ? 'Instructions written by someone else. Kept in your list for every chat until you remove it.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isCloud ? 'In a clean box that is deleted afterwards. Nothing starts until you press Approve.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : isAdd ? 'Nothing is added until you press Approve.' : 'It may change things or reach other people.' }}
+            {{ kind }} · <span class="text-default font-medium">{{ title }}</span>. {{ person ? 'Press Take over on the page, do it yourself, then press Continue.' : isKeep ? 'Instructions written by someone else. Kept in your list for every chat until you remove it.' : isSkill ? 'Instructions written by someone else. Loaded for this chat only, nothing is installed.' : isCloud ? 'In a clean box that is deleted afterwards. Nothing starts until you press Approve.' : isGithub ? 'On GitHub\'s machines, using your own free minutes. Nothing starts until you press Approve.' : isRun ? 'Only in the folder you chose. Nothing starts until you press Approve.' : isAdd ? 'Nothing is added until you press Approve.' : 'It may change things or reach other people.' }}
           </p>
         </div>
       </div>
@@ -232,6 +236,12 @@ async function answer(approved: boolean) {
           class="text-xs text-muted"
         >
           This runs in a fresh cloud box with none of your files or accounts. The box is deleted when the plan ends, and nothing is kept. Each plan uses credits.
+        </p>
+        <p
+          v-else-if="isGithub"
+          class="text-xs text-muted"
+        >
+          This runs on GitHub's machines, in your private repo <span class="font-mono text-[11px]">openlobs-runs</span>, with none of your files or accounts. It uses your GitHub's free minutes, not OpenLobs credits. Once OpenLobs has the result it deletes the run from your repo, and the machine is thrown away.
         </p>
         <p
           v-else

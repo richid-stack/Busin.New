@@ -36,7 +36,8 @@ import { browserServiceFor } from '../../../services/browser/where'
 import { holdStore, startWait } from '../../../services/browser/holds'
 import { createLookInFolderTool, createRunOnComputerTool } from '../../../utils/tools/runOnComputer'
 import { createRunInCloudTool } from '../../../utils/tools/runInCloud'
-import { defaultCloudBox } from '../../../services/cloudbox/provider'
+import { createRunOnGithubTool } from '../../../utils/tools/runOnGithub'
+import { cloudOverview } from '../../../services/cloudbox/overview'
 import { createComputerExcelTool } from '../../../utils/tools/computerExcel'
 import { bridgeStore } from '../../../services/bridge/store'
 import { randomUUID } from 'node:crypto'
@@ -303,6 +304,8 @@ export default defineHandler(async (event) => {
   // anyone can switch it off on the Memory page. A failure here must never stop a chat.
   // Offered only when one of the person's computers has been allowed to do spreadsheet work, so the assistant is not told about a tool that cannot work.
   const excelOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('workbook_apply'))).catch(() => false)
+  // Where "run in the cloud" goes: the person's own GitHub or the OpenLobs box, never both, so the card they approve is exactly what runs.
+  const cloudChoice = signedIn && powers.cloud ? await cloudOverview(getFirebaseDb(), userId).then(o => o.chosen).catch(() => null) : null
   const runOn = signedIn && await bridgeStore().listDevices(userId).then(list => list.some(d => d.capabilities.includes('run_command'))).catch(() => false)
   const paneNote = signedIn && workPane ? await openFileNote(userId, workPane).catch(() => '') : ''
   const memoryOn = signedIn && !chat.ghost && (!agent || agent.tools.includes('memory')) && (!workspace || workspace.useMemory) && await isMemoryEnabled(userId).catch(() => false)
@@ -359,7 +362,8 @@ export default defineHandler(async (event) => {
           ...(browserService ? { browser: createBrowserTool(userId, id, browserService, waitHooks) } : {}),
           ...(excelOn ? { computer_excel: createComputerExcelTool(userId) } : {}),
           // Same reason: only offered when a computer has been allowed to run commands in a folder.
-          ...(signedIn && defaultCloudBox() ? { run_in_cloud: createRunInCloudTool(userId) } : {}),
+          ...(cloudChoice === 'box' ? { run_in_cloud: createRunInCloudTool(userId) } : {}),
+          ...(cloudChoice === 'github' ? { run_on_github: createRunOnGithubTool(userId) } : {}),
           ...(runOn ? { run_on_computer: createRunOnComputerTool(userId), look_in_folder: createLookInFolderTool(userId) } : {})
         }
       : {})
@@ -406,7 +410,7 @@ ${'web_search' in setup.tools ? `**WEB SEARCH:**
 - Write the real content first, then call the tool once. The user downloads the file from a card in the chat, so never paste a link.
 - Use create_document with format pdf only when the user wants a final copy; otherwise Word, because it can be edited.
 - Never put made-up facts, prices or dates in a file. Use what the user gave you or what you found, and leave clearly marked blanks otherwise.
-- To build something with several files (an app, a site, a script with tests), use the project tools: list_files to see what is there, read_file and search_files to understand it, write_file for new or fully rewritten files, edit_project_file for changes inside a file, delete_file to remove one. The first write_file makes the project. Look before you change: read a file before editing it, and copy the old text exactly. Work in small steps and keep each file short. A project holds plain text only (up to 200 files, 600 thousand characters), and nothing in it runs by itself: to run or test it, use run_in_cloud or run_on_computer, which the user approves. The user sees every step, can open the project beside the chat and can undo your whole reply. After a build, say in two or three plain sentences what you made and what to open.
+- To build something with several files (an app, a site, a script with tests), use the project tools: list_files to see what is there, read_file and search_files to understand it, write_file for new or fully rewritten files, edit_project_file for changes inside a file, delete_file to remove one. The first write_file makes the project. Look before you change: read a file before editing it, and copy the old text exactly. Work in small steps and keep each file short. A project holds plain text only (up to 200 files, 600 thousand characters), and nothing in it runs by itself: to run or test it, use run_in_cloud, run_on_github or run_on_computer, which the user approves. The user sees every step, can open the project beside the chat and can undo your whole reply. After a build, say in two or three plain sentences what you made and what to open.
 - The user can open a file beside the chat and ask for a change. To change one, call edit_file with only the parts that change (never write the whole file again), then say in one sentence what changed. Each change is a new version they can undo.
 
 `}${fetchGuidance(Object.keys(tools))}${'browser' in tools ? `**BROWSER:**

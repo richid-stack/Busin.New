@@ -3,17 +3,22 @@ import { onMounted } from 'vue'
 import { usePowers } from '../../composables/usePowers'
 import { useMemory } from '../../composables/useMemory'
 import { useBrowserWhere } from '../../composables/useBrowserWhere'
+import { useCloudWhere } from '../../composables/useCloudWhere'
 import type { Power } from '../../../shared/powers'
 import SettingRow from './SettingRow.vue'
+import CloudWhere from './CloudWhere.vue'
+import Reveal from '../state/Reveal.vue'
 
 const toast = useToast()
 const { powers, failed, fetchPowers, setPower } = usePowers()
 const { enabled: memoryOn, loaded: memoryLoaded, fetchMemory, setEnabled: setMemory } = useMemory()
 const { browserWhere, fetchBrowserWhere, setBrowserWhere } = useBrowserWhere()
+const cloud = useCloudWhere()
 
 onMounted(() => {
   void fetchPowers()
   void fetchBrowserWhere()
+  void cloud.fetchCloud()
   if (!memoryLoaded.value) void fetchMemory()
 })
 
@@ -21,7 +26,7 @@ const ROWS: Array<{ key: Power, title: string, hint: string }> = [
   { key: 'web', title: 'Search and read the web', hint: 'Looking things up and reading pages. Photos, icons and fonts too.' },
   { key: 'browser', title: 'Use websites for you', hint: 'Opening sites, filling forms, clicking. Still stops before it sends, pays or deletes.' },
   { key: 'computer', title: 'Work on your computer', hint: 'Through the Bridge: spreadsheets, your browser profile, programs you approve.' },
-  { key: 'cloud', title: 'Run programs in the cloud', hint: 'Builds and tests on a temporary machine. Each run costs credits.' },
+  { key: 'cloud', title: 'Run programs in the cloud', hint: 'Install, run a script or a project\'s tests on a clean, temporary machine. Each plan still asks first.' },
   { key: 'apps', title: 'Your connected apps and tool servers', hint: 'Google, Microsoft, Slack and the rest you connected. Each action still shows what it will change.' },
   { key: 'notes', title: 'Keep notes in workspaces', hint: 'Where we are, decisions and next steps, saved by the assistant so every chat in a workspace starts knowing them. Each workspace can also turn it off.' }
 ]
@@ -57,6 +62,17 @@ const MANAGE = [
             <p class="mt-1 text-xs leading-snug" :class="browserWhere.computer.ready ? 'text-dimmed' : 'text-warning'">{{ browserWhere.computer.note }}</p>
           </template>
         </SettingRow>
+        <!-- Where the cloud runs only matters while it is on -->
+        <Reveal v-if="r.key === 'cloud'">
+          <CloudWhere
+            v-if="powers?.cloud !== false && cloud.overview.value"
+            :overview="cloud.overview.value"
+            :connect="cloud.connectGithub"
+            :check="cloud.checkGithub"
+            :disconnect="cloud.disconnectGithub"
+            :choose="cloud.setWhere"
+          />
+        </Reveal>
       </template>
       <SettingRow title="Remember things about you" hint="Notes kept between chats. The same switch as on the Memory page.">
         <USwitch :model-value="memoryOn" :disabled="!memoryLoaded" aria-label="Remember things about you" @update:model-value="toggleMemory(Boolean($event))" />

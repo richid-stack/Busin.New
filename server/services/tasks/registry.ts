@@ -62,6 +62,7 @@ export const CAPABILITIES: Capability[] = [
   // Starts programs on a person's own computer after they approve a plan, so it needs a person present.
   { tool: 'run_on_computer', label: 'Run commands on your computer', location: 'local', risk: 'act', unattended: false, timeoutMs: 280_000, verifiedBy: [] },
   // Needs the person's approval of each plan, so it cannot run on its own.
+  { tool: 'run_on_github', label: 'Run on your GitHub', location: 'remote', risk: 'act', unattended: false, timeoutMs: 300_000, verifiedBy: [] },
   { tool: 'run_in_cloud', label: 'Run in a cloud box', location: 'remote', risk: 'act', unattended: false, timeoutMs: 300_000, verifiedBy: [] },
   // Adds a server only after the person approves a card, so it needs a person present.
   { tool: 'add_tool_server', label: 'Add a tool server', location: 'remote', risk: 'act', unattended: false, timeoutMs: 30_000, verifiedBy: [] },

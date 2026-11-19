@@ -19,7 +19,7 @@ export function powerOf(toolName: string): Power | null {
   if (WEB.has(toolName)) return 'web'
   if (toolName === 'browser') return 'browser'
   if (COMPUTER.has(toolName)) return 'computer'
-  if (toolName === 'run_in_cloud') return 'cloud'
+  if (toolName === 'run_in_cloud' || toolName === 'run_on_github') return 'cloud'
   if (NOTES.has(toolName)) return 'notes'
   if (APPS.has(toolName) || toolName.startsWith('mcp_')) return 'apps'
   return null

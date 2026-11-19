@@ -151,7 +151,7 @@ export interface RunStepTrace { n: number, words: string, command: string, ok: b
 
 /** What a plan of commands did on the person's computer: each step in everyday words, with what it printed one click away. */
 export function getRunTrace(part: ToolPart): { steps: RunStepTrace[], computer?: string, summary?: string, failed: boolean, stopped: boolean, notRun: number, error?: string, planned: number } {
-  const output = part.output as { status?: string, computer?: string, steps?: RunStepTrace[], notRun?: number, error?: string } | undefined
+  const output = part.output as { status?: string, computer?: string, steps?: RunStepTrace[], notRun?: number, error?: string, seconds?: number, minutes?: number } | undefined
   const input = part.input as { steps?: unknown[] } | undefined
   const steps = Array.isArray(output?.steps) ? output!.steps : []
   const failed = output?.status === 'failed'
@@ -161,7 +161,14 @@ export function getRunTrace(part: ToolPart): { steps: RunStepTrace[], computer?:
   return {
     steps,
     computer: output?.computer,
-    summary: [output?.computer, (failed || stopped) && done ? `${done} of ${planned} ${planned === 1 ? 'step' : 'steps'} run` : undefined].filter(Boolean).join(' · ') || undefined,
+    summary: [
+      // On the person's own GitHub the minutes used already name GitHub, so the place is not said twice.
+      typeof output?.minutes === 'number' && output.minutes > 0 ? undefined : output?.computer,
+      (failed || stopped) && done ? `${done} of ${planned} ${planned === 1 ? 'step' : 'steps'} run` : undefined,
+      // A plan on the person's own GitHub says how long it took and how much of their free minutes it used.
+      typeof output?.seconds === 'number' && output.seconds > 0 ? `${Math.round(output.seconds)} s` : undefined,
+      typeof output?.minutes === 'number' && output.minutes > 0 ? `${output.minutes} GitHub ${output.minutes === 1 ? 'minute' : 'minutes'}` : undefined
+    ].filter(Boolean).join(' · ') || undefined,
     failed,
     stopped,
     notRun: output?.notRun ?? 0,
