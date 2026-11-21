@@ -96,7 +96,7 @@ assert((await run(rb, { summary: 'Prices differ by 12%.' }, worked)).status === 
       stopWhen: isStepCount(stepsAfterCap),
       prepareStep: ({ messages, initialInstructions }: any) => planStep({ messages, toolNames: Object.keys(tools), instructions: initialInstructions }) as any
     })
-    for await (const _ of r.stream as any) { /* drain */ }
+    for await (const part of r.stream as any) { void part }
     return r
   }
 
