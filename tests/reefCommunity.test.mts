@@ -19,7 +19,7 @@ const { profiles, projects, posts, alerts, moderation } = reef
 
 const agent = (over: Partial<Agent> = {}): Agent => ({
   id: 'a1', userId: 'u-ama', name: 'Shop assistant', description: 'Answers customers.', instructions: 'Answer customer messages. Ask before any refund.',
-  model: 'my:groq/openai/gpt-oss-120b', tools: ['web', 'create_files', 'apps'], skills: ['ghana-invoice', 'not-on-this-server'], maxSteps: 8,
+  model: 'my:groq/openai/gpt-oss-120b', tools: ['web', 'create_files', 'apps'], skills: ['ghana-invoice', 'not-on-this-server'], maxSteps: 8, mascot: null,
   createdAt: '2026-10-26T08:00:00Z', updatedAt: '2026-10-26T08:00:00Z', ...over
 })
 
