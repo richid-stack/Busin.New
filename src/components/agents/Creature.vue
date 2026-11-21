@@ -4,7 +4,7 @@ import { computed } from 'vue'
 // Every saved agent is a small creature. They are built from the same rounded, geometric pieces as the OpenLobs mark,
 // so they read as one family. A creature has a mood, shown mostly through the eyes: idle, asking (it wants something
 // from you), working, done.
-export type Species = 'pangolin' | 'chameleon' | 'hornbill' | 'galago' | 'fennec' | 'tortoise'
+export type Species = 'pangolin' | 'chameleon' | 'hornbill' | 'galago' | 'fennec' | 'tortoise' | 'sunbird' | 'weaverbird' | 'beetle' | 'aardvark'
 export type Mood = 'idle' | 'asking' | 'working' | 'done'
 
 const props = withDefaults(defineProps<{ species: Species, mood?: Mood, size?: number, animate?: boolean }>(), { mood: 'idle', size: 64, animate: false })
@@ -16,7 +16,11 @@ const EYES: Record<Species, { x: number, y: number, r: number }[]> = {
   hornbill: [{ x: 66, y: 36, r: 2.8 }],
   galago: [{ x: 35, y: 50, r: 7 }, { x: 61, y: 50, r: 7 }],
   fennec: [{ x: 38, y: 54, r: 3 }, { x: 58, y: 54, r: 3 }],
-  tortoise: [{ x: 88, y: 56, r: 2.6 }]
+  tortoise: [{ x: 88, y: 56, r: 2.6 }],
+  sunbird: [{ x: 66, y: 40, r: 2.5 }],
+  weaverbird: [{ x: 67, y: 40, r: 2.4 }],
+  beetle: [{ x: 14, y: 63, r: 2.3 }],
+  aardvark: [{ x: 75, y: 44, r: 2.6 }]
 }
 const eyes = computed(() => EYES[props.species])
 const tilt = computed(() => (props.mood === 'asking' ? -5 : 0))
@@ -98,6 +102,55 @@ const tilt = computed(() => (props.mood === 'asking' ? -5 : 0))
         <path d="M23 60 Q48 92 73 60 Q61 82 48 82 Q35 82 23 60 Z" fill="#F7EFDF" />
         <ellipse cx="48" cy="66" rx="3.6" ry="2.7" :fill="INK" />
         <path d="M44 71 Q48 74 52 71" fill="none" :stroke="INK" stroke-width="1.5" stroke-linecap="round" />
+      </template>
+
+      <!-- SUNBIRD -->
+      <template v-else-if="species === 'sunbird'">
+        <rect x="6" y="80" width="86" height="4" rx="2" fill="#7A6450" />
+        <path d="M6 62 L26 56 L30 70 L10 76 Z" fill="#2B6F63" stroke="#2B6F63" stroke-width="4" stroke-linejoin="round" />
+        <path d="M40 72 V81 M50 72 V81" stroke="#5B4A3A" stroke-width="2.5" stroke-linecap="round" />
+        <ellipse cx="42" cy="58" rx="21" ry="15" fill="#3E8E7E" />
+        <ellipse cx="46" cy="64" rx="13" ry="9" fill="#F2C94C" />
+        <path d="M34 52 C42 46 54 48 58 54" fill="none" stroke="#2B6F63" stroke-width="3" stroke-linecap="round" />
+        <circle cx="62" cy="43" r="11" fill="#2E7567" />
+        <path d="M71 41 C84 38 94 45 97 56 C90 51 81 48 71 47 Z" fill="#3A3A3E" />
+        <path d="M54 50 C58 54 64 54 68 50" fill="none" stroke="#C9523A" stroke-width="3" stroke-linecap="round" />
+      </template>
+
+      <!-- WEAVERBIRD -->
+      <template v-else-if="species === 'weaverbird'">
+        <path d="M8 64 L28 58 L32 74 L12 78 Z" fill="#D9AE22" stroke="#D9AE22" stroke-width="4" stroke-linejoin="round" />
+        <path d="M42 76 V88 M52 76 V88" stroke="#7A6450" stroke-width="3" stroke-linecap="round" />
+        <ellipse cx="42" cy="60" rx="24" ry="18" fill="#F0C93A" />
+        <path d="M30 56 C40 50 52 54 56 62" fill="none" stroke="#D9AE22" stroke-width="3" stroke-linecap="round" />
+        <circle cx="62" cy="40" r="13" fill="#F0C93A" />
+        <ellipse cx="67" cy="40" rx="8.5" ry="7" fill="#26262a" />
+        <path d="M73 44 L86 47 L73 51 Z" fill="#7A6450" />
+        <path d="M82 48 C92 52 94 64 88 76" fill="none" stroke="#7E9C4E" stroke-width="2.6" stroke-linecap="round" />
+      </template>
+
+      <!-- DUNG BEETLE -->
+      <template v-else-if="species === 'beetle'">
+        <circle cx="68" cy="62" r="19" fill="#8E6D4B" />
+        <path d="M56 54 C62 46 74 46 80 52" fill="none" stroke="#A88862" stroke-width="2.5" stroke-linecap="round" />
+        <path d="M26 74 L22 84 M38 76 L36 86 M50 74 L52 84" stroke="#2F3748" stroke-width="3" stroke-linecap="round" />
+        <ellipse cx="34" cy="62" rx="20" ry="14" fill="#43506A" />
+        <path d="M34 49 V75" stroke="#2F3748" stroke-width="2" />
+        <circle cx="15" cy="66" r="8" fill="#2F3748" />
+        <path d="M10 59 L5 52 M16 58 L16 50" stroke="#2F3748" stroke-width="2.4" stroke-linecap="round" />
+      </template>
+
+      <!-- AARDVARK -->
+      <template v-else-if="species === 'aardvark'">
+        <path d="M18 62 C6 62 4 72 12 76 L24 72 Z" fill="#9C8F80" stroke="#9C8F80" stroke-width="4" stroke-linejoin="round" />
+        <rect x="30" y="68" width="10" height="16" rx="5" fill="#8E8174" />
+        <rect x="54" y="68" width="10" height="16" rx="5" fill="#8E8174" />
+        <ellipse cx="44" cy="58" rx="28" ry="20" fill="#B0A394" />
+        <ellipse cx="62" cy="30" rx="6" ry="14" transform="rotate(14 62 30)" fill="#B0A394" />
+        <ellipse cx="62" cy="31" rx="3" ry="9" transform="rotate(14 62 31)" fill="#D6B7AB" />
+        <circle cx="70" cy="46" r="14" fill="#B0A394" />
+        <path d="M78 42 C90 40 97 48 95 57 C89 57 82 55 76 55 Z" fill="#CBBDAA" />
+        <circle cx="94" cy="50" r="2" :fill="INK" />
       </template>
 
       <!-- TORTOISE -->
