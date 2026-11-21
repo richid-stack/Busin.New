@@ -29,7 +29,7 @@ const suffix = computed(() => (props.kind === 'ask' && specialist.value ? specia
       :mood="failed ? 'idle' : kind === 'report' ? 'done' : streaming ? 'working' : 'idle'"
       :size="20"
       :animate="streaming"
-      class="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2"
+      class="pointer-events-none absolute left-0 top-1"
     />
     <UChatTool
       :text="text"
