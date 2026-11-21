@@ -19,14 +19,24 @@ const output = computed(() => props.invocation.output)
     icon="i-lucide-workflow"
     chevron="leading"
   >
-    <div v-if="output && output.success" class="p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-xl flex flex-col gap-3">
+    <div
+      v-if="output && output.success"
+      class="p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-xl flex flex-col gap-3"
+    >
       <div class="flex items-center gap-3">
         <div class="p-2.5 bg-emerald-500/10 rounded-lg text-emerald-600 dark:text-emerald-400">
-          <UIcon name="i-lucide-check-circle-2" class="size-5" />
+          <UIcon
+            name="i-lucide-check-circle-2"
+            class="size-5"
+          />
         </div>
         <div>
-          <h4 class="font-semibold text-default text-sm">{{ output.title || props.invocation.input?.title }}</h4>
-          <p class="text-xs text-muted">{{ output.message }}</p>
+          <h4 class="font-semibold text-default text-sm">
+            {{ output.title || props.invocation.input?.title }}
+          </h4>
+          <p class="text-xs text-muted">
+            {{ output.message }}
+          </p>
         </div>
       </div>
       
@@ -44,9 +54,16 @@ const output = computed(() => props.invocation.output)
       </div>
     </div>
     
-    <div v-else-if="output && !output.success" class="p-3 border border-error/20 bg-error/5 rounded-md text-error text-xs">
-      <div class="font-semibold mb-1">Failed to build workflow</div>
-      <div class="opacity-80">{{ output.error }}</div>
+    <div
+      v-else-if="output && !output.success"
+      class="p-3 border border-error/20 bg-error/5 rounded-md text-error text-xs"
+    >
+      <div class="font-semibold mb-1">
+        Failed to build workflow
+      </div>
+      <div class="opacity-80">
+        {{ output.error }}
+      </div>
     </div>
   </UChatTool>
 </template>

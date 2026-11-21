@@ -2,6 +2,7 @@ import { getFirebaseDb } from '../../utils/firebaseAdmin'
 import { assertNotDeleting } from '../account/tombstone'
 import { DEFAULT_GROUPS, DEFAULT_STEPS, agentInputSchema } from './profile'
 import type { Agent, AgentInput } from './profile'
+import { defaultPersonFor } from '../../../shared/mascots'
 
 const COLLECTION = 'agents'
 
@@ -17,7 +18,8 @@ export function agentFromDoc(id: string, data: Record<string, any>): Agent & { s
     model: data.model ?? null,
     tools: Array.isArray(data.tools) ? data.tools : DEFAULT_GROUPS,
     skills: Array.isArray(data.skills) ? data.skills : [],
-    maxSteps: data.maxSteps ?? DEFAULT_STEPS
+    maxSteps: data.maxSteps ?? DEFAULT_STEPS,
+    mascot: typeof data.mascot === 'string' ? data.mascot : null
   })
   const input: AgentInput = parsed.success ? parsed.data : agentInputSchema.parse({ name: 'Agent', instructions: 'Help the user.' })
   const source = data.source && typeof data.source.shareId === 'string' ? { shareId: String(data.source.shareId), version: Number(data.source.version) || 1, author: String(data.source.author || '') } : undefined
@@ -38,7 +40,8 @@ export async function createAgent(userId: string, input: AgentInput, source?: Ag
   await assertNotDeleting(userId)
   const now = new Date().toISOString()
   const ref = getFirebaseDb().collection(COLLECTION).doc()
-  const doc = { ...input, userId, createdAt: now, updatedAt: now, ...(source ? { source } : {}) }
+  // Everyone gets a person to stand for their agent. If none was chosen, one is picked from the name.
+  const doc = { ...input, mascot: input.mascot ?? defaultPersonFor(input.name), userId, createdAt: now, updatedAt: now, ...(source ? { source } : {}) }
   await ref.set(doc)
   return agentFromDoc(ref.id, doc)
 }

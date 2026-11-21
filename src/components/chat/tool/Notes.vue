@@ -43,13 +43,43 @@ async function undo() {
 </script>
 
 <template>
-  <UChatTool :text="text" :suffix="suffix" :streaming="streaming" icon="i-lucide-notebook-pen" chevron="leading">
+  <UChatTool
+    :text="text"
+    :suffix="suffix"
+    :streaming="streaming"
+    icon="i-lucide-notebook-pen"
+    chevron="leading"
+  >
     <div class="space-y-2 text-xs text-muted">
-      <p v-if="note && out?.status !== 'failed'" class="whitespace-pre-line text-sm leading-relaxed" :class="undone ? 'text-dimmed line-through' : 'text-default'">{{ note }}</p>
+      <p
+        v-if="note && out?.status !== 'failed'"
+        class="whitespace-pre-line text-sm leading-relaxed"
+        :class="undone ? 'text-dimmed line-through' : 'text-default'"
+      >
+        {{ note }}
+      </p>
       <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <RouterLink v-if="workspaceId" :to="`/workspaces/${workspaceId}?tab=notes`" class="underline underline-offset-2 hover:text-highlighted">Open notes</RouterLink>
-        <button v-if="canUndo" type="button" class="underline underline-offset-2 hover:text-highlighted disabled:opacity-60" :disabled="undoing" @click="undo">Undo</button>
-        <span v-if="undoFailed" class="text-error" role="status">Could not undo. Delete it from the notes.</span>
+        <RouterLink
+          v-if="workspaceId"
+          :to="`/workspaces/${workspaceId}?tab=notes`"
+          class="underline underline-offset-2 hover:text-highlighted"
+        >
+          Open notes
+        </RouterLink>
+        <button
+          v-if="canUndo"
+          type="button"
+          class="underline underline-offset-2 hover:text-highlighted disabled:opacity-60"
+          :disabled="undoing"
+          @click="undo"
+        >
+          Undo
+        </button>
+        <span
+          v-if="undoFailed"
+          class="text-error"
+          role="status"
+        >Could not undo. Delete it from the notes.</span>
       </p>
     </div>
   </UChatTool>

@@ -33,9 +33,20 @@ onBeforeUnmount(() => { latest++; if (objectUrl) URL.revokeObjectURL(objectUrl) 
 </script>
 
 <template>
-  <img v-if="url" v-bind="$attrs" :src="url" :alt="alt">
-  <p v-else-if="failed" class="text-sm text-muted">
+  <img
+    v-if="url"
+    v-bind="$attrs"
+    :src="url"
+    :alt="alt"
+  >
+  <p
+    v-else-if="failed"
+    class="text-sm text-muted"
+  >
     The image could not be loaded. It may have expired.
   </p>
-  <div v-else class="h-24 w-48 animate-pulse rounded-lg border border-default bg-elevated" />
+  <div
+    v-else
+    class="h-24 w-48 animate-pulse rounded-lg border border-default bg-elevated"
+  />
 </template>

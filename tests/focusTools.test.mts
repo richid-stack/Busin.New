@@ -27,3 +27,11 @@ const withPhotos: Record<string, number> = { ...all, fetch_file: 1, view_image: 
 const photoTools = (text: string) => Object.keys(focusTools(withPhotos, { provider: 'groq', text }))
 assert(photoTools('Find photos of beaches').includes('find_photos') && photoTools('Get me a picture of Accra').includes('find_photos') && photoTools('save these images').includes('fetch_file'), 'photo, picture and image requests keep the photo tools, plural or not')
 assert(!photoTools('hello there').includes('find_photos'), 'a plain chat does not carry the photo tools')
+
+// A correction on a small plan still gets the suggestion tool; an ordinary question does not.
+{
+  const t = { calculator: 1, web_search: 1, propose_learning: 1, create_page: 1 }
+  const fix = Object.keys(focusTools(t, { provider: 'groq', text: 'No, that is too long. From now on keep it short.' }))
+  const plain = Object.keys(focusTools(t, { provider: 'groq', text: 'What is the capital of Ghana?' }))
+  assert(fix.includes('propose_learning') && !plain.includes('propose_learning'), 'a correction brings the suggestion tool on a small plan, a plain question does not')
+}

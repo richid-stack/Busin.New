@@ -62,20 +62,47 @@ async function save() {
     icon="i-lucide-bot"
     default-open
   >
-    <div v-if="draft" class="rounded-2xl border border-default bg-default p-4 flex flex-col gap-3">
+    <div
+      v-if="draft"
+      class="rounded-2xl border border-default bg-default p-4 flex flex-col gap-3"
+    >
       <div class="flex items-start gap-3">
         <div class="p-2.5 rounded-xl border border-default shadow-sm bg-default shrink-0">
-          <UIcon name="i-lucide-bot" class="size-5 text-primary" />
+          <UIcon
+            name="i-lucide-bot"
+            class="size-5 text-primary"
+          />
         </div>
         <div class="min-w-0">
-          <h4 class="text-sm font-semibold text-highlighted">{{ draft.name }}</h4>
-          <p v-if="draft.description" class="text-xs text-muted leading-snug">{{ draft.description }}</p>
+          <h4 class="text-sm font-semibold text-highlighted">
+            {{ draft.name }}
+          </h4>
+          <p
+            v-if="draft.description"
+            class="text-xs text-muted leading-snug"
+          >
+            {{ draft.description }}
+          </p>
         </div>
       </div>
 
       <div class="flex flex-wrap gap-1.5">
-        <UBadge v-for="id in draft.tools" :key="id" :label="groupLabel(id)" color="neutral" variant="subtle" size="sm" class="max-w-full truncate" />
-        <UBadge v-if="!draft.tools.length" label="No tools" color="neutral" variant="subtle" size="sm" />
+        <UBadge
+          v-for="id in draft.tools"
+          :key="id"
+          :label="groupLabel(id)"
+          color="neutral"
+          variant="subtle"
+          size="sm"
+          class="max-w-full truncate"
+        />
+        <UBadge
+          v-if="!draft.tools.length"
+          label="No tools"
+          color="neutral"
+          variant="subtle"
+          size="sm"
+        />
       </div>
 
       <div>
@@ -85,28 +112,72 @@ async function save() {
           :aria-expanded="showInstructions"
           @click="showInstructions = !showInstructions"
         >
-          <UIcon :name="showInstructions ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="size-3.5" />
+          <UIcon
+            :name="showInstructions ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+            class="size-3.5"
+          />
           Read its instructions
         </button>
         <Reveal>
-          <p v-if="showInstructions" class="mt-2 text-xs text-muted leading-relaxed whitespace-pre-line border-l border-default pl-3">{{ draft.instructions }}</p>
+          <p
+            v-if="showInstructions"
+            class="mt-2 text-xs text-muted leading-relaxed whitespace-pre-line border-l border-default pl-3"
+          >
+            {{ draft.instructions }}
+          </p>
         </Reveal>
       </div>
 
-      <p v-if="output.dropped?.length" class="text-xs text-muted">
+      <p
+        v-if="output.dropped?.length"
+        class="text-xs text-muted"
+      >
         Left out for safety: tools that act in your accounts. You can switch those on yourself after saving.
       </p>
-      <p v-if="error" class="text-xs text-error" role="alert">{{ error }}</p>
+      <p
+        v-if="error"
+        class="text-xs text-error"
+        role="alert"
+      >
+        {{ error }}
+      </p>
 
       <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-default">
         <template v-if="savedAgent">
-          <UButton :to="{ path: '/', query: { agent: savedAgent.id } }" label="Chat with it" icon="i-lucide-message-circle" size="sm" color="neutral" />
-          <UButton to="/agents" label="Edit in Agents" icon="i-lucide-pencil" size="sm" color="neutral" variant="subtle" />
+          <UButton
+            :to="{ path: '/', query: { agent: savedAgent.id } }"
+            label="Chat with it"
+            icon="i-lucide-message-circle"
+            size="sm"
+            color="neutral"
+          />
+          <UButton
+            to="/agents"
+            label="Edit in Agents"
+            icon="i-lucide-pencil"
+            size="sm"
+            color="neutral"
+            variant="subtle"
+          />
         </template>
-        <UButton v-else label="Save agent" icon="i-lucide-check" size="sm" color="neutral" :loading="saving || checking" :disabled="checking" @click="save" />
+        <UButton
+          v-else
+          label="Save agent"
+          icon="i-lucide-check"
+          size="sm"
+          color="neutral"
+          :loading="saving || checking"
+          :disabled="checking"
+          @click="save"
+        />
       </div>
     </div>
 
-    <div v-else-if="output" class="p-3 border border-error/20 bg-error/5 rounded-md text-error text-xs">{{ output.error }}</div>
+    <div
+      v-else-if="output"
+      class="p-3 border border-error/20 bg-error/5 rounded-md text-error text-xs"
+    >
+      {{ output.error }}
+    </div>
   </UChatTool>
 </template>

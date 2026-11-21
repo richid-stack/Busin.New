@@ -95,7 +95,7 @@ function copy() {
       />
     </UTooltip>
 
-        <UTooltip text="Convert to Automated Workflow">
+    <UTooltip text="Convert to Automated Workflow">
       <UButton
         size="sm"
         color="primary"

@@ -39,7 +39,7 @@ assert(scanText({ name: 'Ghana invoice helper', description: 'Makes invoices in 
 // ---- Sharing: what is copied ----
 const agent = (over: Partial<Agent> = {}): Agent => ({
   id: 'a1', userId: 'ama', name: 'Invoice helper', description: 'Makes invoices.', instructions: 'Make a clear invoice. Ask before sending.',
-  model: 'my:groq/openai/gpt-oss-120b', tools: ['web', 'create_files', 'apps', 'workflows'], skills: ['ghana-invoice', 'not-on-this-server'], maxSteps: 8,
+  model: 'my:groq/openai/gpt-oss-120b', tools: ['web', 'create_files', 'apps', 'workflows'], skills: ['ghana-invoice', 'not-on-this-server'], maxSteps: 8, mascot: null,
   createdAt: '2026-10-26T08:00:00Z', updatedAt: '2026-10-26T08:00:00Z', ...over
 })
 const payload = payloadOf(agent())

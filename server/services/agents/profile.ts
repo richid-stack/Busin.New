@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { MODELS } from '../../../shared/utils/models'
 import { parseMyModelId } from '../../../shared/modelProviders'
+import { isPersonId } from '../../../shared/mascots'
 
 /** Most agents one person can keep. */
 export const MAX_AGENTS_PER_USER = 10
@@ -58,7 +59,9 @@ export const agentInputSchema = z.object({
     .refine(list => list.every(id => GROUP_IDS.includes(id)), 'Unknown tool group')
     .transform(list => GROUP_IDS.filter(id => list.includes(id))),
   skills: z.array(z.string().max(64)).max(50).default([]).transform(list => [...new Set(list)]),
-  maxSteps: z.coerce.number().int().min(MIN_STEPS).max(MAX_STEPS).default(DEFAULT_STEPS)
+  maxSteps: z.coerce.number().int().min(MIN_STEPS).max(MAX_STEPS).default(DEFAULT_STEPS),
+  /** The person who stands for this agent (see shared/mascots). Empty until one is chosen; the first save picks one. */
+  mascot: z.string().nullable().optional().default(null).refine(m => m === null || isPersonId(m), 'Unknown mascot')
 })
 
 export type AgentInput = z.infer<typeof agentInputSchema>
@@ -83,7 +86,7 @@ export function allowedToolNames(agent: Pick<Agent, 'tools'>): Set<string> {
 export function filterTools<T extends Record<string, unknown>>(all: T, agent: Pick<Agent, 'tools'>): Partial<T> {
   const allowed = allowedToolNames(agent)
   const mcp = agent.tools.includes('mcp')
-  return Object.fromEntries(Object.entries(all).filter(([name]) => name === 'load_skill' || name === 'read_workspace_file' || name === 'save_to_notes' || name === 'update_where_we_are' || allowed.has(name) || (mcp && name.startsWith(MCP_TOOL_PREFIX)))) as Partial<T>
+  return Object.fromEntries(Object.entries(all).filter(([name]) => name === 'load_skill' || name === 'read_workspace_file' || name === 'save_to_notes' || name === 'update_where_we_are' || name === 'propose_learning' || allowed.has(name) || (mcp && name.startsWith(MCP_TOOL_PREFIX)))) as Partial<T>
 }
 
 /** Keeps only the skills this agent has switched on; unknown names are ignored. */

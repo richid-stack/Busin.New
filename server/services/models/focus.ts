@@ -23,6 +23,8 @@ const TOPICS: Array<{ words: RegExp, tools: string[] }> = [
   { words: /\b(chart|graph|plot|diagram)\b/i, tools: ['chart'] },
   { words: /\b(plan|steps?|roadmap|checklist)\b/i, tools: ['plan'] },
   { words: /\b(remember|forget|memory|memories)\b/i, tools: ['remember', 'forget_memory'] },
+  // A correction or a lasting preference is offered back as a suggestion to keep.
+  { words: /\b(too (long|short|wordy|formal|casual|detailed)|from now on|always|never|stop (doing|using|writing|saying)|instead of|i prefer|don'?t (use|write|say|do)|no, )\b/i, tools: ['propose_learning'] },
   { words: /\b(skills?)\b/i, tools: ['load_skill', 'find_skill', 'load_external_skill'] },
   { words: /\b(font|icon|design|style|css|colou?rs?|brand)\b|https?:\/\//i, tools: ['look_at_page', 'design_tokens', 'find_icons', 'find_fonts', 'inspect_design'] },
   { words: /\b(github|repo|repository)\b/i, tools: ['github_read'] },

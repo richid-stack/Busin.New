@@ -60,7 +60,9 @@ const kind = computed(() => ({
           {{ output?.name }}
         </p>
         <p class="text-xs text-muted">
-          {{ kind.label }} · {{ output?.sizeKb }} KB<template v-if="output?.expiresInDays"> · kept {{ output.expiresInDays }} days</template>
+          {{ kind.label }} · {{ output?.sizeKb }} KB<template v-if="output?.expiresInDays">
+            · kept {{ output.expiresInDays }} days
+          </template>
         </p>
         <p
           v-if="error"

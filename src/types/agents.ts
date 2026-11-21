@@ -10,13 +10,15 @@ export interface AgentProfile {
   /** Skill names the agent may use. */
   skills: string[]
   maxSteps: number
+  /** The person who stands for this agent (see shared/mascots). Null on agents saved before mascots existed. */
+  mascot: string | null
   createdAt: string
   updatedAt: string
   /** Set when the agent was installed from The Reef. */
   source?: { shareId: string, version: number, author: string, project?: string }
 }
 
-export type AgentInput = Omit<AgentProfile, 'id' | 'createdAt' | 'updatedAt' | 'source'>
+export type AgentInput = Omit<AgentProfile, 'id' | 'createdAt' | 'updatedAt' | 'source' | 'mascot'> & { mascot?: string | null }
 
 export interface AgentOptions {
   toolGroups: Array<{ id: string, label: string, detail: string, sensitive: boolean }>

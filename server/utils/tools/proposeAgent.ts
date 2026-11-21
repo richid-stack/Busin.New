@@ -1,6 +1,7 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import { PROPOSABLE_GROUPS, makeProposal } from '../../services/agents/proposal'
+import { PERSON_IDS } from '../../../shared/mascots'
 import { withToolLimits } from './limits'
 
 /** Shows the person a draft agent they can save. It never saves anything itself. */
@@ -11,7 +12,8 @@ export const createProposeAgentTool = (userId: string) => tool({
     description: z.string().max(200).describe('One line on what it is for'),
     instructions: z.string().min(1).max(4000).describe('Clear instructions the agent will follow every time, written to the agent in the second person'),
     tools: z.array(z.string()).max(8).default([]).describe('Tool groups the agent needs. Leave out anything it does not need; an agent that only writes text needs none.'),
-    maxSteps: z.number().int().min(1).max(15).optional()
+    maxSteps: z.number().int().min(1).max(15).optional(),
+    mascot: z.enum(PERSON_IDS as [string, ...string[]]).optional().describe('The person who stands for this agent: pick one that suits the job, or leave it out and one is chosen.')
   }),
   execute: withToolLimits(
     { name: 'propose_agent', userId, perMinute: 5, timeoutMs: 5_000, maxResultChars: 8_000 },

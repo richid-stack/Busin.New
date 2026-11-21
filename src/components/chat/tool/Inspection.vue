@@ -110,74 +110,74 @@ const showImage = ref(false)
     </button>
 
     <Reveal>
-    <div
-      v-if="open"
-      class="border-t border-default px-4 py-3"
-    >
-      <p class="text-sm text-default">
-        {{ output?.summary }}
-      </p>
-      <p
-        v-if="output?.progressNote"
-        class="mt-1 text-xs text-muted"
+      <div
+        v-if="open"
+        class="border-t border-default px-4 py-3"
       >
-        {{ output.progressNote }}
-      </p>
+        <p class="text-sm text-default">
+          {{ output?.summary }}
+        </p>
+        <p
+          v-if="output?.progressNote"
+          class="mt-1 text-xs text-muted"
+        >
+          {{ output.progressNote }}
+        </p>
 
-      <ul
-        v-if="output?.defects?.length"
-        class="mt-3 divide-y divide-default"
-      >
-        <li
-          v-for="d in output.defects"
-          :key="d.id"
-          class="flex gap-2.5 py-2.5 first:pt-0 last:pb-0"
+        <ul
+          v-if="output?.defects?.length"
+          class="mt-3 divide-y divide-default"
         >
-          <span
-            class="mt-1.5 size-2 shrink-0 rounded-full"
-            :class="SEVERITY[d.severity]?.dot"
-            :title="SEVERITY[d.severity]?.label"
-          />
-          <div class="min-w-0 text-sm">
-            <p class="text-default">
-              <span class="font-medium text-highlighted">{{ d.area }}.</span> {{ d.problem }}
-              <span class="sr-only"> ({{ SEVERITY[d.severity]?.label }})</span>
-            </p>
-            <p class="mt-0.5 text-xs text-muted">
-              {{ d.fix }}
-            </p>
-          </div>
-        </li>
-      </ul>
-      <p
-        v-else
-        class="mt-3 text-xs text-muted"
-      >
-        No problems found against the requirements.
-      </p>
+          <li
+            v-for="d in output.defects"
+            :key="d.id"
+            class="flex gap-2.5 py-2.5 first:pt-0 last:pb-0"
+          >
+            <span
+              class="mt-1.5 size-2 shrink-0 rounded-full"
+              :class="SEVERITY[d.severity]?.dot"
+              :title="SEVERITY[d.severity]?.label"
+            />
+            <div class="min-w-0 text-sm">
+              <p class="text-default">
+                <span class="font-medium text-highlighted">{{ d.area }}.</span> {{ d.problem }}
+                <span class="sr-only"> ({{ SEVERITY[d.severity]?.label }})</span>
+              </p>
+              <p class="mt-0.5 text-xs text-muted">
+                {{ d.fix }}
+              </p>
+            </div>
+          </li>
+        </ul>
+        <p
+          v-else
+          class="mt-3 text-xs text-muted"
+        >
+          No problems found against the requirements.
+        </p>
 
-      <template v-if="imageUrl">
-        <button
-          type="button"
-          class="mt-3 text-xs text-muted hover:text-default"
-          @click="showImage = !showImage"
+        <template v-if="imageUrl">
+          <button
+            type="button"
+            class="mt-3 text-xs text-muted hover:text-default"
+            @click="showImage = !showImage"
+          >
+            {{ showImage ? 'Hide screenshot' : 'Show screenshot' }}
+          </button>
+          <img
+            v-if="showImage"
+            :src="imageUrl"
+            alt="Screenshot that was checked"
+            class="mt-2 max-h-64 w-full rounded-lg object-cover object-top ring-1 ring-default"
+          >
+        </template>
+        <p
+          v-else-if="imageFailed"
+          class="mt-3 text-xs text-muted"
         >
-          {{ showImage ? 'Hide screenshot' : 'Show screenshot' }}
-        </button>
-        <img
-          v-if="showImage"
-          :src="imageUrl"
-          alt="Screenshot that was checked"
-          class="mt-2 max-h-64 w-full rounded-lg object-cover object-top ring-1 ring-default"
-        >
-      </template>
-      <p
-        v-else-if="imageFailed"
-        class="mt-3 text-xs text-muted"
-      >
-        The screenshot is no longer available.
-      </p>
-    </div>
+          The screenshot is no longer available.
+        </p>
+      </div>
     </Reveal>
   </div>
 </template>
