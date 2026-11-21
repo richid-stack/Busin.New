@@ -71,6 +71,26 @@ export function groundedInUserText(userText: string, text: string): boolean {
   return missing.length === 0
 }
 
+/**
+ * For a suggestion that turns a correction into a rule ("too long, keep it to three bullets" -> "Responses should be limited to
+ * three short bullet points"). Looser than groundedInUserText, which guards an explicit "remember this": a few words may be new,
+ * but numbers and anything that looks like a link, address or handle must come from the person, and most of it must be theirs.
+ * The person still sees the exact words next to their own message and decides.
+ */
+export function groundedInCorrection(userText: string, text: string): boolean {
+  const wanted = stems(text)
+  if (!wanted.size) return false
+  const said = stems(userText)
+  const saidWords = new Set(normalize(userText).split(' '))
+  if (normalize(text).split(' ').some(w => (/\d/.test(w) || NUMBER_WORDS.has(w)) && !saidWords.has(w))) return false
+  const risky = text.match(/https?:\/\/\S+|\b[\w-]+(\.[\w-]+)+\.[a-z]{2,}\b|\b[\w-]+\.(com|org|net|io|app|dev|gh|co)\b|@\w+|\b\w+@\w+/gi) ?? []
+  if (risky.some(r => !userText.toLowerCase().includes(r.toLowerCase()))) return false
+  const missing = [...wanted].filter(w => !said.has(w) && !REPHRASED.has(w))
+  return missing.length <= Math.max(3, Math.floor(wanted.size / 2))
+}
+
+const NUMBER_WORDS = new Set(['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'twenty', 'fifty', 'hundred', 'thousand', 'first', 'second', 'third'])
+
 const REPHRASED = new Set(['work', 'like', 'love', 'live', 'want', 'name', 'call', 'pref', 'favo', 'enjo', 'uses', 'base', 'born', 'spea', 'know', 'need', 'owns', 'main'])
 
 /** The person points at a memory without describing it ("forget that", "forget what I told you about my job"). */

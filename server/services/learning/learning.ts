@@ -4,7 +4,7 @@
  * nothing is saved until they press the button (see POST /api/learning). Plain functions so they can be tested directly.
  */
 import { createHash } from 'node:crypto'
-import { MemoryError, cleanMemoryText, groundedInUserText, sameMemory } from '../memory/memory'
+import { MemoryError, cleanMemoryText, groundedInCorrection, sameMemory } from '../memory/memory'
 import type { MemoryItem } from '../memory/memory'
 import { MAX_INSTRUCTIONS_CHARS } from '../agents/profile'
 
@@ -46,7 +46,7 @@ export function checkProposal(input: LearningInput): LearningResult {
   if (evidence.length < 3 || evidence.length > 240 || !said.includes(normalize(evidence))) {
     return { ok: false, error: 'The evidence must be copied from the person\'s own latest message. Suggest nothing unless they said it.' }
   }
-  if (!groundedInUserText(input.userText, text)) {
+  if (!groundedInCorrection(input.userText, text)) {
     return { ok: false, error: 'That is not what the person said. Suggest only what they said, in their words.' }
   }
   if (input.before.some(b => sameMemory(b, text))) return { ok: false, error: 'You already suggested that in this chat.' }

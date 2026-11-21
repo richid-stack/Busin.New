@@ -104,10 +104,13 @@ try {
     show(`${tag} handoff: what the assistant said`, job.text || '(nothing)', 1200)
     const calls = job.events.filter(e => e.t === 'call').map(e => e.name)
     console.log(`  ${tag} tool order:`, calls.join(' > ') || '(none)')
+    // Small free plans (Groq) are given only the tools a message is about, so the specialists are not offered there on purpose.
+    const lean = provider === 'groq'
     const handIdx = job.events.findIndex(e => e.t === 'call' && e.name === 'hand_to_specialist')
     const handed = job.events.find(e => e.t === 'result' && e.name === 'hand_to_specialist')
-    check(handIdx >= 0 && handed?.output?.status === 'handed' && handed.output.specialist === 'chameleon', `[${tag}] the assistant hands the job to Chameleon`, handIdx < 0 ? `tools used: ${calls.join(', ') || 'none'}` : `status ${handed?.output?.status} ${handed?.output?.error || ''}`)
-    if (handIdx >= 0) {
+    if (lean) check(handIdx < 0, `[${tag}] a small free plan is not offered specialists (it gets lean tools)`, calls.join(', ') || 'no tools')
+    else check(handIdx >= 0 && handed?.output?.status === 'handed' && handed.output.specialist === 'chameleon', `[${tag}] the assistant hands the job to Chameleon`, handIdx < 0 ? `tools used: ${calls.join(', ') || 'none'}` : `status ${handed?.output?.status} ${handed?.output?.error || ''}`)
+    if (!lean && handIdx >= 0) {
       check(/chameleon/i.test(job.events[handIdx].textBefore || ''), `[${tag}] it tells the person which agent it is using, before handing over`, (job.events[handIdx].textBefore || '').slice(0, 120).replace(/\s+/g, ' '))
       const reportIdx = job.events.findIndex((e, i) => i > handIdx && e.t === 'call' && e.name === 'report_back')
       const between = job.events.slice(handIdx + 1, reportIdx < 0 ? undefined : reportIdx)
@@ -130,6 +133,7 @@ try {
     const fix = await turn(token, model, 'No, that is too long. From now on keep every answer to three short bullet points.')
     const prop = fix.tools.find(t => t.name === 'propose_learning')
     show(`${tag} correction: what the assistant said`, fix.text || '(nothing)', 600)
+    if (prop) console.log(`  ${tag} proposal input:`, JSON.stringify(prop.input), '->', JSON.stringify(prop.output).slice(0, 300))
     check(prop?.output?.status === 'proposed', `[${tag}] a correction is offered back as a suggestion`, prop ? `status ${prop.output?.status} ${prop.output?.error || ''}` : `tools used: ${fix.tools.map(t => t.name).join(', ') || 'none'}`)
     if (prop?.output?.status === 'proposed') {
       console.log(`  ${tag} suggestion:`, JSON.stringify({ text: prop.output.text, evidence: prop.output.evidence }))
