@@ -493,7 +493,7 @@ ${signedIn ? (setup.workflowPrompt && !(focused && !('integration_status' in too
           },
           stopWhen: isStepCount(setup.maxSteps + (offered.length ? HAND_OFF_EXTRA_STEPS : 0)),
           // Who is working (the lead or a specialist) is worked out from the messages at every step, so it survives an approval and a reload.
-          prepareStep: offered.length ? (({ messages: stepMessages, instructions: stepInstructions }) => planStep({ messages: stepMessages as any, toolNames: Object.keys(tools), instructions: stepInstructions as any }) as any) : undefined,
+          prepareStep: offered.length ? (({ messages: stepMessages, initialInstructions }) => planStep({ messages: stepMessages as any, toolNames: Object.keys(tools), instructions: initialInstructions as any }) as any) : undefined,
           experimental_transform: smoothStream(),
           onChunk: () => { produced = true },
           onFinish: async (event) => {

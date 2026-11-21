@@ -45,7 +45,7 @@ assert(activeHandoff([user, { role: 'assistant', content: [{ type: 'tool-call', 
 // ---- What the next step may use ----
 const names = [...all, 'hand_to_specialist', 'report_back']
 const lead = planStep({ messages: [user], toolNames: names, instructions: 'Rules.' })
-assert(lead.activeTools.includes('hand_to_specialist') && !lead.activeTools.includes('report_back') && lead.instructions === undefined && lead.toolChoice === undefined, 'the lead keeps its tools, without report_back, and its own instructions')
+assert(lead.activeTools.includes('hand_to_specialist') && !lead.activeTools.includes('report_back') && lead.instructions === 'Rules.' && lead.toolChoice === undefined, 'the lead keeps its tools, without report_back, and its own instructions')
 const spec = planStep({ messages: worked, toolNames: names, instructions: 'Rules.' })
 assert(spec.activeTools.includes('report_back') && spec.activeTools.includes('web_search') && !spec.activeTools.includes('hand_to_specialist') && !spec.activeTools.includes('integration_execute') && !spec.activeTools.includes('browser'), 'a specialist gets its own tools and report_back, never hand_to_specialist or other kinds of tools')
 assert(typeof spec.instructions === 'string' && spec.instructions.startsWith('Rules.') && /CHAMELEON/.test(spec.instructions) && /Compare the pricing pages/.test(spec.instructions), 'its instructions are added after the chat\'s own, with the brief')
@@ -64,3 +64,57 @@ assert((await run(createHandToSpecialistTool('u1', offeredSpecialists(['browser'
 const rb = createReportBackTool() as any
 assert((await run(rb, { summary: 'Nothing to report' }, [user])).status === 'failed', 'reporting back with no open job is refused')
 assert((await run(rb, { summary: 'Prices differ by 12%.' }, worked)).status === 'reported', 'a specialist can report back')
+
+// ---- Through a real streamText run (scripted model), wired the way the chat route wires it ----
+{
+  const { streamText, tool, isStepCount, simulateReadableStream } = await import('ai')
+  const { MockLanguageModelV4 } = await import('ai/test')
+  const { z } = await import('zod')
+  const usage = { inputTokens: { total: 3, noCache: 3, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 2, text: 2, reasoning: 0 } }
+  const callPart = (id: string, name: string, input: unknown) => [{ type: 'stream-start', warnings: [] }, { type: 'tool-call', toolCallId: id, toolName: name, input: JSON.stringify(input) }, { type: 'finish', finishReason: { unified: 'tool-calls', raw: 'tool_calls' }, usage }]
+  const textPart = (text: string) => [{ type: 'stream-start', warnings: [] }, { type: 'text-start', id: 't' }, { type: 'text-delta', id: 't', delta: text }, { type: 'text-end', id: 't' }, { type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage }]
+  const chunks = (parts: any[]) => ({ stream: simulateReadableStream({ chunks: parts, chunkDelayInMs: null, initialDelayInMs: null }) })
+  const base = {
+    web_search: tool({ description: 'search', inputSchema: z.object({ query: z.string() }), execute: async () => ({ results: [] }) }),
+    calculator: tool({ description: 'calc', inputSchema: z.object({ e: z.string() }), execute: async () => ({ value: 1 }) }),
+    browser: tool({ description: 'browser', inputSchema: z.object({}), execute: async () => ({}) })
+  }
+  const offered = offeredSpecialists(Object.keys(base))
+  const tools: any = { ...base, hand_to_specialist: createHandToSpecialistTool('u1', offered), report_back: createReportBackTool() }
+  const seen: Array<{ names: string[], system: string, choice: any }> = []
+  const record = (o: any) => seen.push({
+    names: (o.tools ?? []).map((t: any) => t.name),
+    system: (o.prompt ?? []).filter((m: any) => m.role === 'system').map((m: any) => (typeof m.content === 'string' ? m.content : '')).join('\n'),
+    choice: o.toolChoice
+  })
+  const runIt = async (script: any[][], stepsAfterCap = 12) => {
+    seen.length = 0
+    let i = 0
+    const model = new MockLanguageModelV4({ doStream: async (o: any) => { record(o); return chunks(script[Math.min(i++, script.length - 1)]!) } })
+    const r = streamText({
+      model, instructions: 'Rules.', messages: [{ role: 'user', content: 'Compare two pricing pages' }], tools, maxRetries: 0, onError: () => {},
+      stopWhen: isStepCount(stepsAfterCap),
+      prepareStep: ({ messages, initialInstructions }: any) => planStep({ messages, toolNames: Object.keys(tools), instructions: initialInstructions }) as any
+    })
+    for await (const _ of r.stream as any) { /* drain */ }
+    return r
+  }
+
+  await runIt([
+    callPart('h1', 'hand_to_specialist', { specialist: 'chameleon', brief: 'Compare the pricing pages of Acme and Beta.' }),
+    callPart('s1', 'web_search', { query: 'acme pricing' }),
+    callPart('r1', 'report_back', { summary: 'Acme is cheaper at Team level.' }),
+    textPart('Chameleon compared them.')
+  ])
+  assert(seen.length === 4, 'the run takes four steps: hand over, work, report, answer')
+  assert(seen[0]!.names.includes('hand_to_specialist') && !seen[0]!.names.includes('report_back') && !/CHAMELEON/.test(seen[0]!.system), 'step 1: the lead, with its own tools and instructions')
+  assert(seen[1]!.names.sort().join() === 'report_back,web_search' && /CHAMELEON/.test(seen[1]!.system) && /Compare the pricing pages of Acme and Beta/.test(seen[1]!.system) && /^Rules\./.test(seen[1]!.system), 'step 2: Chameleon has only its own tools, its instructions and the brief')
+  assert(seen[2]!.names.sort().join() === 'report_back,web_search' && /CHAMELEON/.test(seen[2]!.system), 'step 3: still Chameleon, and it can report back')
+  assert(seen.every(x => (x.system.match(/YOU ARE NOW/g) ?? []).length <= 1), 'the specialist block is never added twice')
+  assert(seen[3]!.names.includes('hand_to_specialist') && !seen[3]!.names.includes('report_back') && !/CHAMELEON/.test(seen[3]!.system), 'step 4: the job is back with the lead, who answers')
+
+  await runIt([callPart('h1', 'hand_to_specialist', { specialist: 'chameleon', brief: 'Compare the pricing pages.' }), callPart('s', 'web_search', { query: 'x' })], 14)
+  const forced = seen.filter(s => s.choice?.type === 'tool' && s.choice.toolName === 'report_back')
+  assert(forced.length > 0 && forced[0]!.names.join() === 'report_back' && /out of steps/.test(forced[0]!.system), 'a specialist that never stops is made to report back')
+  assert(seen.length === 1 + SPECIALIST_MAX_STEPS + forced.length && seen.slice(1, 1 + SPECIALIST_MAX_STEPS).every(s => s.names.includes('web_search')), 'it gets exactly its step allowance first')
+}

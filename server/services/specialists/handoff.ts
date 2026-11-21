@@ -100,15 +100,16 @@ export function appendInstructions(base: Instructions, extra: string): Instructi
   return Array.isArray(base) ? [...base, add] : [base, add]
 }
 
-export interface StepPlan { activeTools: string[], toolChoice?: { type: 'tool', toolName: string }, instructions?: Instructions }
+export interface StepPlan { activeTools: string[], toolChoice?: { type: 'tool', toolName: string }, instructions: Instructions }
 
 /**
- * What the next step may use. The lead keeps everything except `report_back`. A specialist gets only its own tools,
+ * What the next step may use. `instructions` must be the chat's own, from before any step changed them (`initialInstructions`). The lead keeps everything except `report_back`. A specialist gets only its own tools,
  * plus `report_back`, and once it has used its steps it can only report back.
  */
 export function planStep(input: { messages: Message[], toolNames: string[], instructions: Instructions }): StepPlan {
   const h = activeHandoff(input.messages)
-  if (!h) return { activeTools: input.toolNames.filter(n => n !== REPORT_TOOL) }
+  // The lead gets the chat's own instructions back every time: an override from an earlier step carries forward unless it is replaced.
+  if (!h) return { activeTools: input.toolNames.filter(n => n !== REPORT_TOOL), instructions: input.instructions }
   const own = specialistToolNames(h.specialist, input.toolNames)
   if (h.steps >= SPECIALIST_MAX_STEPS) {
     return {
