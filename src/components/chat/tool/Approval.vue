@@ -114,14 +114,14 @@ async function answer(approved: boolean) {
         <div class="min-w-0">
           <p
             v-if="by"
-            class="mb-1 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-dimmed"
+            class="mb-1 flex items-center gap-1.5 text-xs text-muted"
           >
             <Creature
               :species="by.id as Species"
               mood="asking"
               :size="18"
             />
-            Asked by {{ by.name }}, the {{ by.role }}
+            {{ by.name }}
           </p>
           <p class="text-sm font-semibold text-highlighted">
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}

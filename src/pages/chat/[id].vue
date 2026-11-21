@@ -533,7 +533,7 @@ function handleTextAction(action: string, selectedText: string) {
                 :size="20"
                 animate
               />
-              <span class="truncate">{{ workingSpecialist.name }} is working</span>
+              <span class="truncate">{{ workingSpecialist.name }}</span>
             </span>
           </nav>
         </template>
