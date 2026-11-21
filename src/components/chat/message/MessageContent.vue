@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Fragment, computed } from 'vue'
+import { computed } from 'vue'
 import { isReasoningUIPart, isTextUIPart, isToolUIPart, isFileUIPart, getToolName } from 'ai'
 import type { UIMessage } from 'ai'
 import { isPartStreaming, isToolStreaming } from '@nuxt/ui/utils/ai'
@@ -14,6 +14,7 @@ import ChatToolGeneric from '../tool/Generic.vue'
 import ChatToolMemory from '../tool/Memory.vue'
 import ChatToolNotes from '../tool/Notes.vue'
 import ChatToolAgentProposal from '../tool/AgentProposal.vue'
+import SpecialistLane from './SpecialistLane'
 import ChatToolLearning from '../tool/LearningProposal.vue'
 import ChatToolSpecialist from '../tool/SpecialistStep.vue'
 import { specialistLanes } from '../../../utils/specialistLanes'
@@ -102,11 +103,8 @@ const runPlace = (tool: string) => (tool === 'run_in_cloud' ? 'in the cloud' : t
     v-for="(part, index) in merged"
     :key="`${message.id}-${part.type}-${index}${isToolPart(part) ? `-${(part as { state?: string }).state}` : ''}`"
   >
-    <!-- A specialist's steps sit in a lane with a hairline on the left; everything else is drawn as before (a fragment adds no element). -->
-    <component
-      :is="lanes[index] ? 'div' : Fragment"
-      v-bind="lanes[index] ? { class: 'ml-1.5 border-l border-default pl-4', 'data-specialist': lanes[index]!.id } : {}"
-    >
+    <!-- A specialist's steps sit in a lane with a hairline on the left; everything else is drawn as before. -->
+    <SpecialistLane :id="lanes[index]?.id">
       <!-- Tool parts are updated in place as results arrive. Keying them by state makes each row draw again when its state changes, so no row stays on "Running", "Drafting" or empty until the chat is reloaded. -->
       <UChatReasoning
         v-if="isReasoningUIPart(part)"
@@ -688,6 +686,6 @@ const runPlace = (tool: string) => (tool === 'run_in_cloud' ? 'in the cloud' : t
           </p>
         </template>
       </template>
-    </component>
+    </SpecialistLane>
   </template>
 </template>
