@@ -11,6 +11,11 @@ import AgentEditor from '../../components/agents/AgentEditor.vue'
 import ProfileSetupDialog from '../../components/reef/ProfileSetupDialog.vue'
 import PublishDialog from '../../components/reef/PublishDialog.vue'
 import { MODELS } from '../../../shared/utils/models'
+import { mascotFor } from '../../../shared/mascots'
+import { SPECIALISTS } from '../../../shared/specialists'
+import Person from '../../components/agents/Person.vue'
+import Creature from '../../components/agents/Creature.vue'
+import StatusChip from '../../components/tasks/StatusChip.vue'
 import type { AgentInput, AgentProfile } from '../../types/agents'
 
 const ModalConfirm = defineAsyncComponent(() => import('../../components/ModalConfirm.vue'))
@@ -103,8 +108,12 @@ const isEmpty = computed(() => loaded.value && !loading.value && !unauthorized.v
     <div class="max-w-3xl w-full mx-auto px-4 sm:px-6 py-12 md:py-20 flex-1">
       <div class="flex items-start justify-between gap-4 mb-10">
         <div>
-          <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-highlighted mb-3">Agents</h1>
-          <p class="text-muted text-base md:text-lg">Saved assistants with their own instructions, tools and skills.</p>
+          <h1 class="text-3xl md:text-4xl font-semibold tracking-tight text-highlighted mb-3">
+            Agents
+          </h1>
+          <p class="text-muted text-base md:text-lg">
+            Saved assistants with their own instructions, tools and skills.
+          </p>
         </div>
         <UButton
           v-if="!unauthorized"
@@ -117,58 +126,234 @@ const isEmpty = computed(() => loaded.value && !loading.value && !unauthorized.v
         />
       </div>
 
-      <StateCard v-if="unauthorized" icon="i-lucide-lock" title="Sign in to make agents" text="Agents are saved to your account and can use the apps you connect.">
-        <UButton label="Sign in" icon="i-lucide-log-in" color="neutral" @click="openAuthModal" />
+      <StateCard
+        v-if="unauthorized"
+        icon="i-lucide-lock"
+        title="Sign in to make agents"
+        text="Agents are saved to your account and can use the apps you connect."
+      >
+        <UButton
+          label="Sign in"
+          icon="i-lucide-log-in"
+          color="neutral"
+          @click="openAuthModal"
+        />
       </StateCard>
 
-      <StateCard v-else-if="loadError" icon="i-lucide-cloud-off" title="Could not load your agents" :text="loadError">
-        <UButton label="Try again" icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" @click="fetchAgents" />
+      <StateCard
+        v-else-if="loadError"
+        icon="i-lucide-cloud-off"
+        title="Could not load your agents"
+        :text="loadError"
+      >
+        <UButton
+          label="Try again"
+          icon="i-lucide-refresh-cw"
+          color="neutral"
+          variant="subtle"
+          :loading="loading"
+          @click="fetchAgents"
+        />
       </StateCard>
 
-      <PageSkeleton v-else-if="!loaded" shape="cards" />
+      <PageSkeleton
+        v-else-if="!loaded"
+        shape="cards"
+      />
 
-      <StateCard v-else-if="isEmpty" icon="i-lucide-bot" title="No agents yet" text="Make one for a job you repeat, like research, your inbox or drafting documents. It starts from a ready-made set you can change." kind="empty">
-        <UButton label="New agent" icon="i-lucide-plus" color="neutral" @click="openNew" />
+      <StateCard
+        v-else-if="isEmpty"
+        icon="i-lucide-bot"
+        title="No agents yet"
+        text="Make one for a job you repeat, like research, your inbox or drafting documents. It starts from a ready-made set you can change."
+        kind="empty"
+      >
+        <UButton
+          label="New agent"
+          icon="i-lucide-plus"
+          color="neutral"
+          @click="openNew"
+        />
       </StateCard>
 
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div
+      <ul
+        v-else
+        class="divide-y divide-default border-y border-default"
+      >
+        <li
           v-for="agent in agents"
           :key="agent.id"
-          class="group relative rounded-2xl border border-default bg-default p-5 hover:bg-elevated/60 hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col"
+          class="flex items-start gap-4 py-5"
         >
-          <div class="flex items-start justify-between gap-3 mb-4">
-            <div class="p-2.5 rounded-xl border border-default shadow-sm bg-default">
-              <UIcon name="i-lucide-bot" class="size-5 text-primary" />
+          <div class="size-14 shrink-0 rounded-2xl border border-default bg-elevated/60 flex items-center justify-center">
+            <Person
+              :id="mascotFor(agent)"
+              :size="48"
+            />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-highlighted truncate">
+                  {{ agent.name }}
+                </h3>
+                <p class="mt-0.5 text-xs text-muted leading-relaxed line-clamp-2">
+                  {{ agent.description || agent.instructions }}
+                </p>
+              </div>
+              <UDropdownMenu
+                :items="menuItems(agent)"
+                :content="{ align: 'end' }"
+              >
+                <UButton
+                  icon="i-lucide-ellipsis"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :aria-label="`Actions for ${agent.name}`"
+                />
+              </UDropdownMenu>
             </div>
-            <UDropdownMenu :items="menuItems(agent)" :content="{ align: 'end' }">
-              <UButton icon="i-lucide-ellipsis" color="neutral" variant="ghost" size="xs" :aria-label="`Actions for ${agent.name}`" />
-            </UDropdownMenu>
+            <div class="mt-3 flex flex-wrap gap-1.5">
+              <StatusChip
+                v-for="id in agent.tools.slice(0, 3)"
+                :key="id"
+                :label="groupLabel(id)"
+                tone="quiet"
+                class="max-w-full truncate"
+              />
+              <StatusChip
+                v-if="agent.tools.length > 3"
+                :label="`+${agent.tools.length - 3}`"
+                tone="quiet"
+              />
+              <StatusChip
+                v-if="!agent.tools.length"
+                label="No tools"
+                tone="quiet"
+              />
+            </div>
+            <p class="mt-2 text-[11px] text-dimmed">
+              {{ modelLabel(agent.model) }} · up to {{ agent.maxSteps }} steps
+            </p>
+            <p
+              v-if="agent.source"
+              class="mt-1 flex items-center gap-1 min-w-0 text-[11px] text-dimmed"
+            >
+              <UIcon
+                name="i-lucide-waves"
+                class="size-3 shrink-0"
+              />
+              <RouterLink
+                v-if="agent.source.project"
+                :to="`/reef/${agent.source.project}`"
+                class="truncate hover:text-default hover:underline"
+              >
+                From The Reef · {{ agent.source.project }}
+              </RouterLink>
+              <span
+                v-else
+                class="truncate"
+              >From The Reef<template v-if="agent.source.author"> · by {{ agent.source.author }}</template></span>
+            </p>
+            <div class="mt-3 flex items-center gap-2">
+              <UButton
+                label="Chat"
+                icon="i-lucide-message-circle"
+                size="sm"
+                color="neutral"
+                @click="startChat(agent)"
+              />
+              <UButton
+                label="Edit"
+                icon="i-lucide-pencil"
+                size="sm"
+                color="neutral"
+                variant="subtle"
+                @click="openEdit(agent)"
+              />
+            </div>
           </div>
-          <h3 class="text-sm font-semibold text-highlighted mb-1 truncate">{{ agent.name }}</h3>
-          <p class="text-xs text-muted leading-relaxed line-clamp-2 min-h-[2rem]">{{ agent.description || agent.instructions }}</p>
-          <div class="flex flex-wrap gap-1.5 mt-4">
-            <UBadge v-for="id in agent.tools.slice(0, 3)" :key="id" :label="groupLabel(id)" color="neutral" variant="subtle" size="sm" class="max-w-full truncate" />
-            <UBadge v-if="agent.tools.length > 3" :label="`+${agent.tools.length - 3}`" color="neutral" variant="subtle" size="sm" />
-            <UBadge v-if="!agent.tools.length" label="No tools" color="neutral" variant="subtle" size="sm" />
-          </div>
-          <p class="text-[11px] text-dimmed mt-3">{{ modelLabel(agent.model) }} · up to {{ agent.maxSteps }} steps</p>
-          <p v-if="agent.source" class="text-[11px] text-dimmed mt-1 flex items-center gap-1 min-w-0">
-            <UIcon name="i-lucide-waves" class="size-3 shrink-0" />
-            <RouterLink v-if="agent.source.project" :to="`/reef/${agent.source.project}`" class="truncate hover:text-default hover:underline">From The Reef · {{ agent.source.project }}</RouterLink>
-            <span v-else class="truncate">From The Reef<template v-if="agent.source.author"> · by {{ agent.source.author }}</template></span>
-          </p>
-          <div class="flex items-center gap-2 mt-4 pt-4 border-t border-default">
-            <UButton label="Chat" icon="i-lucide-message-circle" size="sm" color="neutral" @click="startChat(agent)" />
-            <UButton label="Edit" icon="i-lucide-pencil" size="sm" color="neutral" variant="subtle" @click="openEdit(agent)" />
-          </div>
-        </div>
-      </div>
+        </li>
+      </ul>
 
-      <p v-if="atLimit" class="text-xs text-muted mt-4">You have reached the limit of {{ options?.limits.maxAgents }} agents. Delete one to make another.</p>
+      <p
+        v-if="atLimit"
+        class="text-xs text-muted mt-4"
+      >
+        You have reached the limit of {{ options?.limits.maxAgents }} agents. Delete one to make another.
+      </p>
+
+      <section
+        class="mt-16"
+        aria-labelledby="built-in-heading"
+      >
+        <div class="flex items-center gap-2.5">
+          <h2
+            id="built-in-heading"
+            class="text-lg font-semibold tracking-tight text-highlighted"
+          >
+            OpenLobs specialists
+          </h2>
+          <StatusChip
+            label="Built in"
+            tone="quiet"
+          />
+        </div>
+        <p class="mt-1.5 mb-5 max-w-xl text-sm text-muted">
+          OpenLobs hands a job to one of these on its own when one fits, and says so in the chat. They are not counted in your {{ options?.limits.maxAgents ?? 10 }} agents, and they cannot be changed.
+        </p>
+        <ul class="divide-y divide-default border-y border-default">
+          <li
+            v-for="s in SPECIALISTS"
+            :key="s.id"
+          >
+            <details class="group">
+              <summary class="flex cursor-pointer list-none items-center gap-4 py-4 focus-visible:outline-2 focus-visible:outline-primary">
+                <div class="size-12 shrink-0 rounded-xl border border-default bg-elevated/60 flex items-center justify-center">
+                  <Creature
+                    :species="s.id"
+                    :size="40"
+                  />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-highlighted">
+                    {{ s.name }}
+                    <span class="font-mono text-[11px] font-medium uppercase tracking-wider text-muted">{{ s.role }}</span>
+                  </p>
+                  <p class="mt-0.5 text-xs text-muted">
+                    {{ s.note }}
+                  </p>
+                </div>
+                <UIcon
+                  name="i-lucide-chevron-down"
+                  class="size-4 shrink-0 text-dimmed transition-transform duration-200 group-open:rotate-180"
+                />
+              </summary>
+              <div class="pb-5 pl-16 pr-2">
+                <p class="text-sm text-default">
+                  {{ s.when }}
+                </p>
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                  <StatusChip
+                    v-for="g in s.groups"
+                    :key="g"
+                    :label="groupLabel(g)"
+                    tone="quiet"
+                    class="max-w-full truncate"
+                  />
+                </div>
+              </div>
+            </details>
+          </li>
+        </ul>
+      </section>
     </div>
 
-    <PublishDialog v-model:open="shareOpen" :agent="sharing" />
+    <PublishDialog
+      v-model:open="shareOpen"
+      :agent="sharing"
+    />
     <ProfileSetupDialog />
 
     <AgentEditor

@@ -45,6 +45,10 @@ export function isCreatureId(value: unknown): value is CreatureId {
 export function personById(id: unknown): PersonMascot | null {
   return PEOPLE.find(p => p.id === id) ?? null
 }
+/** The person for an agent: the one it was given, or the one its name picks (older agents were saved without one). */
+export function mascotFor(agent: { mascot?: string | null, name: string }): string {
+  return isPersonId(agent.mascot) ? agent.mascot : defaultPersonFor(agent.name)
+}
 /** The same name always gets the same person, so an agent with no pick still looks the same everywhere. */
 export function defaultPersonFor(name: string): string {
   const hash = (name || '').split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)

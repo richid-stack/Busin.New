@@ -21,6 +21,10 @@ import { usePromptAttachments } from '../../composables/usePromptAttachments'
 import PromptAttachments from '../../components/PromptAttachments.vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatMessageContent from '../../components/chat/message/MessageContent.vue'
+import Person from '../../components/agents/Person.vue'
+import Creature from '../../components/agents/Creature.vue'
+import { mascotFor } from '../../../shared/mascots'
+import { specialistLanes } from '../../utils/specialistLanes'
 import ChatMessageActions from '../../components/chat/message/MessageActions.vue'
 import { useChatActions } from '../../composables/useChatActions'
 import ChatTitle from '../../components/chat/ChatTitle.vue'
@@ -284,7 +288,16 @@ onBeforeUnmount(() => workPane.close())
 // The approval cards in the messages answer through this.
 provide('respondToToolApproval', (id: string, approved: boolean) => addToolApprovalResponse({ id, approved }))
 
+// Who OpenLobs has handed the job to right now, so the header says plainly when a specialist is working.
+const workingSpecialist = computed(() => {
+  if (status.value !== 'streaming' && status.value !== 'submitted') return null
+  const last = messages.value[messages.value.length - 1]
+  return last?.role === 'assistant' ? specialistLanes(last.parts ?? []).active : null
+})
+
 const activeActivityText = computed(() => {
+  const who = workingSpecialist.value
+  if (status.value === 'streaming' && who) return `${who.name} is working...`
   if (status.value !== 'streaming') return 'Thinking...'
 
   const lastMsg = messages.value[messages.value.length - 1]
@@ -475,10 +488,21 @@ function handleTextAction(action: string, selectedText: string) {
     <template #header>
       <Navbar>
         <template #title>
-          <nav class="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
+          <nav
+            class="flex min-w-0 items-center gap-2 text-sm"
+            aria-label="Breadcrumb"
+          >
             <template v-if="workspace">
-              <RouterLink :to="`/workspaces/${workspace.id}`" class="max-w-48 truncate text-muted hover:text-default">{{ workspace.name }}</RouterLink>
-              <UIcon name="i-lucide-chevron-right" class="size-3.5 shrink-0 text-dimmed" />
+              <RouterLink
+                :to="`/workspaces/${workspace.id}`"
+                class="max-w-48 truncate text-muted hover:text-default"
+              >
+                {{ workspace.name }}
+              </RouterLink>
+              <UIcon
+                name="i-lucide-chevron-right"
+                class="size-3.5 shrink-0 text-dimmed"
+              />
             </template>
             <ChatTitle
               :chat-id="data!.id"
@@ -486,16 +510,31 @@ function handleTextAction(action: string, selectedText: string) {
               :is-owner="isOwner"
               @update:title="title = $event"
             />
-            <UBadge
+            <span
               v-if="agent"
-              :label="agent.name"
-              icon="i-lucide-bot"
-              color="neutral"
-              variant="subtle"
-              size="sm"
-              class="ml-1 hidden max-w-40 truncate sm:inline-flex"
+              class="ml-1 hidden max-w-44 items-center gap-1.5 rounded-md bg-elevated px-1.5 py-0.5 text-xs font-medium text-highlighted ring-1 ring-inset ring-default sm:inline-flex"
               :title="`This chat is with your agent ${agent.name}`"
-            />
+            >
+              <Person
+                :id="mascotFor(agent)"
+                :size="20"
+              />
+              <span class="truncate">{{ agent.name }}</span>
+            </span>
+            <span
+              v-if="workingSpecialist"
+              class="ml-1 inline-flex max-w-52 items-center gap-1.5 rounded-md bg-elevated px-1.5 py-0.5 text-xs font-medium text-highlighted ring-1 ring-inset ring-default"
+              :title="`OpenLobs is using its specialist ${workingSpecialist.name}, the ${workingSpecialist.role}`"
+              role="status"
+            >
+              <Creature
+                :species="workingSpecialist.id"
+                mood="working"
+                :size="20"
+                animate
+              />
+              <span class="truncate">{{ workingSpecialist.name }} is working</span>
+            </span>
           </nav>
         </template>
 
@@ -504,7 +543,10 @@ function handleTextAction(action: string, selectedText: string) {
           class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted ring-1 ring-inset ring-default"
           title="Not saved and not remembered. Deleted when you leave."
         >
-          <UIcon name="i-lucide-ghost" class="size-3.5" />
+          <UIcon
+            name="i-lucide-ghost"
+            class="size-3.5"
+          />
           Ghost mode
         </span>
         <UDropdownMenu
@@ -596,7 +638,11 @@ function handleTextAction(action: string, selectedText: string) {
 
           <template #footer>
             <div class="flex items-center gap-2 pt-1">
-              <PlusMenu id="chat-attach-btn" :items="plus.items.value" :active="plus.active.value" />
+              <PlusMenu
+                id="chat-attach-btn"
+                :items="plus.items.value"
+                :active="plus.active.value"
+              />
               <input
                 ref="fileInput"
                 type="file"

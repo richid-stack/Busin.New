@@ -6,8 +6,10 @@ import { appLogo } from '../../../utils/appLogo'
 import { mcpLogo } from '../../../utils/mcpLogo'
 import { checkStep, commandLine } from '../../../../shared/runPlan'
 import { MCP_PRESETS, presetById } from '../../../../shared/mcpCatalog'
+import Creature from '../../agents/Creature.vue'
+import type { Species } from '../../agents/Creature.vue'
 
-const props = defineProps<{ part: any, /** What will be done, when the tool cannot say it in its own inputs (the browser). */ instruction?: string, /** Replaces the tool's name in the heading (the site, for the browser). */ label?: string, /** Not a yes/no question: the page needs you to do something (sign in, a code), then press Continue. */ person?: boolean }>()
+const props = defineProps<{ part: any, /** What will be done, when the tool cannot say it in its own inputs (the browser). */ instruction?: string, /** Replaces the tool's name in the heading (the site, for the browser). */ label?: string, /** Not a yes/no question: the page needs you to do something (sign in, a code), then press Continue. */ person?: boolean, /** The OpenLobs specialist that is asking, when one is working. */ by?: { id: string, name: string, role: string } | null }>()
 
 type Respond = (approvalId: string, approved: boolean) => void | Promise<void>
 const respond = inject<Respond | null>('respondToToolApproval', null)
@@ -110,6 +112,17 @@ async function answer(approved: boolean) {
           />
         </div>
         <div class="min-w-0">
+          <p
+            v-if="by"
+            class="mb-1 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider text-dimmed"
+          >
+            <Creature
+              :species="by.id as Species"
+              mood="asking"
+              :size="18"
+            />
+            Asked by {{ by.name }}, the {{ by.role }}
+          </p>
           <p class="text-sm font-semibold text-highlighted">
             {{ person ? 'This page needs you' : 'Approve this before it runs' }}
           </p>

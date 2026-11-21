@@ -83,7 +83,6 @@ function copyLink() {
     :description="isShared ? 'Anyone with the link can view this chat.' : 'Only you can view this chat.'"
     @update:open="(open: boolean) => { if (!open) emit('close', true) }"
   >
-
     <template #body>
       <div class="flex flex-col gap-0.5 rounded-lg ring ring-default p-1">
         <button

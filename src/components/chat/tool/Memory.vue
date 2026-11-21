@@ -29,7 +29,12 @@ const suffix = computed(() => out.value?.text || (typeof props.part.input?.text 
     icon="i-lucide-brain"
   >
     <p class="text-xs text-muted">
-      <RouterLink to="/memory" class="underline underline-offset-2 hover:text-highlighted">Manage your memory</RouterLink>
+      <RouterLink
+        to="/memory"
+        class="underline underline-offset-2 hover:text-highlighted"
+      >
+        Manage your memory
+      </RouterLink>
     </p>
   </UChatTool>
 </template>
