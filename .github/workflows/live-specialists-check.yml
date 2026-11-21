@@ -5,6 +5,10 @@ name: live-specialists-check
 # saved and undone. Start it by hand from the Actions tab ("Run workflow"). It needs the repository secret
 # GEMINI_API_KEY (and, if you want Groq models tried too, GROQ_API_KEY). Sign-in uses Google's Firebase emulators, so no real accounts or data are touched.
 on:
+  # Also runs when this check itself changes, so it can be tried from a branch before it is merged. Remove the push trigger after merging.
+  push:
+    branches: [phase9/learning-proposals]
+    paths: ['.github/workflows/live-specialists-check.yml', 'scripts/live-specialists-check.mjs']
   workflow_dispatch:
     inputs:
       models:
