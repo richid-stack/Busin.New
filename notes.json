@@ -1,0 +1,26 @@
+{
+ "scenes": {
+  "project-discarded": {
+   "frames": 599
+  }
+ },
+ "log": [
+  "[project] attempt 1 with google/gemini-3.8-flash",
+  "  [project] start at 1.45s",
+  "  [project] sent at 16.52s",
+  "  [project] answer-done at 127.78s",
+  "[project] settled=true created=0",
+  "[project] google/gemini-3.8-flash did not finish a project, next",
+  "  google/gemini-3.5-flash has no room right now, next",
+  "[project] attempt 2 with google/gemini-3.1-flash-lite",
+  "  [project] start at 1.45s",
+  "  [project] sent at 16.86s",
+  "  [project] pane-open at 21.92s",
+  "  [project] answer-done at 42.94s",
+  "[project] settled=true created=3",
+  "  [project] preview at 45.69s",
+  "  [project] code at 56.06s",
+  "  [project] end at 62.14s",
+  "FAILED: Command failed: ffmpeg -y -loglevel error -f concat -safe 0 -i /home/runner/work/_temp/film/project/list.txt -vf fps=30,scale=1800:1125:flags=lanczos,format=yuv420p -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -movflags +faststart films/project.mp4\n[libx264 @ 0x55848d7e4b80] height not divisible by 2 (1800x1125)\n[vost#0:0/libx264 @ 0x55848d7e48c0] Error while opening encoder - maybe incorrect parameters such as bit_rate, rate, width or height.\nError while filtering: Generic error in an external library\n[out#0/mp4 @ 0x55848d7e30c0] Nothing was written into output file, because at least one of its streams received no packets.\n"
+ ]
+}

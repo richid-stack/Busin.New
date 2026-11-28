@@ -1,0 +1,76 @@
+[info] Using `[36mindex.html[39m` as renderer template.
+[unplugin-vue-components] component "ModalConfirm"(/home/runner/work/Busin.New/Busin.New/src/components/settings/ModalConfirm.vue) has naming conflicts with other components, ignored.
+
+  [32m[1mVITE[22m v8.3.0[39m  [2mready in [0m[1m784[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m3100[22m/[39m
+[2m8:13:22 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mdependencies optimized: [33m@ai-sdk/vue, ai, ofetch[32m[39m
+[2m8:13:22 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m8:13:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mdependencies optimized: [33m@comark/vue, @comark/vue/plugins/shiki, @shikijs/langs/c, @shikijs/langs/cpp, @shikijs/langs/css, @shikijs/langs/diff, @shikijs/langs/dockerfile, @shikijs/langs/go, @shikijs/langs/graphql, @shikijs/langs/html, @shikijs/langs/java, @shikijs/langs/kotlin, @shikijs/langs/php, @shikijs/langs/python, @shikijs/langs/ruby, @shikijs/langs/rust, @shikijs/langs/sql, @shikijs/langs/swift, @shikijs/langs/toml, @shikijs/langs/xml, date-fns, vue-chrts, zod[32m[39m
+[2m8:13:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32moptimized dependencies changed. reloading[39m
+(node:4586) MetadataLookupWarning: received unexpected error = Request failed with status code 401 code = UNKNOWN
+(Use `node --trace-warnings ...` to show where the warning was created)
+[chat] google/gemini-3.8-flash is out of room, continuing on google/gemini-3.5-flash
+[chat] google/gemini-3.5-flash is out of room, continuing on groq/gpt-oss-120b
+[chat] groq/gpt-oss-120b is out of room, continuing on google/gemini-3.1-flash-lite
+[2m8:13:36 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[2m8:13:37 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mdependency optimized: [33mvue-router/experimental[32m[39m
+[2m8:13:37 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32moptimized dependencies changed. reloading[39m
+[chat] model error: Cannot connect to API: Headers Timeout Error
+APICallError [AI_APICallError]: Cannot connect to API: Headers Timeout Error
+    at handleFetchError (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:484:14)
+    at postToApi (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3656:11)
+    at postJsonToApi (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3555:7)
+    at _GoogleLanguageModel.doStream (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/google/dist/index.js:2364:50)
+    at doStream (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:16790:36)
+    at wrapStream (/home/runner/work/Busin.New/Busin.New/server/utils/modelFallback.ts:40:39)
+    at Object.doStream (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:16791:27)
+    at execute (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:8781:26)
+    at runWithTracingChannelSpan (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:4458:12)
+    at executeLanguageModelCall (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:4666:14)
+    at streamLanguageModelCall (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:8779:7)
+    at retryWithExponentialBackoffInternal (file:///home/runner/work/Busin.New/Busin.New/node_modules/@ai-sdk/provider-utils/dist/index.js:3833:12)
+    at streamStep (file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:10471:44)
+    at file:///home/runner/work/Busin.New/Busin.New/node_modules/ai/dist/index.js:10949:7 {
+  cause: HeadersTimeoutError: Headers Timeout Error
+      at FastTimer.onParserTimeout [as _onTimeout] (node:internal/deps/undici/undici:6515:32)
+      at Timeout.onTick [as _onTimeout] (node:internal/deps/undici/undici:2433:17)
+      at listOnTimeout (node:internal/timers:585:17)
+      at processTimers (node:internal/timers:521:7) {
+    code: 'UND_ERR_HEADERS_TIMEOUT',
+    [Symbol(undici.error.UND_ERR)]: true,
+    [Symbol(undici.error.UND_ERR_HEADERS_TIMEOUT)]: true
+  },
+  url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse',
+  requestBodyValues: {
+    generationConfig: {
+      maxOutputTokens: undefined,
+      temperature: undefined,
+      topK: undefined,
+      topP: undefined,
+      frequencyPenalty: undefined,
+      presencePenalty: undefined,
+      stopSequences: undefined,
+      seed: undefined,
+      responseMimeType: undefined,
+      responseSchema: undefined,
+      responseModalities: undefined,
+      thinkingConfig: [Object]
+    },
+    contents: [ [Object] ],
+    systemInstruction: { parts: [Array] },
+    safetySettings: undefined,
+    tools: [ [Object] ],
+    toolConfig: { functionCallingConfig: [Object] },
+    cachedContent: undefined,
+    labels: undefined,
+    serviceTier: undefined
+  },
+  statusCode: undefined,
+  responseHeaders: undefined,
+  responseBody: undefined,
+  isRetryable: true,
+  data: undefined,
+  [Symbol(vercel.ai.error)]: true,
+  [Symbol(vercel.ai.error.AI_APICallError)]: true
+}
