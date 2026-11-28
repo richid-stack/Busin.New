@@ -24,30 +24,33 @@ Edit **`site.config.js`** (the only file with addresses in it):
 
 | Setting | What it does |
 | --- | --- |
-| `appUrl` | Where the running app lives, for example `https://app.example.com`. While it is empty, the "Start free" and "Log in" buttons jump to the "Deploy it your way" section. Privacy and Terms point at `appUrl/privacy` and `appUrl/terms`. |
+| `appUrl` | Where the running app lives, for example `https://app.example.com`. While it is empty, the "Start free" and "Log in" buttons jump to the "Choose how you run OpenLobs" section. Privacy and Terms point at `appUrl/privacy` and `appUrl/terms`. |
 | `github` | The repository address. Change it here if the repository is renamed. |
 
 Host it anywhere that serves files: Cloud Storage with a load balancer, Firebase Hosting (a second site), Cloudflare Pages, GitHub Pages. Give `media/` long cache lifetimes.
 
 ## What is on the page
 
-Hero recording (69 s), then Chat, Tasks, Workflows and approvals; the workspace (agents and skills, memory, apps and MCP, models, Workflow Studio, The Reef); the Bridge for your own computer; how tasks verify results; a recorded tour in six parts; three tutorials; apps, models and voice; schedules and their limits; working examples; the trust rules; The Reef; a strip of close-ups; ways to run it; FAQ.
+The wording is Richie's approved copy (the "Professional Landing Page Copy" document, 27 Nov 2026), used as written. If you change a sentence, change it in `index.html` directly; the page has no copy file of its own.
 
-**Nothing on the page is invented.** Parts that are early (the Bridge, The Reef) or new (your own keys, voice, schedules) say so. Prices are not stated, no licence is named, and one-command Docker setup is described as planned. `tests/landing.test.mts` guards this, plus missing files, alt text, image sizes and total weight.
+In order: hero (recording, "Watch the product tour", the specialists link) · four ways to get work done · the connected workspace (Chat, Workspaces, Notes, Agents and skills, Memory, Apps and MCP, Models, Powers, The Reef) · a specialist team (Research, Browser operation, Secure execution, App operations, Memory, Verification, Design, Automation, Documents and data, Software development) with the specialist trace and continuous improvement · idea to working project (project preview, GitHub-run code) · Windows Bridge · verified results · scheduling with safeguards · tools and environment (apps, MCP servers, models, voice) · how it works (three walkthroughs) · the platform in operation (tour) · starting agents and workflows (14 Reef agents) · The Reef · security and control · ways to run it · FAQ · who it is for · a note from the founder · final call to action · footer with the product disclosures.
+
+**Nothing on the page is invented.** Early or new parts (the Bridge, The Reef, scheduling, your own keys, voice) say so in the footer disclosures. Prices are not stated, no licence is named, Pro plans are described as planned, and the free-plan credits are checked against the app's own defaults. `tests/landing.test.mts` guards this, plus missing files, alt text, image sizes and total weight.
 
 ## The media, and where it comes from
 
 | Folder | What | In git? |
 | --- | --- | --- |
 | `media/shots/` | 42 full screenshots (light, dark, phone) as WebP | yes (about 4 MB) |
-| `media/crops/` | Close-ups cut from those screenshots (`capture/crops.py`) | yes (under 1 MB) |
+| `media/crops/` | Close-ups cut from those screenshots (`capture/crops.py`) and from the app's own screens for the workspace, notes, powers, specialist trace, GitHub run and project preview | yes (under 1.5 MB) |
+| `assets/specialists/` | The ten specialist avatars | yes |
 | `media/video/` | Ten web videos (720p H.264 with sound) and their posters | yes (about 10 MB) |
 | `media/og.jpg` | Share image | yes |
 | `media/master/`, `media/scenes/`, `media/raw/` | 1080p masters, edited scenes, raw recordings | no (large; rebuilt from `capture/`) |
 
 ### Disclosure
 
-The app footage is the **real app, running on sample content**. A sample account stands in for sign-in, a scripted model supplies the words (so every take is identical), and an in-memory database holds the sample chats, tasks and agents. The pages, clicks, typing, streaming, tool trace, approvals and task checks are the app's own code. The tutorials (install, Bridge, Cloud Run deploy) are **illustrated** in a drawn code-editor window: the commands are the ones in the README and `docs/deploy.md`, and the terminal output follows the real tools' formats, but nothing there is a recording of a real machine, and the Cloud Run commands have not yet been run against a live project. The phone-to-computer sequence in the hero video is also an illustration. The Windows installer is not shown.
+The app footage is the **real app, running on sample content**. A sample account stands in for sign-in, a scripted model supplies the words (so every take is identical), and an in-memory database holds the sample chats, tasks and agents. The pages, clicks, typing, streaming, tool trace, approvals and task checks are the app's own code. The walkthroughs (install, Bridge, Cloud Run deploy) are **illustrated** in a drawn code-editor window: the commands are the ones in the README and `docs/deploy.md`, and the terminal output follows the real tools' formats, but nothing there is a recording of a real machine, and the Cloud Run commands have not yet been run against a live project. The page's footer says the output "may be representative". The phone-to-computer sequence in the hero video is also an illustration. The Windows installer is not shown.
 
 ### Rebuilding it (`capture/`)
 
@@ -67,4 +70,4 @@ Needs Node 22, Playwright (Chromium), ffmpeg, Python 3 with numpy, scipy and Pil
 
 ### Swapping in your own recordings
 
-Keep the file names. Replace `media/video/<name>.mp4` (and `<name>.webp` for the poster) and the page picks them up. A real recording of the Windows installer would replace `tutorial-bridge.mp4`; if you do that, change the "illustrated from the README steps" note above the tutorials.
+Keep the file names. Replace `media/video/<name>.mp4` (and `<name>.webp` for the poster) and the page picks them up. A real recording of the Windows installer would replace `tutorial-bridge.mp4`; if you do that, change the walkthrough disclosure in the footer ("based on the project README and deployment guide").
