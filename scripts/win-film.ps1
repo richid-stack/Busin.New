@@ -61,7 +61,25 @@ function Find-Setup {
 }
 function Kids($win, $type) { return $win.FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, $type))) }
 
+function Dismiss-Popups {
+  # Windows itself sometimes shows a "System Properties: created a temporary paging file" notice on a fresh machine. It is not part
+  # of the installer, so it is closed before and during the recording.
+  foreach ($k in $AE::RootElement.FindAll($TS::Children, $ALL)) {
+    try {
+      if ($k.Current.Name -eq 'System Properties') {
+        foreach ($b in $k.FindAll($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))) {
+          if ($b.Current.Name -match '^OK$') { ($b.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)).Invoke(); Write-Host 'closed a Windows notice'; Start-Sleep -Milliseconds 500; break }
+        }
+      }
+    } catch {}
+  }
+}
+function Win-Rect($win) { return $win.Current.BoundingRectangle }
+function Click-In($win, $dx, $dy) { $r = Win-Rect $win; Click-At ([int]($r.X + $dx)) ([int]($r.Y + $dy)) }
+function Hover-In($win, $dx, $dy) { $r = Win-Rect $win; Glide ([int]($r.X + $dx)) ([int]($r.Y + $dy)) 700 }
+
 # ---- start the screen recording ----
+Dismiss-Popups; Start-Sleep -Seconds 1; Dismiss-Popups
 $video = Join-Path $Out 'bridge-install-raw.mp4'
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $Ffmpeg
@@ -79,46 +97,45 @@ try {
   # The person double-clicks the installer they downloaded.
   Start-Process -FilePath $Installer
   Pause-For 4
-  $page = 0
-  for ($i = 0; $i -lt 40; $i++) {
+  $page = 0; $seen = @{}; $t0 = Get-Date
+  while (((Get-Date) - $t0).TotalSeconds -lt 240) {
+    Dismiss-Popups
     $win = Find-Setup
     if (-not $win) { if ($page -gt 0) { break } else { Start-Sleep -Seconds 1; continue } }
     $next = $null
     foreach ($b in (Kids $win ([System.Windows.Automation.ControlType]::Button))) { if ($b.Current.IsEnabled -and $b.Current.Name -match '^&?(Next|Install|Finish)') { $next = $b; break } }
+    # While files are being copied there is no enabled button: just wait and let the progress bar run.
+    if (-not $next) { Start-Sleep -Milliseconds 700; continue }
+    $label = $next.Current.Name -replace '&', ''
+    $isConnect = $null -ne (Find-ByName 'Pairing code' $win)
+    $isPerm = $null -ne (Find-ByName 'may do on this computer' $win)
+    $key = if ($isConnect) { 'connect' } elseif ($isPerm) { 'perm' } else { $label }
+    if ($seen[$key]) { Start-Sleep -Milliseconds 700; continue }   # already handled; the window is changing page
+    $seen[$key] = $true
     $page++
     Shot ("film-page-{0:d2}" -f $page)
-    Pause-For 2.2
-    # The page that asks where OpenLobs is and for the pairing code: type both, slowly.
-    $isConnect = $null -ne (Find-ByName 'pairing code' $win)
+    Pause-For 2.0
     if ($isConnect) {
-      $edits = @(Kids $win ([System.Windows.Automation.ControlType]::Edit))
-      Write-Host "connect page: $($edits.Count) text boxes"
-      if ($edits.Count -ge 2) {
-        Click-El $edits[0]; [System.Windows.Forms.SendKeys]::SendWait('^a'); Type-Slow $Server
-        Pause-For 0.6
-        Click-El $edits[1]; [System.Windows.Forms.SendKeys]::SendWait('^a'); Type-Slow $Code
-        Pause-For 1.8
-        Shot 'film-connect-typed'
-      }
+      # The Inno edit boxes are not exposed to UI Automation, so they are clicked at their place on the page (the window is a fixed size).
+      Click-In $win 298 187; [System.Windows.Forms.SendKeys]::SendWait('^a'); Type-Slow $Server
+      Pause-For 0.7
+      Click-In $win 298 241; [System.Windows.Forms.SendKeys]::SendWait('^a'); Type-Slow $Code
+      Pause-For 1.8
+      Shot 'film-connect-typed'
     }
-    # The page with the permission choices: tick them with the mouse.
-    $boxes = @(Kids $win ([System.Windows.Automation.ControlType]::CheckBox))
-    foreach ($c in $boxes) { try { $p = $c.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern); if ($p.Current.ToggleState -eq 'Off') { Click-El $c; Pause-For 0.5 } } catch {} }
-    if ($boxes.Count -gt 0) { Pause-For 1.4 }
-    if ($next) {
-      Click-El $next
-      if ($next.Current.Name -match 'Install') { Pause-For 1.5 }
-    } else {
-      try { [Microsoft.VisualBasic.Interaction]::AppActivate($win.Current.Name) } catch {}
-      [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+    if ($isPerm) {
+      # Left at the default (nothing extra allowed); the cursor rests on the choice so it can be read.
+      Hover-In $win 120 153; Pause-For 3
     }
-    Pause-For 2.5
+    Click-El $next
+    if ($label -match 'Install') { Pause-For 1.5 }
+    Pause-For 2.0
   }
   Write-Host "wizard pages filmed: $page"
 
   # Wait for the installed Bridge to start (it writes a state file), then show it.
   $state = Join-Path $env:APPDATA 'OpenLobsBridge\state.json'
-  for ($i = 0; $i -lt 60 -and -not (Test-Path $state); $i++) { Start-Sleep -Seconds 1 }
+  for ($i = 0; $i -lt 25 -and -not (Test-Path $state); $i++) { Start-Sleep -Seconds 1; Dismiss-Popups }
   Pause-For 3
   Shot 'film-after-install'
 
