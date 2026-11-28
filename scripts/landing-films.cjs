@@ -52,6 +52,13 @@ async function hasRoom(m) {
   const raw = await res.text()
   return res.status === 200 && /pong/i.test(raw) && !/"type":"error"/.test(raw)
 }
+/** The sidebar of a recording should only hold what the viewer is shown: remove the probe and failed-attempt chats. */
+async function clearChats() {
+  try {
+    const r = await api('/api/chats'); const list = await r.json()
+    for (const c of Array.isArray(list) ? list : []) await api(`/api/chats/${c.id}`, { method: 'DELETE' }).catch(() => {})
+  } catch {}
+}
 const gone = new Set()
 async function pickModel(onlyProvider) {
   for (const m of usable) {
@@ -174,7 +181,7 @@ async function projectScene(browser) {
     const m = await pickModel()
     if (!m) { note('[project] no model had room'); return false }
     note(`[project] attempt ${attempt + 1} with ${m}`)
-    const f = new Film('project'); const page = await f.open(browser, m)
+    await clearChats(); const f = new Film('project'); const page = await f.open(browser, m)
     await f.start(); await sleep(1200)
     f.mark('start')
     await f.click(page.locator('textarea').first(), 800)
@@ -215,7 +222,7 @@ async function specialistScene(browser) {
     if (!m) { note('[specialist] no Gemini model had room (small free plans are not offered specialists)'); return false }
     const prompt = SPECIALIST_PROMPTS[Math.min(attempt, 1)]
     note(`[specialist] attempt ${attempt + 1} with ${m}`)
-    const f = new Film('specialist'); const page = await f.open(browser, m)
+    await clearChats(); const f = new Film('specialist'); const page = await f.open(browser, m)
     await f.start(); await sleep(1200)
     f.mark('start')
     await f.click(page.locator('textarea').first(), 800)
